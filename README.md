@@ -2,7 +2,7 @@
 
 插件源码位于 [plugins/tutti-bug-workflow](plugins/tutti-bug-workflow/README.md)，包含三个业务场景：问题分析、方案协商、修复与验证。首次配置由公共初始化 Skill 完成。
 
-这是本地源码与私有分发目录。0.1.20 默认绑定指定飞书 Bug 表、三个状态视图及 tutti/tutti-server 的 main，并使用固定代码缓存增量同步。普通 QA 上报默认登记并自行分析代码与可用日志，完成本轮排查后反馈结论或必要的现场追问；技术接入和权限缺口由维护侧处理。Computer 定位使用最新 main 中的页面目录能力，存在多个候选时请 QA 确认；本机读取已确认的文件，远端使用 Tutti 日志召回。setup 复用已有 tutti-ops，缺少时执行 `npm install -g @tutti-os/tutti-ops-cli`，并准备 AWS CLI v2；授权允许以后完成，默认不启动登录或身份查询。Web 日志接入和带截图的启用引导见插件 README。飞书事件监听尚未接入。
+这是本地源码与私有分发目录。0.1.25 默认绑定指定飞书 Bug 表、三个状态视图及 tutti/tutti-server 的 main，并使用固定代码缓存增量同步。普通 QA 上报默认登记并自行分析代码与可用日志，完成本轮排查后反馈结论或必要的现场追问；技术接入和权限缺口由维护侧处理。Computer 定位使用最新 main 中的页面目录能力，存在多个候选时请 QA 确认；本机读取已确认的文件，远端使用 Tutti 日志召回。setup 复用已有 tutti-ops，缺少时执行 `npm install -g @tutti-os/tutti-ops-cli`，并准备 AWS CLI v2；完整 Setup 先完成工具安装，安装结束后立即进入授权，主动检查并补齐所需认证与权限，发起适用登录、引导本人授权后复查实际访问；只梳理或明确跳过时遵循用户范围。Web 日志接入和带截图的启用引导见插件 README。飞书事件监听尚未接入。
 
 工具可按 QA 分析、RD 方案、修复验证分组准备，详见 [场景工具 Setup](plugins/tutti-bug-workflow/references/tool-setup.md)。
 

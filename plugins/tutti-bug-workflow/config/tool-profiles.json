@@ -87,14 +87,14 @@
       "id": "remote-computer", "label": "tutti-ops 远端日志召回",
       "required_in": [], "conditional_in": ["investigate", "execute"],
       "commands": ["tutti-ops"], "configuration": "remote-route",
-      "requirements": ["安装缺少时需 Node >=20、npm、全局安装目录权限", "默认 https://admin.tutti.sh 管理端/API origin；从该管理端取得 Token（复用有效本机认证）", "设备/任务/下载权限及条件性的新召回权限", "HTTPS 下载、SHA-256、安全解包及日志读取；MCP 可作为替代入口"],
+      "requirements": ["安装缺少时需 Node >=20、npm、全局安装目录权限", "管理端 https://admin.tutti.sh；API origin 由实际 CLI 归一化；configure-tutti-token 直接验证并保存 Token，复用有效本机认证", "设备/任务/下载权限及条件性的新召回权限", "HTTPS 下载、SHA-256、安全解包及日志读取；MCP 可作为替代入口"],
       "install_operation": "setup-tutti-ops"
     },
     {
       "id": "aws-logs", "label": "AWS CLI 服务端日志",
       "required_in": [], "conditional_in": ["investigate", "execute"],
       "commands": ["aws"], "configuration": "aws-cli",
-      "requirements": ["AWS CLI v2；缺少时需官方安装网络与用户安装目录权限", "实际账号、区域、日志服务/日志组与读取权限", "认证允许后补，实际取日志前核对"],
+      "requirements": ["AWS CLI v2；缺少时需官方安装网络与用户安装目录权限", "实际账号、区域、日志服务/日志组与读取权限", "选中后检查身份并处理认证缺口；目标日志访问单独验证"],
       "install_operation": "setup-aws-cli"
     },
     {
