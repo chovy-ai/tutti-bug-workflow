@@ -1,6 +1,6 @@
 # tutti-bug-workflow
 
-版本：0.1.24。运行方式：Codex 本地会话。三个业务场景通过同一份 Bug 档案交接，公共初始化 Skill 准备配置与依赖。
+版本：0.1.25。运行方式：Codex 本地会话。三个业务场景通过同一份 Bug 档案交接，公共初始化 Skill 准备配置与依赖。
 
 | 入口 | 工作内容 |
 |---|---|
@@ -31,6 +31,8 @@ python3 PLUGIN_SOURCE/scripts/workbench.py doctor
 python3 PLUGIN_SOURCE/scripts/workbench.py setup-tutti-ops --install
 python3 PLUGIN_SOURCE/scripts/workbench.py setup-aws-cli --install
 ```
+
+上述安装完成后立即进入授权。tutti-ops 使用 Token：运行 `python3 PLUGIN_SOURCE/scripts/workbench.py configure-tutti-token`，隐藏输入后校验并保存，后续自动复用；飞书和 AWS 沿用各自认证流程。
 
 默认数据目录为 `~/.local/share/bug-workbench`，可用 `--data-dir` 或环境变量 `BUG_WORKBENCH_DATA` 覆盖。配置、Bug 档案与安装的工具保存在数据目录，独立于插件源码和安装缓存。
 
@@ -83,7 +85,7 @@ AWS CLI 使用专用官方安装器，新安装固定版本，核对安装脚本
 
 WebMCP 首次启用时，按 [带截图的启用与授权引导](references/web-logs.md#发给用户的启用与授权引导) 找到 **WebMCP for testing** 并设为 **Enabled**。同一张配置截图已加入插件介绍图片。
 
-远端 Computer 日志通过 [tutti-ops CLI](references/tutti-ops-computer-logs.md) 定位 Computer、复用或创建召回、查询任务和生成链接，再下载、校验并读取日志包。setup 准备 CLI，使用前从 [admin.tutti.sh](https://admin.tutti.sh) 管理端获取 Token，通过交互式认证入口导入本机，再核对实际环境与权限；当前 npm 包的原子操作已通过帮助、schema 和零网络预览验证，组合采集命令仅在实际发现后使用。
+远端 Computer 日志通过 [tutti-ops CLI](references/tutti-ops-computer-logs.md) 定位 Computer、复用或创建召回、查询任务和生成链接，再下载、校验并读取日志包。setup 准备 CLI，使用前从 [admin.tutti.sh](https://admin.tutti.sh) 管理端获取 Token，通过 `configure-tutti-token` 隐藏输入，直接验证并保存到 CLI 本机配置，再核对实际环境与权限；当前 npm 包的原子操作已通过帮助、schema 和零网络预览验证，组合采集命令仅在实际发现后使用。
 
 ## 当前接入范围
 

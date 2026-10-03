@@ -28,7 +28,7 @@
 | 飞书 user 登录或 scope 缺失 | 复用现有应用配置，用 `lark-cli auth status --json --verify` 检查用户身份；按工作流所需或实际 `missing_scopes` 发起 `auth login --scope … --no-wait --json`。有可用的 `lark-shared` Skill 时读取其认证规则，否则用 CLI 帮助确认参数。将返回 URL 原样展示，并用 `auth qrcode` 生成 PNG 放在链接后。此轮交还用户操作；下一轮由 Agent 用本流程的 `--device-code` 完成登录，再验证 user 身份与 Bug 表字段、视图和必要记录读取。保持 `--as user`。 |
 | 飞书应用未配置或资源权限不足 | 应用配置缺失时按 CLI 实际引导准备；已有应用不重复创建。scope 和表格/附件 ACL 分别处理：提供实际授权/资源入口及最小所需范围，用户或管理员处理后重试原只读请求。记录创建/更新与附件上传权限分别核对。 |
 | GitHub / 仓库 | 复用既有 Git 凭证与 gh 身份，分别只读验证两个仓库的 main。认证失效时按实际工具启动登录；组织 SSO 或仓库权限不足时给出真实失败提供的入口。保持用户指定账号；执行交付的推送/PR 权限另行核对。 |
-| tutti-ops | 按 [环境与认证](tutti-ops-computer-logs.md#环境与认证) 对实际 origin 检查 `auth status`、`auth permissions`；缺少 Token 时打开下方管理密钥入口并准备 `auth login` 的安全交互终端。本人签发/导入后复查身份、Computer 与任务权限及设备目录；新召回写权限仅在该能力确需时申请。 |
+| tutti-ops | 按 [环境与认证](tutti-ops-computer-logs.md#环境与认证) 对实际 origin 检查 `auth status`、`auth permissions`；缺少 Token 时打开下方管理密钥入口并准备 `configure-tutti-token` 的隐藏输入终端，直接验证并保存 Token。本人签发/配置后复查身份、Computer 与任务权限及设备目录；新召回写权限仅在该能力确需时申请。 |
 | AWS | 按 [AWS CLI 授权](aws-cli.md#配置和授权) 先检查当前凭证链/已配置 profile。失效时沿用其真实登录方式启动 SSO 或 CLI 登录，展示返回入口，完成后再次检查身份与已确认日志来源。缺少 SSO/账号信息时具体询问；拒绝访问需管理员处理对应目标的权限。 |
 | Web / 验收浏览器 / MCP | 先发现实际入口并尝试只读访问。已有桥但缺少站点允许或登录时，打开目标页面并引导本人完成可见授权，再调用目标工具验证。桥、服务器地址或验证环境缺失属于接入/输入问题，继续准备可自动完成部分并具体询问缺少的信息。 |
 
@@ -62,13 +62,13 @@
 
    整体权限是上限；需要新日志时，两处都要允许写入。其余模块按团队要求关闭或保留只读。实际权限仍受创建者的管理员权限限制。
 4. 选择有效期。当前表单默认 **90 天**，可按团队要求调整；点击 **创建**后立即复制完整 Token，完整内容只展示一次。
-5. 在自己的电脑打开终端，执行下面的命令。出现 `Paste Tutti admin token:` 时粘贴刚才的 Token：
+5. Agent 在安装结束后准备下面的本机命令，将 `PLUGIN_SOURCE` 换成实际插件目录。你只需在 `Tutti admin token (hidden):` 提示处粘贴 Token，输入内容不会显示：
 
    ```sh
-   tutti-ops auth login --admin-url https://admin.tutti.sh
+   python3 PLUGIN_SOURCE/scripts/workbench.py configure-tutti-token --admin-url https://admin.tutti.sh
    ```
 
-   CLI 会验证后保存到本机。Token 只输入真实认证终端，不发送到聊天，也不填写到 Bug 表。
+   Setup 直接验证并保存到 tutti-ops 的本机配置，后续自动复用，无需另外登录。已有 Token 可通过宿主安全环境配合 `--token-env` 导入；Token 只进入本机秘密输入通道，不发送到聊天，也不填写到 Bug 表。
 6. 回到对话回复 **“已完成”**。Agent 复查身份和本轮实际所需权限，再继续设备查询或日志获取。身份检查成功与创建新召回成功分别验证。
 
 如果无法登录管理端或没有创建密钥的权限，请让有权限的环境维护人员完成这一步。Token 失效时，通过管理端重新准备并导入本机；已有可用 Token 时直接复用。技术验证命令见 [tutti-ops 环境与认证](tutti-ops-computer-logs.md#环境与认证)。

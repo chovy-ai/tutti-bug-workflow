@@ -29,7 +29,7 @@ tutti-ops schema computer.log-recalls.download-url
 
 ## 环境与认证
 
-管理端入口为 [https://admin.tutti.sh](https://admin.tutti.sh)，用户已确认；本流程默认的 tutti-ops API origin 同为 `https://admin.tutti.sh`。本机已通过该 origin 实测身份检查、设备查询和历史日志包读取。显式传入 `--admin-url`，复用与该 origin 匹配的 Token。其他环境使用其已确认地址和认证；CLI 请求路径已包含 `/api/desktop`，origin 保留根地址。
+管理端入口为 [https://admin.tutti.sh](https://admin.tutti.sh)，用户已确认；已安装的 tutti-ops 0.1.7 会将这个管理端地址归一化为 API origin `https://tutti.sh`，按本机 `dist/config.js` 和实际帮助核对。显式传入 `--admin-url`，复用与该 origin 匹配的 Token。其他环境使用其已确认地址和认证；CLI 请求路径已包含 `/api/desktop`，origin 保留根地址。
 
 tutti-ops 远端访问需要从 [管理端](https://admin.tutti.sh) 取得 Token。由环境维护方准备，普通 QA 反馈按 [QA 反馈规则](qa-dialogue.md) 提出必要的现场问题。已有匹配 origin 且有效的 Token 时复用；本机调用成功说明已有 Token 可用，仍需为新使用者准备各自的认证与权限。
 
@@ -38,10 +38,10 @@ tutti-ops 远端访问需要从 [管理端](https://admin.tutti.sh) 取得 Token
 认证准备按以下顺序进行；以下示例使用已确认的 `https://admin.tutti.sh`，切换环境时替换为对应地址：
 
 1. **取得 Token**：环境维护方登录 [管理端](https://admin.tutti.sh)，获取具备本轮所需权限的 Token。缺少管理端账号或 Token 签发权限时记录维护侧缺口；Token 缺失或失效时由该入口补齐。具体页面和有效期按管理端实际说明核对。
-2. **导入本机**：运行 `tutti-ops auth login --admin-url https://admin.tutti.sh`，由维护方在交互终端输入 Token。已安装版本会验证该 Token 后保存到 `~/.config/tutti-ops/config.json`；自动执行环境可使用工具支持的 `TUTTI_ADMIN_TOKEN`。凭证留在本机认证存储或执行环境中，不写进插件、Bug 报告、聊天或命令参数。更换 origin 时重新核对目标环境的 Token。
+2. **直接配置 Token**：安装阶段结束后运行 `python3 PLUGIN_SOURCE/scripts/workbench.py configure-tutti-token --admin-url https://admin.tutti.sh`，在本机终端隐藏输入 Token。无需另行运行 `tutti-ops auth login`。该入口仅向校验子进程注入 `TUTTI_ADMIN_TOKEN`，移除该子进程的 `TUTTI_ADMIN_COOKIE`，通过 CLI 的只读 `auth status --metadata-only true` 验证后，原子保存到 CLI 原生的 `~/.config/tutti-ops/config.json`（POSIX 文件权限 0600），后续 tutti-ops 命令自动复用。失败保留旧配置，不回显上游原始输出。`--token-env` 可读取并保存已由宿主安全注入的 `TUTTI_ADMIN_TOKEN`，`--token-stdin` 可从安全输入通道读取；Token 不放在命令参数、聊天、插件源码或工作台报告中。已有有效且 origin 匹配的 Token 直接复用，更换环境时重新核对。
 3. **验证能力**：在已授权认证检查时，运行 `tutti-ops --admin-url https://admin.tutti.sh --mode read auth status --metadata-only true` 和 `auth permissions`，仅保留非秘密身份/权限元数据，再实际查询已确认 Computer 及其日志任务。身份有效、目录可读、历史包下载和新召回各自有独立状态。Token 已导入本身不表示全部业务权限已通过。
 
-独立安装步骤只准备 CLI；完整 Setup 或选中远端能力时，Agent 接着按 [主动补齐授权](setup-user-guide.md#主动补齐授权) 检查实际 origin 的身份和权限。缺少 Token 时立即提供管理密钥入口并准备安全的交互登录；本人导入后复查身份、权限和设备目录，安装完成与远端可用分别报告。
+独立安装步骤只准备 CLI；完整 Setup 或选中远端能力时，Agent 接着按 [主动补齐授权](setup-user-guide.md#主动补齐授权) 检查实际 origin 的身份和权限。缺少 Token 时立即提供管理密钥入口并准备 `configure-tutti-token` 的隐藏输入终端；本人配置后复查身份、权限和设备目录，安装完成与远端可用分别报告。
 
 目录查询、任务查询与生成历史包链接是 read；创建召回是 write。CLI 的 `--mode` 是本地执行策略，不授予服务端权限。缺少身份、权限或路由时分别记录缺口，不能仅凭 401 判定 Token 是唯一原因。
 

@@ -31,7 +31,7 @@
 
 先按 [Computer 定位与 QA 询问](computer-target.md) 判断日志用途，查询目录并消歧目标。页面的 `list_my_computers`、`list_rooms`、`list_room_agents` 用于取得当前账号授权可见的候选，不提供 desktopd 日志或远端召回权限。
 
-远端可使用 [tutti-ops CLI 获取 Computer 日志](tutti-ops-computer-logs.md)，Setup 先准备 CLI，安装阶段结束后立即检查授权；Token 缺失时引导本人在 [admin.tutti.sh](https://admin.tutti.sh) 管理端获取 Token，按该引用的认证步骤导入本机并核对实际权限。安装不表示 `computer-remote` 的 MCP 已连接；已有 CLI、目标环境与权限时按实际命令直接执行，无需等待 MCP。每条 Bug 保存本次实际使用的 CLI/API origin、目标 Computer、taskId 与证据覆盖。缺少鉴权时按 [主动补齐授权](setup-user-guide.md#主动补齐授权) 发起恢复流程，保持原定身份。
+远端可使用 [tutti-ops CLI 获取 Computer 日志](tutti-ops-computer-logs.md)，Setup 先准备 CLI，安装阶段结束后立即检查授权；Token 缺失时引导本人在 [admin.tutti.sh](https://admin.tutti.sh) 管理端获取 Token，使用 `configure-tutti-token` 直接验证并保存到 CLI 原生配置，再核对实际权限。安装不表示 `computer-remote` 的 MCP 已连接；已有 CLI、目标环境与权限时按实际命令直接执行，无需等待 MCP。每条 Bug 保存本次实际使用的 CLI/API origin、目标 Computer、taskId 与证据覆盖。缺少鉴权时按 [主动补齐授权](setup-user-guide.md#主动补齐授权) 发起恢复流程，保持原定身份。
 
 Web 按 [Web 日志获取](web-logs.md) 配置实际浏览器桥；Tutti 页面注册的原生工具没有 HTTP MCP 地址。若桥通过 MCP 提供，则为桥配置真实 server，并映射页面发现、工具发现和执行能力。详细启用指引在 setup、维护对话或明确求助时提供；Bug 中的 QA 反馈按 [QA 反馈规则](qa-dialogue.md)，仅在必要时请求现场操作或本人授权。
 

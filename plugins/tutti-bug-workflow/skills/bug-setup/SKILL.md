@@ -131,10 +131,10 @@ python3 PLUGIN_SOURCE/scripts/tool_setup.py --scene execute --include github-del
 - **远端场景必需**：实际目标 API origin/环境、由环境维护方在对应管理端取得的 Token，以及设备查询、召回任务查询/下载链接权限；无可复用日志包时另需创建召回权限。使用前核对部署支持的召回协议。
 - **设备执行条件**：新召回需要目标 Computer 能接收并处理任务；离线、版本不支持或期限届满分别记录。读取已完成历史包时单独核对其可下载状态与时间覆盖。
 - **下载条件**：已授权的 HTTPS 下载工具、可写的 Bug 证据目录、SHA-256 校验与安全解包能力；当前 Tutti main 生成 tar.gz 包和 `manifest.json`，现场格式按实际版本核对。可复用现有工具，无需固定要求新装某个全局下载器。
-- **认证准备**：复用与目标 origin 匹配且有效的本机 Token；缺少或失效时，由环境维护方在管理端获取，再通过 CLI 的交互式 `auth login` 导入，按 [Token 配置与权限验证](../../references/tutti-ops-computer-logs.md#环境与认证) 完成只读检查。Token 保存在维护侧认证存储中，QA 对话只接收必要的现场问题。
-- **已确认入口**：管理端及默认 tutti-ops API origin 为 `https://admin.tutti.sh`；Token 在该管理端获取，命令显式使用此地址。其他环境另行核对其地址和认证。
+- **认证准备**：复用与目标 origin 匹配且有效的本机 Token；缺少或失效时，由环境维护方在管理端获取，再通过 `configure-tutti-token` 在本机隐藏输入、验证并保存，按 [Token 配置与权限验证](../../references/tutti-ops-computer-logs.md#环境与认证) 完成只读检查。Token 保存在维护侧认证存储中，QA 对话只接收必要的现场问题。
+- **已确认入口**：管理端为 `https://admin.tutti.sh`；Token 在该管理端获取，命令显式使用此地址；tutti-ops 0.1.7 将其归一化到 API origin `https://tutti.sh`，其他版本按实际实现核对。其他环境另行核对其地址和认证。
 - **待确定**：新使用者的管理端账号、Token 获取权限与业务访问范围；CLI 不依赖 MCP，选择远端 MCP 时另需真实工具/schema 和第 12 步。
-- **操作**：按 [tutti-ops 获取日志](../../references/tutti-ops-computer-logs.md) 核对已安装能力；完整初始化或选择远端能力时，先检查身份与权限；缺少或失效则立即提供管理端入口并准备本机交互式登录，完成后查询权限与设备目录。Setup 不为试权限创建召回；具体 Bug 再定位目标、复用或创建任务、下载、校验、解包并读取。
+- **操作**：按 [tutti-ops 获取日志](../../references/tutti-ops-computer-logs.md) 核对已安装能力；完整初始化或选择远端能力时，先检查身份与权限；缺少或失效则立即提供管理端入口并准备 `configure-tutti-token` 的本机隐藏输入，直接验证并保存 Token，完成后查询权限与设备目录。Setup 不为试权限创建召回；具体 Bug 再定位目标、复用或创建任务、下载、校验、解包并读取。
 - **完成标准**：CLI、环境、管理端 Token 准备及有效性、目录读取、历史包读取、新召回权限分别报告。实际包已下载且读完后才说明取得日志；taskId 和下载链接本身不满足该条件。
 
 ## 10. 准备 AWS CLI，按需接入 AWS 日志

@@ -2,6 +2,7 @@
 """Local configuration, dossier and handoff helpers; Python standard library only."""
 
 import argparse
+import getpass
 import hashlib
 import json
 import os
@@ -218,6 +219,58 @@ def setup_tutti_ops(args, root):
     write_json(root / "connections/tutti-ops.json", report)
     emit(report)
     return 0 if report["ok"] else 2
+
+
+def configure_tutti_token(args, root):
+    """Validate a supplied token before updating the CLI's private credential file."""
+    cfg = load_config(args, root)
+    item = next((entry for entry in cfg["cli_dependencies"] if entry["name"] == "tutti-ops"), None)
+    executable = installed_command(root, item) if item else None
+    if not executable:
+        raise ValueError("Install tutti-ops before configuring its token.")
+    origin = urlparse(args.admin_url)
+    if (origin.scheme != "https" or not origin.hostname or origin.username or origin.password
+            or origin.path not in ("", "/") or origin.query or origin.fragment):
+        raise ValueError("Use an HTTPS admin origin without credentials, path, query or fragment.")
+    target = Path.home() / ".config/tutti-ops/config.json"
+    if target.is_symlink() or target.parent.is_symlink():
+        raise ValueError("The tutti-ops credential location must not be a symlink.")
+    previous = read_json(target) if target.exists() else {}
+    if args.token_stdin:
+        token = sys.stdin.readline(16385).strip()
+    elif args.token_env:
+        token = os.environ.get("TUTTI_ADMIN_TOKEN", "").strip()
+    else:
+        if not sys.stdin.isatty():
+            raise ValueError("Use a local terminal, --token-stdin or --token-env for token input.")
+        token = getpass.getpass("Tutti admin token (hidden): ").strip()
+    if not token or len(token) > 16384 or any(char.isspace() for char in token):
+        raise ValueError("Provide one nonempty token without whitespace (maximum 16384 characters).")
+    env = dict(os.environ, TUTTI_ADMIN_TOKEN=token)
+    env.pop("TUTTI_ADMIN_COOKIE", None)
+    command = [executable, "--admin-url", args.admin_url, "--mode", "read",
+               "auth", "status", "--metadata-only", "true"]
+    try:
+        result = subprocess.run(command, env=env, capture_output=True, text=True,
+                                timeout=40, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        raise ValueError("Token verification could not complete; existing credentials were preserved.") from None
+    try:
+        verified = json.loads(result.stdout)
+    except (ValueError, TypeError):
+        verified = {}
+    if (result.returncode or not isinstance(verified, dict) or verified.get("ok") is not True
+            or not isinstance(verified.get("meta"), dict)
+            or verified["meta"].get("executed") is not True):
+        reason = {3: "authentication rejected", 4: "permission denied", 5: "network or service failure"}.get(
+            result.returncode, "unexpected verification response")
+        raise ValueError(f"Token verification failed ({reason}); existing credentials were preserved.")
+    target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    write_json(target, {**previous, "adminUrl": args.admin_url, "token": token})
+    report = {"ok": True, "authentication": "authenticated", "credential_source": "tutti-ops-config",
+              "admin_url": args.admin_url, "business_logs_access": "not_checked"}
+    write_json(root / "connections/tutti-ops-auth.json", report)
+    emit(report)
 
 
 def aws_private_executable(root):
@@ -903,7 +956,7 @@ def configure_mcp(args, root):
 def parser():
     result = argparse.ArgumentParser(description=__doc__)
     commands = result.add_subparsers(dest="operation", required=True)
-    for name in ("init", "doctor", "new-bug", "artifact-hashes", "check-execution", "install-cli", "configure-mcp", "setup-aws-mcp", "setup-aws-cli", "setup-tutti-ops"):
+    for name in ("init", "doctor", "new-bug", "artifact-hashes", "check-execution", "install-cli", "configure-mcp", "setup-aws-mcp", "setup-aws-cli", "setup-tutti-ops", "configure-tutti-token"):
         command = commands.add_parser(name)
         command.add_argument("--data-dir")
         command.add_argument("--config")
@@ -920,6 +973,11 @@ def parser():
             command.add_argument("--check-auth", action="store_true", help="Run a read-only identity check; never start login.")
         if name == "setup-tutti-ops":
             command.add_argument("--install", action="store_true", help="Install @tutti-os/tutti-ops-cli globally if missing.")
+        if name == "configure-tutti-token":
+            command.add_argument("--admin-url", default="https://admin.tutti.sh")
+            source = command.add_mutually_exclusive_group()
+            source.add_argument("--token-stdin", action="store_true", help="Read a token from standard input.")
+            source.add_argument("--token-env", action="store_true", help="Read TUTTI_ADMIN_TOKEN; save after verification.")
     return result
 
 
@@ -930,7 +988,8 @@ def main():
         operations = {"init": initialize, "doctor": doctor, "new-bug": new_bug,
                       "check-execution": check_execution, "install-cli": install_cli,
                       "configure-mcp": configure_mcp, "setup-aws-mcp": setup_aws_mcp,
-                      "setup-aws-cli": setup_aws_cli, "setup-tutti-ops": setup_tutti_ops}
+                      "setup-aws-cli": setup_aws_cli, "setup-tutti-ops": setup_tutti_ops,
+                      "configure-tutti-token": configure_tutti_token}
         if args.operation == "artifact-hashes":
             emit({"artifact_sha256": artifact_hashes(bug_directory(root, args.bug_id))})
         else:
