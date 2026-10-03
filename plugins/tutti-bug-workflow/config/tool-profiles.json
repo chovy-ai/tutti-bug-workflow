@@ -94,7 +94,7 @@
       "id": "aws-logs", "label": "AWS CLI 服务端日志",
       "required_in": [], "conditional_in": ["investigate", "execute"],
       "commands": ["aws"], "configuration": "aws-cli",
-      "requirements": ["AWS CLI v2；缺少时需官方安装网络与用户安装目录权限", "实际账号、区域、日志服务/日志组与读取权限", "认证允许后补，实际取日志前核对"],
+      "requirements": ["AWS CLI v2；缺少时需官方安装网络与用户安装目录权限", "实际账号、区域、日志服务/日志组与读取权限", "选中后检查身份并处理认证缺口；目标日志访问单独验证"],
       "install_operation": "setup-aws-cli"
     },
     {

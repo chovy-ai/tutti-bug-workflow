@@ -13,11 +13,11 @@
 - `repositories`：默认配置 tutti 与 tutti-server 两个仓库的远端 main；每项提供 `name`、`url`、`base_branch`、`cache_path` 和可选 `local_path`。固定 bare 缓存供所有 Bug 复用，本地路径仅用于首次预热；Skill 为各 Bug 准备隔离工作区。操作见 [代码缓存](repository-cache.md)，其他分支需用户指定。
 - `log_sources`：每项提供 `name`、`kind`、`transport`、`environment` 及对应入口。Web 使用 `browser-webmcp`、`get_web_logs` 与实际 `browser_bridge`，见 [Web 日志获取](web-logs.md)；`files` 使用明确的文件 `paths`，支持绝对路径、`~/`、`${TMPDIR}/` 和 `${TEMP}/`，读取前解析为本机绝对路径；`mcp` 使用 `mcp_server` 与实际 `tool`；兼容旧配置的 `cli` 使用 `argv` 与可选 `cwd`。Computer 的路径规则及远端协议见 [Computer 日志获取](computer-logs.md)。缺少入口时保留空值，检查逐个报告未配置；配置检查不表示已取得日志。
 - `validation`：实际环境、URL、浏览器工具，以及部署版本的读取方法。部署操作仍按当前任务授权执行。
-- `aws_cli`：默认 AWS 接入，保存 profile 与查询参考区域。执行 `setup-aws-cli --install` 准备 CLI v2；授权允许待完成，按需使用 `--check-auth`，详见 [AWS CLI 安装与日志读取](aws-cli.md)。
+- `aws_cli`：默认 AWS 接入，保存 profile 与查询参考区域。执行 `setup-aws-cli --install` 准备 CLI v2；完整 Setup 或选择 AWS 时接续 `--check-auth` 并处理认证缺口，详见 [AWS CLI 安装与日志读取](aws-cli.md)。
 - `aws_mcp`：保留旧版显式 MCP 接入设置，当前 setup 不使用此项自动注册；CLI 可用后清理由插件创建且未被改动的旧 AWS MCP。
 - `trigger.mode`：本版只支持 `manual`。填写其他模式不会创建监听器。
 
-`doctor` 检查本地命令是否存在及配置是否齐备，不访问飞书、不验证仓库权限，也不替用户登录。它分别报告本地工具和外部接入的准备状态。
+`doctor` 检查本地命令是否存在及配置是否齐备，不访问飞书、不验证仓库权限，也不替用户登录。它分别报告本地工具和外部接入的配置状态；执行模式的 Agent 还需按 [主动补齐授权](setup-user-guide.md#主动补齐授权) 验证权限、处理缺口并复查实际访问。
 
 ## 日志采集
 
@@ -31,7 +31,7 @@
 
 先按 [Computer 定位与 QA 询问](computer-target.md) 判断日志用途，查询目录并消歧目标。页面的 `list_my_computers`、`list_rooms`、`list_room_agents` 用于取得当前账号授权可见的候选，不提供 desktopd 日志或远端召回权限。
 
-远端可使用 [tutti-ops CLI 获取 Computer 日志](tutti-ops-computer-logs.md)，setup 负责准备 CLI；使用前由环境维护方在 [admin.tutti.sh](https://admin.tutti.sh) 管理端获取 Token，按该引用的认证步骤导入本机并核对实际权限。安装不表示 `computer-remote` 的 MCP 已连接；已有 CLI、目标环境与权限时按实际命令直接执行，无需等待 MCP。每条 Bug 保存本次实际使用的 CLI/API origin、目标 Computer、taskId 与证据覆盖。缺少鉴权时记录接入缺口，不自动使用另一种身份。
+远端可使用 [tutti-ops CLI 获取 Computer 日志](tutti-ops-computer-logs.md)，Setup 先准备 CLI，安装阶段结束后立即检查授权；Token 缺失时引导本人在 [admin.tutti.sh](https://admin.tutti.sh) 管理端获取 Token，按该引用的认证步骤导入本机并核对实际权限。安装不表示 `computer-remote` 的 MCP 已连接；已有 CLI、目标环境与权限时按实际命令直接执行，无需等待 MCP。每条 Bug 保存本次实际使用的 CLI/API origin、目标 Computer、taskId 与证据覆盖。缺少鉴权时按 [主动补齐授权](setup-user-guide.md#主动补齐授权) 发起恢复流程，保持原定身份。
 
 Web 按 [Web 日志获取](web-logs.md) 配置实际浏览器桥；Tutti 页面注册的原生工具没有 HTTP MCP 地址。若桥通过 MCP 提供，则为桥配置真实 server，并映射页面发现、工具发现和执行能力。详细启用指引在 setup、维护对话或明确求助时提供；Bug 中的 QA 反馈按 [QA 反馈规则](qa-dialogue.md)，仅在必要时请求现场操作或本人授权。
 

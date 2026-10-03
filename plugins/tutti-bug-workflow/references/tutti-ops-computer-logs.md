@@ -10,7 +10,7 @@ setup 运行 `scripts/workbench.py setup-tutti-ops --install`。已有可用命�
 npm install -g @tutti-os/tutti-ops-cli
 ```
 
-辅助脚本记录实际可执行路径和包版本；全局安装目录未在 PATH 中时使用返回路径。此 npm 包没有根级 `--version` 参数，版本从对应包的 `package.json` 读取；没有版本元数据时记录 unknown，再按帮助与 schema 核对能力。setup 不启动登录、不查询远端账号或日志。
+辅助脚本记录实际可执行路径和包版本；全局安装目录未在 PATH 中时使用返回路径。此 npm 包没有根级 `--version` 参数，版本从对应包的 `package.json` 读取；没有版本元数据时记录 unknown，再按帮助与 schema 核对能力。此安装脚本不启动登录、不查询远端账号或日志；Agent 在全体安装阶段结束后立即进入下文的认证检查与处理。
 
 使用具体 Bug 前发现实际命令，以下示例的 `tutti-ops` 可替换为 setup 返回的入口：
 
@@ -41,7 +41,7 @@ tutti-ops 远端访问需要从 [管理端](https://admin.tutti.sh) 取得 Token
 2. **导入本机**：运行 `tutti-ops auth login --admin-url https://admin.tutti.sh`，由维护方在交互终端输入 Token。已安装版本会验证该 Token 后保存到 `~/.config/tutti-ops/config.json`；自动执行环境可使用工具支持的 `TUTTI_ADMIN_TOKEN`。凭证留在本机认证存储或执行环境中，不写进插件、Bug 报告、聊天或命令参数。更换 origin 时重新核对目标环境的 Token。
 3. **验证能力**：在已授权认证检查时，运行 `tutti-ops --admin-url https://admin.tutti.sh --mode read auth status --metadata-only true` 和 `auth permissions`，仅保留非秘密身份/权限元数据，再实际查询已确认 Computer 及其日志任务。身份有效、目录可读、历史包下载和新召回各自有独立状态。Token 已导入本身不表示全部业务权限已通过。
 
-默认安装步骤只准备 CLI；认证检查需要访问服务，按用户已授权的测试或接入范围执行。缺少 Token 时列“待提供：管理端 Token”，安装完成与远端可用分别报告。
+独立安装步骤只准备 CLI；完整 Setup 或选中远端能力时，Agent 接着按 [主动补齐授权](setup-user-guide.md#主动补齐授权) 检查实际 origin 的身份和权限。缺少 Token 时立即提供管理密钥入口并准备安全的交互登录；本人导入后复查身份、权限和设备目录，安装完成与远端可用分别报告。
 
 目录查询、任务查询与生成历史包链接是 read；创建召回是 write。CLI 的 `--mode` 是本地执行策略，不授予服务端权限。缺少身份、权限或路由时分别记录缺口，不能仅凭 401 判定 Token 是唯一原因。
 
