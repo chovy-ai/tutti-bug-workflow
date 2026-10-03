@@ -1,0 +1,4 @@
+interface:
+  display_name: "方案协商 · RD"
+  short_description: "结合根因和代码提供方案与设计图，与 RD 协商修改范围及验收标准"
+  default_prompt: "使用 $tutti-bug-workflow:bug-solution 根据根因设计修复方案，与 RD 协商并整理设计图和验收标准。"

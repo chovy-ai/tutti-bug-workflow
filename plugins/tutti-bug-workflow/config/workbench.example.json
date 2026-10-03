@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "feishu": {
+    "base_url": "https://ccn53rwonxso.feishu.cn/base/RYLPb6dGma0e6Wsb8v6c4HhBntg?table=tblceDIio9QmR8ou&view=vewOTNRVFB",
+    "base_token": "RYLPb6dGma0e6Wsb8v6c4HhBntg",
+    "table_id": "tblceDIio9QmR8ou",
+    "table_name": "Bug 列表",
+    "identity": "user",
+    "field_map": {
+      "title": "fldKVQlMaE",
+      "description": "fldFMSSMBv",
+      "logs": "fldMuKioHc",
+      "attachments": "fldEOh3AxT",
+      "analysis_report": "fld72L7y9S",
+      "preview_url": "fld0WeCK23",
+      "pull_requests": "flddyMBhGX",
+      "verification_evidence": "fldYBdMYSe",
+      "ui_only": "fldqfxN0g1",
+      "suspected_modules": "fldghDg5dB",
+      "workflow_status": "fld1qLVCDf"
+    },
+    "workflow": {
+      "status_values": {
+        "bug": "bug单",
+        "review": "待 review 方案",
+        "acceptance": "已自动修复并验证，待验收"
+      },
+      "view_ids": {
+        "bug": "vewOTNRVFB",
+        "review": "vewVkuJ7Ue",
+        "acceptance": "vewaFbwWDG"
+      },
+      "empty_status_stage": "bug"
+    }
+  },
+  "repositories": [
+    { "name": "tutti", "url": "https://github.com/tutti-lab/tutti.git", "base_branch": "main", "cache_path": "repositories/tutti.git" },
+    { "name": "tutti-server", "url": "https://github.com/tutti-lab/tutti-server.git", "base_branch": "main", "cache_path": "repositories/tutti-server.git" }
+  ],
+  "log_sources": [
+    { "name": "web", "kind": "web", "transport": "browser-webmcp", "environment": null, "tool": "get_web_logs", "browser_bridge": { "kind": null, "mcp_server": null, "list_pages_tool": null, "list_tools_tool": null, "execute_tool": null }, "watermark_decoder": { "repository": "tutti", "path": "tools/scripts/decode-web-page-watermark.mjs" }, "scope": "current_account_and_page", "source_pr": "https://github.com/tutti-lab/tutti/pull/2341" },
+    { "name": "computer-local", "kind": "computer", "transport": "files", "environment": "execution_host", "paths": [], "scope": "execution_host_only" },
+    { "name": "computer-remote", "kind": "computer", "transport": "mcp", "acquisition": "tutti-runtime-log-recall", "environment": null, "mcp_server": null, "tool": null, "scope": "reported_computer" }
+  ],
+  "validation": {
+    "environment": null,
+    "url": null,
+    "revision_source": null,
+    "browser_tool": null
+  },
+  "cli_dependencies": [
+    { "name": "lark-cli", "command": "lark-cli", "required": true, "installer": null },
+    { "name": "git", "command": "git", "required": true, "installer": null },
+    { "name": "gh", "command": "gh", "required": false, "installer": null },
+    { "name": "tutti-ops", "command": "tutti-ops", "required": true, "installer": { "type": "npm-global", "package": "@tutti-os/tutti-ops-cli" } },
+    { "name": "aws", "command": "aws", "required": false, "installer": { "type": "aws-official", "version": "2.34.11" } }
+  ],
+  "mcp_servers": {},
+  "aws_cli": { "profile": null, "region": "us-east-1" },
+  "aws_mcp": {
+    "server_name": "tutti-aws",
+    "auth_mode": "oauth",
+    "endpoint": "https://aws-mcp.us-east-1.api.aws/mcp",
+    "region": "us-east-1",
+    "profile": null
+  },
+  "trigger": { "mode": "manual", "service_url": null }
+}

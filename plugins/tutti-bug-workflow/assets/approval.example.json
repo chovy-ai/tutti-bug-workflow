@@ -1,0 +1,13 @@
+{
+  "bug_id": null,
+  "decision": "approved",
+  "input_revision": null,
+  "root_cause_version": null,
+  "plan_version": null,
+  "acceptance_version": null,
+  "baselines": {},
+  "artifact_sha256": { "analysis.md": null, "plan.md": null, "acceptance.md": null },
+  "actor": { "id": null, "role": "RD" },
+  "approved_at": null,
+  "source": { "kind": null, "reference": null }
+}

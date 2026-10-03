@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "bug_id": null,
+  "record_id": null,
+  "run_id": null,
+  "collected_at": null,
+  "sources": [
+    {
+      "name": "web",
+      "status": "pending",
+      "target": {},
+      "acquisition": null,
+      "query": {},
+      "requested_range": null,
+      "actual_range": null,
+      "record_count": null,
+      "truncated": null,
+      "artifacts": [],
+      "gap": null
+    },
+    {
+      "name": "desktopd",
+      "status": "pending",
+      "target": {},
+      "acquisition": null,
+      "query": {},
+      "requested_range": null,
+      "actual_range": null,
+      "record_count": null,
+      "truncated": null,
+      "artifacts": [],
+      "gap": null
+    }
+  ],
+  "upload": {
+    "status": "pending",
+    "field_id": null,
+    "files": [],
+    "result_ref": null
+  }
+}

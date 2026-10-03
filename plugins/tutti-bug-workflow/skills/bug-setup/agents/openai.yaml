@@ -1,0 +1,4 @@
+interface:
+  display_name: "工作台与工具 Setup"
+  short_description: "按 QA、RD、修复验证场景组织工具，列出条件并按需准备"
+  default_prompt: "使用 $tutti-bug-workflow:bug-setup，按 QA 分析、RD 方案或修复验证场景选择公共必需工具与条件工具，列出现状、缺口和获取方式；执行工具准备时复用已有入口，只补选中工具，并分别报告安装、配置、授权和真实验证状态。"

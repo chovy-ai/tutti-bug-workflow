@@ -1,0 +1,14 @@
+dist/
+clean-room-tests/
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+workbench.local.json
+state/
+*.env
+.env
+.env.*
+!.env.example
+!.env.*.example
