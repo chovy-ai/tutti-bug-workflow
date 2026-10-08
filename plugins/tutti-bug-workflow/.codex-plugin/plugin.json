@@ -1,6 +1,6 @@
 {
   "name": "tutti-bug-workflow",
-  "version": "0.1.30",
+  "version": "0.1.31",
   "description": "在 Codex 本地环境中完成 QA 问题分析、RD 方案协商、修复与验证，并通过共享 Bug 档案交接。",
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
