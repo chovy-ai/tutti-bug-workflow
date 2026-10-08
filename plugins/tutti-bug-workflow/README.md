@@ -1,6 +1,6 @@
 # tutti-bug-workflow
 
-版本：0.1.32。运行方式：Codex 本地会话。三个业务场景通过同一份 Bug 档案交接，公共初始化 Skill 准备配置与依赖。
+版本：0.1.34。运行方式：Codex 本地会话。三个业务场景通过同一份 Bug 档案交接，公共初始化 Skill 准备配置与依赖。
 
 | 入口 | 工作内容 |
 |---|---|
@@ -48,9 +48,11 @@ python3 PLUGIN_SOURCE/scripts/workbench.py setup-aws-cli --install
 | [待 review 方案](https://ccn53rwonxso.feishu.cn/base/RYLPb6dGma0e6Wsb8v6c4HhBntg?table=tblceDIio9QmR8ou&view=vewVkuJ7Ue) | 方案已回填，RD 讨论和批准；修复执行及未通过的验证继续留在这里 |
 | [已自动修复并验证，待验收](https://ccn53rwonxso.feishu.cn/base/RYLPb6dGma0e6Wsb8v6c4HhBntg?table=tblceDIio9QmR8ou&view=vewaFbwWDG) | 已核对修复版本、完成验证并回填证据，等待 QA/RD 人工验收 |
 
-报告按 [独立字段](references/report-fields.md) 回填：结论、根因、排查验证、基线、代码路径、方案、验收、修复后验证、沟通和待核实项分别保存。根因字段只写简洁因果链，完整报告留在附件；旧记录按明确授权迁移。状态切换规则见 [工作流与交接](references/workflow.md)。视图配置已经生效；自动触发需另接后续流程服务。
+报告按 [独立字段](references/report-fields.md) 回填：结论、根因、排查验证、基线、代码路径、方案、验收、修复后验证、沟通和待核实项分别保存。根因字段只写简洁因果链，完整报告留在本地档案；旧记录按明确授权迁移。状态切换规则见 [工作流与交接](references/workflow.md)。视图配置已经生效；自动触发需另接后续流程服务。
 
-「bug单」场景每次固定两个最新远端 main 的 SHA，在隔离工作树中结合问题描述、实际查看的截图、Web 与相关 computer 日志追踪首个错误状态。回填用两到四句说明触发、根因、传播与最终现象，并附关键证据。资料不足时保存候选假设，向 QA 提出本轮一到三个具体问题，收到补充后继续验证。
+「bug单」场景每次固定两个最新远端 main 的 SHA，在隔离工作树中按 [业务逻辑、日志与复现路径](references/root-cause-analysis.md) 逐节点推演原现象。解释中间报错后仍须验证后续恢复与最终状态；日志与逻辑不闭合时沿缺失节点补 Web、Server、Computer 或必要观测。给出主复现路径后再检查其他入口与时序，分别注明推演和已执行结果。回填用两到四句说明触发、首个错误状态、传播与最终现象；资料不足时继续可自行完成的验证，只有必要的原现场信息才向 QA 追问。
+
+日志附件按 [集中规则](references/registration-logs.md#日志文件与附件数量) 提交：已有单个／多个日志文件或诊断包读取核对后原样上传；逐条取得的内容按时间合并为 `web-logs.log`、`computer-logs.log`、`server-logs.log`，每来源一份，不为凑齐来源制造文件。查询 JSON、清单、工具发现、报告和测试输出默认保存在本地，字段记录必要结论，避免逐轮增加过程附件。
 
 用户提出 Bug 时，先按 [登记日志规则](references/registration-logs.md) 保存问题和可获取的相关 Web、desktopd 日志，再默认执行本轮代码与证据分析。明确仅登记或仅补附件、不分析时按其范围执行。日志与工具缺口保存在技术记录中，继续可进行的独立分析。 Web 与 Computer 日志分别按具体证据缺口判断是否需要；先复用已有材料，只采集相关来源。原现场关联、Web DOM 状态及 Computer 执行边界分别验证，已有证据充分时无需追加。
 
@@ -85,7 +87,7 @@ AWS CLI 使用专用官方安装器，新安装固定版本，核对安装脚本
 
 WebMCP 先检查已授权宿主浏览器的真实能力；配置为空时仍可按 [宿主发现与 CDP 路径](references/web-logs.md#宿主浏览器能力发现与-cdp-路径) 验证。分析 Skill 明确页面匹配、按假设查询、逐次覆盖与截断判断、DOM／Computer 因果证据及保存规则。
 
-判断需要 Web 日志后，Agent 本轮自动结合用户截图匹配页面，固定提出本次问题的时间，收集此前 10 分钟目标页面／Account 的全部保留级别记录，组装成单个 `web-logs.log` 并上传到同一条多维表格 Bug 的附件、回读确认；必要时读取可见 DOM。无需 QA 再次询问或重复确认已有授权。采集延迟时扩展原生查询后按固定窗口截取，截断或历史缺口如实记录并补采；只有实际权限、目标或原现场材料缺口才提出必要问题。详见 [固定流程](references/web-logs.md#固定流程提问前-10-分钟--单个-log-附件)。
+判断需要 Web 日志后，Agent 本轮自动结合用户截图匹配页面，固定提出本次问题的时间，读取此前 10 分钟目标页面／Account 的全部保留级别记录。WebMCP 逐条返回的内容归并为单个 `web-logs.log`，已有诊断文件／包保留原样，上传到同一条 Bug 后回读；必要时读取可见 DOM。无需 QA 再次询问或重复确认已有授权。采集延迟时扩展查询后按固定窗口核对，截断或历史缺口如实记录并补采；只有实际权限、目标或原现场材料缺口才提出必要问题。详见 [固定流程](references/web-logs.md#固定流程提问前-10-分钟--单个-log-附件)。
 
 WebMCP 首次启用时，按 [带截图的启用与授权引导](references/web-logs.md#发给用户的启用与授权引导) 找到 **WebMCP for testing** 并设为 **Enabled**。同一张配置截图已加入插件介绍图片。
 

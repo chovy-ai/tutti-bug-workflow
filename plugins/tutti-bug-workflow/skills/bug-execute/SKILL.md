@@ -46,7 +46,7 @@ python3 PLUGIN_SOURCE/scripts/workbench.py check-execution --bug-id BUG_ID
 | 未覆盖风险、执行阻塞及恢复条件 | 待核实与阻塞 | `open_items` |
 | 实际 PR、体验地址与修复后截图 | 相关 PR、体验环境链接、修复后截图证据 | `pull_requests`、`preview_url`、`verification_evidence` |
 
-写入前读取最新字段，保留人工内容、分析结论、根因、修复前排查、批准方案与验收标准。共享字段只维护本场景条目；附件按专用命令追加，保留原图和历史证据。完整 `verification.md` 保存为档案和附件，各摘要字段只写自己职责内的内容。未执行记 `not_run`，条件不足记 `blocked`，不能把修复前测试结果写成修复通过。字段缺失或写入失败时记录回填缺口，不退回单字段汇总。详细契约见 [报告字段](../../references/report-fields.md)。
+写入前读取最新字段，保留人工内容、分析结论、根因、修复前排查、批准方案与验收标准。共享字段只维护本场景条目；附件按 [集中附件规则](../../references/registration-logs.md#日志文件与附件数量) 使用专用命令提交，保留原图和历史证据。完整 `verification.md` 与测试输出保存在本地档案，各摘要字段只写自己职责内的内容；独立验收必需的截图／录屏照常提交。未执行记 `not_run`，条件不足记 `blocked`，不能把修复前测试结果写成修复通过。字段缺失或写入失败时记录回填缺口，不退回单字段汇总。详细契约见 [报告字段](../../references/report-fields.md)。
 
 ## 完成条件
 
