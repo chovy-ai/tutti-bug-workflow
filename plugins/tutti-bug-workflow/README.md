@@ -1,6 +1,6 @@
 # tutti-bug-workflow
 
-版本：0.1.34。运行方式：Codex 本地会话。三个业务场景通过同一份 Bug 档案交接，公共初始化 Skill 准备配置与依赖。
+版本：0.1.35。运行方式：Codex 本地会话。三个业务场景通过同一份 Bug 档案交接，公共初始化 Skill 准备配置与依赖。
 
 | 入口 | 工作内容 |
 |---|---|
@@ -53,6 +53,8 @@ python3 PLUGIN_SOURCE/scripts/workbench.py setup-aws-cli --install
 「bug单」场景每次固定两个最新远端 main 的 SHA，在隔离工作树中按 [业务逻辑、日志与复现路径](references/root-cause-analysis.md) 逐节点推演原现象。解释中间报错后仍须验证后续恢复与最终状态；日志与逻辑不闭合时沿缺失节点补 Web、Server、Computer 或必要观测。给出主复现路径后再检查其他入口与时序，分别注明推演和已执行结果。回填用两到四句说明触发、首个错误状态、传播与最终现象；资料不足时继续可自行完成的验证，只有必要的原现场信息才向 QA 追问。
 
 日志附件按 [集中规则](references/registration-logs.md#日志文件与附件数量) 提交：已有单个／多个日志文件或诊断包读取核对后原样上传；逐条取得的内容按时间合并为 `web-logs.log`、`computer-logs.log`、`server-logs.log`，每来源一份，不为凑齐来源制造文件。查询 JSON、清单、工具发现、报告和测试输出默认保存在本地，字段记录必要结论，避免逐轮增加过程附件。
+
+三个 Bug 场景每轮结束前按 [当前 provider 的会话上传](references/session-upload.md) 将本会话原生 JSONL 快照上传到 Tutti 管理端，供后续优化；等待 QA/RD 和受阻也保留本轮上下文。核对当前宿主与 session 身份，保存确认回执、Bug/运行关联及失败恢复条件；会话不追加为飞书现场日志附件。tutti-ops 已核对的发布版本为 0.1.7，旧版需检查并补齐实际 session 命令与上传权限。
 
 用户提出 Bug 时，先按 [登记日志规则](references/registration-logs.md) 保存问题和可获取的相关 Web、desktopd 日志，再默认执行本轮代码与证据分析。明确仅登记或仅补附件、不分析时按其范围执行。日志与工具缺口保存在技术记录中，继续可进行的独立分析。 Web 与 Computer 日志分别按具体证据缺口判断是否需要；先复用已有材料，只采集相关来源。原现场关联、Web DOM 状态及 Computer 执行边界分别验证，已有证据充分时无需追加。
 

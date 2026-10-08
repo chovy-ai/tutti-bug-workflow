@@ -12,6 +12,8 @@
 
 QA 每轮更新两个最新 main，RD 与执行读取交接的固定基线；工具准备不擅自更新已批准的修复版本。RD 所需图可以先交付 Mermaid 源码，专用图服务或图片渲染工具属于条件项。
 
+三个业务场景共享必需项还包括 [当前 provider 的会话上传](session-upload.md)：核对 tutti-ops 实际 session 命令、当前宿主日志入口及管理端上传权限。会话归档接入缺口单独记录，继续本轮可进行的业务工作，收尾时处理上传或保存真实阻塞。
+
 ## 工具目录与准备方式
 
 | 工具 ID | 工具 / 提供方式 | 安装或复用条件 | 授权与真实验证条件 |
@@ -19,6 +21,7 @@ QA 每轮更新两个最新 main，RD 与执行读取交接的固定基线；工
 | `local-workspace` | Codex 本地文件、搜索、终端与图片查看 | Python 3.10+；实际宿主能力；可读源码/附件及可写证据目录 | 分别核对文件访问与执行范围；跨机器资源不能由本地路径代替 |
 | `feishu` | 默认 lark-cli，或已提供的飞书宿主工具/MCP | 复用入口；缺少 CLI 时先核实官方安装方式，当前无默认自动安装器 | 指定身份、记录和附件读写权限；分别验证读取与回填 |
 | `code` | Git、bare 缓存、worktree | 复用 Git；两仓库 URL/main、缓存目录与空间 | GitHub 网络与两仓库读取权限；执行交付另需写权限 |
+| `session-upload` | tutti-ops Session JSONL 上传 | `setup-tutti-ops --install` 先复用；按 [session 能力检查](session-upload.md#1-核对-cli目标与权限) 核对命令，旧版缺能力时升级官方包；当前宿主提供会话定位/导出 | 管理端认证、diagnostics write、`session_logs.write`；核对当前 provider/session 身份，实际确认 uploaded 才表示上传完成 |
 | `diagrams` | Mermaid 源码生成；条件性渲染器 | 文本图无需新装 CLI/MCP；输出图片/PDF 时准备实际渲染入口 | 源码生成不代表图片已渲染，按交付格式检查 |
 | `approval` | 可信消息读取 + 本地 `check-execution` | 复用飞书/直接用户消息来源、Python 检查脚本 | 每条 Bug 核对真实 RD 批准与方案版本；本地一致性不证明身份 |
 | `project-checks` | 项目实际运行时、依赖与测试工具 | 读取对应 checkout 的 AGENTS.md、开发说明、锁文件和检查命令后准备 | 相关测试/类型检查/lint 实际通过；环境阻塞与测试失败分开记录 |

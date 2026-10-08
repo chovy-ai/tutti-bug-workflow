@@ -34,9 +34,27 @@ class ToolSetupTests(unittest.TestCase):
         before = self.config.read_bytes()
         report = self.invoke("solution")
         self.assertEqual({t["id"] for t in report["tools"]},
-                         {"local-workspace", "feishu", "code", "diagrams"})
+                         {"local-workspace", "feishu", "code", "diagrams", "session-upload"})
         self.assertTrue(all(t["selected"] for t in report["tools"]))
-        self.assertTrue(all(t["install_plan"] is None for t in report["tools"]))
+        self.assertTrue(all(t["install_plan"] is None for t in report["tools"]
+                            if t["id"] != "session-upload"))
+        self.assertEqual(self.config.read_bytes(), before)
+        self.assertEqual(set(p.name for p in self.data.iterdir()), {"config.json"})
+
+    def test_every_scene_prepares_session_upload_without_claiming_remote_readiness(self):
+        before = self.config.read_bytes()
+        for scene in ("investigate", "solution", "execute"):
+            with self.subTest(scene=scene):
+                report = self.invoke(scene)
+                tool = next(t for t in report["tools"] if t["id"] == "session-upload")
+                self.assertEqual(tool["requirement"], "required")
+                self.assertTrue(tool["selected"])
+                self.assertFalse(tool["commands"][0]["available"])
+                self.assertEqual(tool["configuration"]["status"], "not_checked")
+                self.assertEqual(tool["authentication"], "not_checked")
+                self.assertEqual(tool["business_access"], "not_checked")
+                self.assertIn("setup-tutti-ops", tool["install_plan"]["argv"])
+                self.assertFalse(tool["install_plan"]["executed"])
         self.assertEqual(self.config.read_bytes(), before)
         self.assertEqual(set(p.name for p in self.data.iterdir()), {"config.json"})
 

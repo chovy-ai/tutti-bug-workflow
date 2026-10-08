@@ -62,6 +62,8 @@ python3 PLUGIN_SOURCE/scripts/tool_setup.py --scene execute --include github-del
 
 清单脚本读取 `config/tool-profiles.json`，仅检查命令路径及配置形状，输出选中工具、准备条件和现有安装参数；返回码 0 只表示生成成功。它不初始化、不安装、不登录、不联网；宿主工具发现、版本、项目依赖、授权和实际业务访问分别核对。选中的 tutti-ops/AWS 先复用现有安装入口，再完成授权处理；其他提供方式待核实后准备，不猜包名或服务器地址。
 
+三个业务场景共享必需项还包括 [session 归档上传](../../references/session-upload.md)：实际 session 命令、当前宿主 provider/会话定位与原生 JSONL 读取/导出、已配置管理端认证及上传权限。Setup 检查准备情况，不为试权限上传无关会话；具体 Bug 每轮收尾执行上传，真实缺口只影响会话归档。
+
 完成标准：场景必需工具及已启用条件项全部有独立状态，未启用项有条件说明；接入缺口只影响相关能力。整体 `doctor` 的结果不替代场景清单，也不将其他场景尚未准备的工具算作当前场景的阻塞。
 
 ## 1. 确定执行机器与数据目录
@@ -115,10 +117,10 @@ python3 PLUGIN_SOURCE/scripts/tool_setup.py --scene execute --include github-del
 
 ## 5. 准备 tutti-ops CLI
 
-- **场景范围**：完整初始化保留此准备步骤；场景工具 Setup 在选择远端 Computer/tutti-ops 管理目录能力后执行。
+- **场景范围**：完整初始化与三个业务场景均准备 tutti-ops，用于 session 收尾上传；Computer/Server 能力按实际任务额外核对。
 - **基础准备项**：可用的已有 tutti-ops；缺少时需要第 2 步的 Node/npm、全局安装目录写权限及 npm 网络。自定义命令/安装方式需先核对差异。
 - **操作**：执行模式运行 `python3 PLUGIN_SOURCE/scripts/workbench.py setup-tutti-ops --install`；复用已有安装，缺少时按用户指定的 `npm install -g @tutti-os/tutti-ops-cli` 安装。失败保存诊断，不自动使用 sudo 或修改全局前缀。
-- **完成标准**：实际入口可执行，保存安装版本/路径与 Computer 帮助结果；该包版本从对应 `package.json` 读取，不能假定支持根级 `--version`。全体安装阶段结束后继续第 9 步的身份、权限及目录只读检查；具体日志召回按 Bug 目标另行验证。
+- **完成标准**：实际入口可执行，保存安装版本/路径及 [session 命令检查](../../references/session-upload.md#1-核对-cli目标与权限) 结果；已核对的发布版本为 0.1.7，旧版命令缺失时按该页升级再核对。该包版本从对应 `package.json` 读取，不能假定支持根级 `--version`。全体安装阶段结束后核对 session 上传所需身份、diagnostics write 与 `session_logs.write` 权限；需要 Computer 能力时继续第 9 步的目录只读检查，具体召回按 Bug 目标另行验证。命令帮助、dry-run、权限清单与实际上传分别记录。
 
 ## 6. 接入 Web 日志与截图页面识别
 
