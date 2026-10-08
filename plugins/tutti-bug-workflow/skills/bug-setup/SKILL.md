@@ -48,7 +48,7 @@ description: 按 QA 分析、RD 方案、修复验证场景初始化工具与接
 | 工具组 / 场景 | 必需工具 | 条件工具与所需输入 |
 |---|---|---|
 | 三个场景共享 | 本地文件/搜索/终端/图片查看、Python、飞书操作、Git 与固定代码工作区 | 飞书身份及记录/附件读写权限，两仓库访问权限，数据目录读写；共享工具准备一次后复用 |
-| QA 上报与根因分析 `investigate` | 上述共享工具 | Web 日志桥及页面授权；截图解码的 Node 24+/pnpm/sharp；设备目录与身份；本地日志路径或远端 tutti-ops/实际 MCP 的环境与认证；实际在 AWS 的日志；必要的测试/浏览器复现工具 |
+| QA 上报与根因分析 `investigate` | 上述共享工具、提 Bug 结束后的 session 上传 | Web 日志桥及页面授权；截图解码的 Node 24+/pnpm/sharp；设备目录与身份；本地日志路径或远端 tutti-ops/实际 MCP 的环境与认证；实际在 AWS 的日志；必要的测试/浏览器复现工具 |
 | RD 方案协商 `solution` | 共享工具、Mermaid 流程图/架构图源码生成 | 要求图片/PDF 时准备实际渲染器；新证据需求交回分析场景。方案编写使用交接基线 |
 | 修复与验证 `execute` | 共享工具、可信批准读取与一致性检查、项目实际运行时及测试/类型检查/lint、浏览器验收与证据保存 | 按交付方式准备 GitHub/PR 工具和权限、部署工具与权限；按验收/排查链路选择日志来源。还需环境地址、登录态及部署版本读取方法 |
 
@@ -62,7 +62,7 @@ python3 PLUGIN_SOURCE/scripts/tool_setup.py --scene execute --include github-del
 
 清单脚本读取 `config/tool-profiles.json`，仅检查命令路径及配置形状，输出选中工具、准备条件和现有安装参数；返回码 0 只表示生成成功。它不初始化、不安装、不登录、不联网；宿主工具发现、版本、项目依赖、授权和实际业务访问分别核对。选中的 tutti-ops/AWS 先复用现有安装入口，再完成授权处理；其他提供方式待核实后准备，不猜包名或服务器地址。
 
-三个业务场景共享必需项还包括 [session 归档上传](../../references/session-upload.md)：实际 session 命令、当前宿主 provider/会话定位与原生 JSONL 读取/导出、已配置管理端认证及上传权限。Setup 检查准备情况，不为试权限上传无关会话；具体 Bug 每轮收尾执行上传，真实缺口只影响会话归档。
+`investigate` 需准备 [提 Bug 结束后的 session 上传](../../references/session-upload.md)：实际 session 命令、当前宿主 provider/会话定位与原生 JSONL 读取/导出、已配置管理端认证及上传权限。Setup 只检查准备情况；具体提 Bug 确认结束后才执行上传。真实缺口只影响会话归档，方案和执行场景不依赖此收尾能力。
 
 完成标准：场景必需工具及已启用条件项全部有独立状态，未启用项有条件说明；接入缺口只影响相关能力。整体 `doctor` 的结果不替代场景清单，也不将其他场景尚未准备的工具算作当前场景的阻塞。
 
@@ -117,10 +117,10 @@ python3 PLUGIN_SOURCE/scripts/tool_setup.py --scene execute --include github-del
 
 ## 5. 准备 tutti-ops CLI
 
-- **场景范围**：完整初始化与三个业务场景均准备 tutti-ops，用于 session 收尾上传；Computer/Server 能力按实际任务额外核对。
+- **场景范围**：完整初始化与 `investigate` 准备 tutti-ops，用于提 Bug 结束后的 session 上传；其他场景仅在实际任务需要 Computer/Server 能力时准备对应入口。
 - **基础准备项**：可用的已有 tutti-ops；缺少时需要第 2 步的 Node/npm、全局安装目录写权限及 npm 网络。自定义命令/安装方式需先核对差异。
 - **操作**：执行模式运行 `python3 PLUGIN_SOURCE/scripts/workbench.py setup-tutti-ops --install`；复用已有安装，缺少时按用户指定的 `npm install -g @tutti-os/tutti-ops-cli` 安装。失败保存诊断，不自动使用 sudo 或修改全局前缀。
-- **完成标准**：实际入口可执行，保存安装版本/路径及 [session 命令检查](../../references/session-upload.md#1-核对-cli目标与权限) 结果；已核对的发布版本为 0.1.7，旧版命令缺失时按该页升级再核对。该包版本从对应 `package.json` 读取，不能假定支持根级 `--version`。全体安装阶段结束后核对 session 上传所需身份、diagnostics write 与 `session_logs.write` 权限；需要 Computer 能力时继续第 9 步的目录只读检查，具体召回按 Bug 目标另行验证。命令帮助、dry-run、权限清单与实际上传分别记录。
+- **完成标准**：实际入口可执行，保存安装版本/路径。完整初始化或 `investigate` 按 [session 命令检查](../../references/session-upload.md#1-核对-cli目标与权限) 保存结果；已核对的发布版本为 0.1.7，旧版命令缺失时按该页升级再核对。该包版本从对应 `package.json` 读取，不能假定支持根级 `--version`。全体安装阶段结束后核对选中能力的身份与权限；session 上传需 diagnostics write 与 `session_logs.write`，实际上传留到提 Bug 结束节点。需要 Computer 能力时继续第 9 步的目录只读检查，具体召回按 Bug 目标另行验证。命令帮助、dry-run、权限清单与实际上传分别记录。
 
 ## 6. 接入 Web 日志与截图页面识别
 

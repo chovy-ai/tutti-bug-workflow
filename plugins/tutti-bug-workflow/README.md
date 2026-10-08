@@ -1,6 +1,6 @@
 # tutti-bug-workflow
 
-版本：0.1.36。运行方式：Codex 本地会话。三个业务场景通过同一份 Bug 档案交接，公共初始化 Skill 准备配置与依赖。
+版本：0.1.37。运行方式：Codex 本地会话。三个业务场景通过同一份 Bug 档案交接，公共初始化 Skill 准备配置与依赖。
 
 | 入口 | 工作内容 |
 |---|---|
@@ -54,11 +54,11 @@ python3 PLUGIN_SOURCE/scripts/workbench.py setup-aws-cli --install
 
 日志附件按 [集中规则](references/registration-logs.md#日志文件与附件数量) 提交：已有单个／多个日志文件或诊断包读取核对后原样上传；逐条取得的内容按时间合并为 `web-logs.log`、`computer-logs.log`、`server-logs.log`，每来源一份，不为凑齐来源制造文件。查询 JSON、清单、工具发现、报告和测试输出默认保存在本地，字段记录必要结论，避免逐轮增加过程附件。
 
-三个 Bug 场景每轮结束前按 [当前 provider 的会话上传](references/session-upload.md) 将本会话原生 JSONL 快照上传到 Tutti 管理端，供后续优化；等待 QA/RD 和受阻也保留本轮上下文。核对当前宿主与 session 身份，保存确认回执、Bug/运行关联及失败恢复条件；会话不追加为飞书现场日志附件。tutti-ops 已核对的发布版本为 0.1.7，旧版需检查并补齐实际 session 命令与上传权限。
+提 Bug 流程确认结束后，`bug-investigate` 执行独立的 [session 收尾节点](references/session-upload.md)：确认结束 → 固定当前会话快照 → 按当前 provider 上传 → 核对并保存回执 → 最终反馈。处理中、等待 QA、暂时阻塞或回填失败不触发；方案、修复验证和 Setup 不自动上传。会话原生 JSONL 上传到 Tutti 管理端供后续优化，保存结束依据、Bug/运行关联及失败恢复条件，同一结束节点复用快照和回执。tutti-ops 已核对的发布版本为 0.1.7，旧版需检查并补齐实际 session 命令与上传权限。
 
 用户提出 Bug 时，先按 [登记日志规则](references/registration-logs.md) 保存问题和可获取的相关 Web、desktopd 日志，再默认执行本轮代码与证据分析。明确仅登记或仅补附件、不分析时按其范围执行。日志与工具缺口保存在技术记录中，继续可进行的独立分析。 Web 与 Computer 日志分别按具体证据缺口判断是否需要；先复用已有材料，只采集相关来源。原现场关联、Web DOM 状态及 Computer 执行边界分别验证，已有证据充分时无需追加。
 
-QA 提示词按六步执行，并为每步定义完成条件，见 [QA Bug 上报与根因分析](skills/bug-investigate/SKILL.md)。本轮可自行执行的关键分析完成后，按 [QA 反馈、追问与恢复](references/qa-dialogue.md) 反馈事实与判断；追问仅针对能推进验证的现场观察。接入、命令、内部 ID 和认证细节由维护侧处理，QA 通过产品表现、操作顺序或实际设备名称补充。
+QA 提示词按七步执行，并为每步定义完成条件，见 [QA Bug 上报与根因分析](skills/bug-investigate/SKILL.md)；第七步仅在提 Bug 确认结束后执行会话归档。本轮可自行执行的关键分析完成后，按 [QA 反馈、追问与恢复](references/qa-dialogue.md) 反馈事实与判断；追问仅针对能推进验证的现场观察。接入、命令、内部 ID 和认证细节由维护侧处理，QA 通过产品表现、操作顺序或实际设备名称补充。
 
 涉及 Computer 时按 [Computer 定位与 QA 询问](references/computer-target.md) 判断日志用途，优先关联故障请求中的 ID；缺少时通过页面的 `list_my_computers`、`list_rooms`、`list_room_agents` 查询真实候选，必要时请 QA 确认设备、房间／Agent 和发生时间。当前选中的设备不能代替故障时的目标，目录访问与远端日志权限分别核对。
 
