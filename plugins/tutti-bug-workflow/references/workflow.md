@@ -18,7 +18,7 @@
 - `dialogue.jsonl`：QA/RD 对话事件及来源引用。
 - `evidence/`：最小必要证据。保存日志时记录环境、时间范围、请求标识、部署版本和采集方式。
 
-新 Bug 登记与已有 Bug 补日志按 [登记日志规则](registration-logs.md) 自动检查并附上相关 Web、desktopd 日志；逐轮证据、采集清单和上传回执保存在 `evidence/`。日志缺口随单记录，补采沿用同一 record_id。
+新 Bug 登记与已有 Bug 补日志按 [登记日志规则](registration-logs.md) 自动检查并附上相关 Web、desktopd、Server 日志；逐轮证据、采集清单和上传回执保存在 `evidence/`。日志缺口随单记录，补采沿用同一 record_id。Server判断必需或建议补/可辅助后按 [服务端日志](server-logs.md) 本轮立即调用Tutti CLI或已核实来源的AWS CLI，不等待QA追问。
 
 普通 QA 上报登记后默认继续分析；明确仅登记或仅补附件、不分析时按其范围执行。面向 QA 的反馈与维护侧技术阻塞按 [QA 反馈规则](qa-dialogue.md) 分流，问题在本轮可自行完成的分析后提出，并关联具体假设与下一项验证。
 

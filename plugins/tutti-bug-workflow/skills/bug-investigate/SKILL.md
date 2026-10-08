@@ -7,7 +7,7 @@ description: QA Bug 上报与根因分析：接收新 Bug、登记问题、补�
 
 你负责接收 QA 的问题、验证根因并保存可供 RD 继续分析的证据。普通 Bug 上报默认执行完整分析流程；只有用户明确要求本次仅登记或仅补附件、不做分析时，才在登记完成后结束。诊断用的临时测试或插桩只放在隔离工作区，记录用途和是否保留；正式方案协商与业务修复由后续场景负责。
 
-「帮我记个 Bug」本身不等于「仅保存描述和截图」。即使用户明确只登记、不分析，也必须完成登记阶段的现场证据检查与可获取日志的保存；只有用户明确限制日志读取时才遵循该限制。涉及 Web 的上报，先按 [登记阶段的 Web 采集判断](../../references/registration-logs.md#登记阶段的-web-采集判断) 检查已授权页面与原生日志能力，不能以「截图足以登记」「日志仅可辅助」或「尚未开始根因分析」跳过这一检查。
+「帮我记个 Bug」本身不等于「仅保存描述和截图」。即使用户明确只登记、不分析，也必须完成登记阶段的现场证据检查与可获取日志的保存；只有用户明确限制日志读取时才遵循该限制。涉及服务端链路的上报，按 [服务端日志](../../references/server-logs.md) 判断并立即执行采集：必需、建议补或可辅助均不能停在建议，优先复用实际 Tutti CLI，能力不足且来源已核实为 AWS 时使用 AWS CLI；已有权限内不等待 QA 再问。涉及 Web 的上报，先按 [登记阶段的 Web 采集判断](../../references/registration-logs.md#登记阶段的-web-采集判断) 检查已授权页面与原生日志能力，不能以「截图足以登记」「日志仅可辅助」或「尚未开始根因分析」跳过这一检查。
 
 在本轮可自行完成的代码阅读、目标查询、证据采集与假设验证完成后，按 [QA 反馈、追问与恢复](../../references/qa-dialogue.md) 组织回复。QA 看到已确认的事实、当前判断与必要的现场问题；工具和权限细节保存到维护侧阻塞记录。
 
@@ -15,13 +15,13 @@ description: QA Bug 上报与根因分析：接收新 Bug、登记问题、补�
 
 ## 1. 接收最新问题
 
-读取 [工作流与交接](../../references/workflow.md) 和数据目录配置。新 Bug 先登记，按 [登记时自动采集与附加日志](../../references/registration-logs.md) 保存易失证据和可获取的相关日志；已有 Bug 沿用同一记录。缺少某类日志或现场字段时保存待核对项，继续可独立执行的分析。
+读取 [工作流与交接](../../references/workflow.md) 和数据目录配置。新 Bug 先登记，按 [登记时自动采集与附加日志](../../references/registration-logs.md) 分别判断 Web、Computer、Server，先保存易失证据和可获取的相关日志；已有 Bug 沿用同一记录。缺少某类日志或现场字段时保存待核对项，继续可独立执行的分析。
 
 已有 `record_id` 时按 [飞书适配](../../references/configuration.md#飞书命令适配) 读取同一条 Bug 的最新字段、附件和 QA 回复。已有档案继续使用；缺少档案时运行 `scripts/workbench.py new-bug --bug-id ID`。缺少基础配置时进入 `$tutti-bug-workflow:bug-setup` 排查，待补配置保存到维护侧记录。
 
 整理期望行为、实际行为、复现步骤与频率、发生环境、时间与时区、目标标识和现场版本。实际查看可访问的截图／录屏，记录来源；未读取的附件标记待读取。把 QA 描述、Agent 已验证的事实和待验证的推断分别记录。
 
-登记时分别判断 Web 与 Computer 日志的必要性，记录用途与依据，按 [登记日志规则](../../references/registration-logs.md) 选择采集范围。需要 Computer 日志时，按 [Computer 定位与 QA 询问](../../references/computer-target.md) 从已有证据与实际目录查询关联目标。仍有多个候选时暂缓该目标的日志读取，把必要的设备选择留到第 5 步；先继续其他可用证据与代码分析。
+登记时分别判断 Web、Computer 与 Server 日志的必要性，记录用途与依据，按 [登记日志规则](../../references/registration-logs.md) 选择采集范围。需要 Computer 日志时，按 [Computer 定位与 QA 询问](../../references/computer-target.md) 从已有证据与实际目录查询关联目标。仍有多个候选时暂缓该目标的日志读取，把必要的设备选择留到第 5 步；先继续其他可用证据与代码分析。
 
 完成条件：已唯一定位或成功创建记录，保存本轮输入、来源引用、日志结果与待核对项，并满足 [登记日志完成条件](../../references/registration-logs.md#4-写入同一条-bug)。无法唯一定位记录时保存本地材料，暂停回填并继续可进行的分析。普通上报进入第 2 步；明确仅登记或仅补附件、不分析时，仍须完成上述登记证据步骤，再按 QA 反馈规则报告真实登记结果后结束。
 
@@ -50,7 +50,11 @@ description: QA Bug 上报与根因分析：接收新 Bug、登记问题、补�
 | Web 页面日志、截图身份识别；发现或授权失败 | [WebMCP 日志与页面识别](../../references/web-logs.md)，含启用截图和历史诊断导出方式 |
 | 本地 Computer | [Computer 日志获取](../../references/computer-logs.md#本地读取指定文件)，按明确文件路径核对目标和覆盖范围 |
 | 远端 Computer | [Computer 日志获取](../../references/computer-logs.md#远端复用-tutti-日志召回) 和 [tutti-ops CLI](../../references/tutti-ops-computer-logs.md)，完成召回、下载、校验和读取 |
-| 已确认存储在 AWS 的服务端日志 | [AWS CLI](../../references/aws-cli.md)，需要此来源时再检查授权 |
+| 服务端请求／成员／权限／持久化／投影日志 | [服务端日志](../../references/server-logs.md)：判断必需／建议补／可辅助后本轮立即调用实际 Tutti CLI；入口覆盖不足且已确认AWS来源时调用 [AWS CLI](../../references/aws-cli.md)，保存并附到同一条Bug |
+
+### 判断与自动采集 Server 日志（必须执行）
+
+每轮记录 Server 参与边界、`required/supplementary/not_needed/undetermined`、缺失观察与已有替代证据。`required`或`supplementary`包含“建议补／可辅助”，都按 [服务端日志](../../references/server-logs.md) 在本轮立即查询、保存、上传并回读，不以建议结束或等待用户追问。先取得易失证据再深入分析；成功请求不能以仅覆盖失败的Tutti查询代替。采集受阻时立即尝试已有授权的适用替代入口或登录恢复，保存具体阻塞和恢复条件；无需追加须有充分证据。
 
 ### 判断是否补充 Web 日志（必须执行）
 

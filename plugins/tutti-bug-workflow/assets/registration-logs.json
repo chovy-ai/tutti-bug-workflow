@@ -65,6 +65,37 @@
       "rationale": null,
       "expected_evidence": [],
       "next_action": null
+    },
+    {
+      "name": "server",
+      "status": "pending",
+      "target": {},
+      "acquisition": null,
+      "query": {},
+      "requested_range": null,
+      "actual_range": null,
+      "record_count": null,
+      "truncated": null,
+      "artifacts": [],
+      "gap": null,
+      "necessity": "undetermined",
+      "rationale": null,
+      "expected_evidence": [],
+      "next_action": null,
+      "completeness": {
+        "includes_success": null,
+        "pagination_complete": null,
+        "retention_limitations": []
+      },
+      "log_file": {
+        "path": null,
+        "format": "jsonl",
+        "sha256": null,
+        "record_count": null,
+        "redaction": null,
+        "file_token": null,
+        "upload_verified": false
+      }
     }
   ],
   "upload": {

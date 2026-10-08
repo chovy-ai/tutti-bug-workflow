@@ -6,7 +6,7 @@
 
 | 场景 | 每次需要的工具 | 按实际任务启用 |
 |---|---|---|
-| `investigate`：QA 上报与根因分析 | 本地文件/搜索/终端/图片查看、飞书记录/附件、Git 与代码缓存 | Web 日志、截图解码、Computer 目录、本地或远端 Computer 日志、AWS 日志；必要的测试或浏览器复现 |
+| `investigate`：QA 上报与根因分析 | 本地文件/搜索/终端/图片查看、飞书记录/附件、Git 与代码缓存 | Web 日志、截图解码、Computer 目录、本地或远端 Computer 日志、Server/Tutti CLI 与 AWS 日志；必要的测试或浏览器复现 |
 | `solution`：RD 方案协商 | 共享的本地/飞书/Git 能力，以及 Mermaid 图源码生成 | 导出图片/PDF 时的实际渲染器；新日志或复现需求交回分析场景 |
 | `execute`：修复与验证 | 共享的本地/飞书/Git 能力、批准核对、项目测试/类型检查/lint、浏览器验收与证据保存 | GitHub/PR 交付工具、部署工具，以及排查或验证需要的日志来源 |
 
@@ -28,6 +28,7 @@ QA 每轮更新两个最新 main，RD 与执行读取交接的固定基线；工
 | `computer-directory` | 页面目录；或 tutti-ops 管理目录 | 页面 `list_my_computers`/`list_rooms`/`list_room_agents`；选管理 CLI 时同时启用 `remote-computer` 的 CLI 准备 | 正确账号/环境的目录可见范围；本机身份另用状态命令或可信绑定证据 |
 | `local-computer` | 明确路径的本地日志读取 | 复用文件工具；实际状态目录、临时目录与日志路径 | 本机身份匹配与文件读取权限；实际覆盖时间/轮转情况 |
 | `remote-computer` | 默认 tutti-ops；实际远端 MCP 可替代 | `setup-tutti-ops --install`，缺少时执行 `npm install -g @tutti-os/tutti-ops-cli`；Node >=20/npm/全局目录写权限 | 默认 `https://admin.tutti.sh`、[管理端 Token 获取与本机配置](tutti-ops-computer-logs.md#环境与认证)、目录/召回/下载权限；下载后校验、解包并读取 |
+| `server-logs` | 实际 Tutti CLI（当前默认 tutti-ops） | 发现命令/schema，按所需日志类别选择；必要时同时启用 `aws-logs` | 同条Bug的服务/环境/窗口、日志读取权限；必需或建议补后立即采集/上传，HTTP失败入口不代替成功请求 |
 | `aws-logs` | AWS CLI v2 | `setup-aws-cli --install` 复用或官方安装；下载网络、用户安装目录与系统安装器依赖 | 确认日志在 AWS；目标账号/区域/日志组与读取权限，选中后主动检查并处理认证缺口 |
 | `github-delivery` | gh 或实际 GitHub 宿主工具 | 选 gh 时准备其安装；复用已有 Git | 实际推送与 PR 权限；创建成功后附加到当前任务 |
 | `deployment` | 项目既有部署/预览流程 | 真实工具、流水线或预览产出方式；不固定猜测某个部署 CLI | 任务授权、目标环境权限、部署结果和修复 SHA 一致 |
