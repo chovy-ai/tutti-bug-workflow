@@ -1,6 +1,6 @@
 # tutti-bug-workflow
 
-版本：0.1.25。运行方式：Codex 本地会话。三个业务场景通过同一份 Bug 档案交接，公共初始化 Skill 准备配置与依赖。
+版本：0.1.30。运行方式：Codex 本地会话。三个业务场景通过同一份 Bug 档案交接，公共初始化 Skill 准备配置与依赖。
 
 | 入口 | 工作内容 |
 |---|---|
@@ -48,11 +48,11 @@ python3 PLUGIN_SOURCE/scripts/workbench.py setup-aws-cli --install
 | [待 review 方案](https://ccn53rwonxso.feishu.cn/base/RYLPb6dGma0e6Wsb8v6c4HhBntg?table=tblceDIio9QmR8ou&view=vewVkuJ7Ue) | 方案已回填，RD 讨论和批准；修复执行及未通过的验证继续留在这里 |
 | [已自动修复并验证，待验收](https://ccn53rwonxso.feishu.cn/base/RYLPb6dGma0e6Wsb8v6c4HhBntg?table=tblceDIio9QmR8ou&view=vewaFbwWDG) | 已核对修复版本、完成验证并回填证据，等待 QA/RD 人工验收 |
 
-状态切换规则及现有报告字段的写入方式见 [工作流与交接](references/workflow.md)。视图配置已经生效；自动触发需另接后续流程服务。
+报告按 [独立字段](references/report-fields.md) 回填：结论、根因、排查验证、基线、代码路径、方案、验收、修复后验证、沟通和待核实项分别保存。根因字段只写简洁因果链，完整报告留在附件；旧记录按明确授权迁移。状态切换规则见 [工作流与交接](references/workflow.md)。视图配置已经生效；自动触发需另接后续流程服务。
 
 「bug单」场景每次固定两个最新远端 main 的 SHA，在隔离工作树中结合问题描述、实际查看的截图、Web 与相关 computer 日志追踪首个错误状态。回填用两到四句说明触发、根因、传播与最终现象，并附关键证据。资料不足时保存候选假设，向 QA 提出本轮一到三个具体问题，收到补充后继续验证。
 
-用户提出 Bug 时，先按 [登记日志规则](references/registration-logs.md) 保存问题和可获取的相关 Web、desktopd 日志，再默认执行本轮代码与证据分析。明确仅登记或仅补附件、不分析时按其范围执行。日志与工具缺口保存在技术记录中，继续可进行的独立分析。
+用户提出 Bug 时，先按 [登记日志规则](references/registration-logs.md) 保存问题和可获取的相关 Web、desktopd 日志，再默认执行本轮代码与证据分析。明确仅登记或仅补附件、不分析时按其范围执行。日志与工具缺口保存在技术记录中，继续可进行的独立分析。 Web 与 Computer 日志分别按具体证据缺口判断是否需要；先复用已有材料，只采集相关来源。原现场关联、Web DOM 状态及 Computer 执行边界分别验证，已有证据充分时无需追加。
 
 QA 提示词按六步执行，并为每步定义完成条件，见 [QA Bug 上报与根因分析](skills/bug-investigate/SKILL.md)。本轮可自行执行的关键分析完成后，按 [QA 反馈、追问与恢复](references/qa-dialogue.md) 反馈事实与判断；追问仅针对能推进验证的现场观察。接入、命令、内部 ID 和认证细节由维护侧处理，QA 通过产品表现、操作顺序或实际设备名称补充。
 
@@ -83,13 +83,17 @@ AWS CLI 使用专用官方安装器，新安装固定版本，核对安装脚本
 
 插件内的 MCP 配置目前为空；AWS 默认使用 CLI。确认 CLI 可用后，仅清理由旧插件创建且未被改动的 AWS MCP，保留其他连接。AWS MCP 仅在用户明确要求恢复时按 [兼容接入](references/aws-mcp.md) 配置。其他 MCP 填写真实服务后使用 `configure-mcp --config CONFIG --output-dir PLUGIN_SOURCE` 生成配置，再通过安装流程更新插件。配置生成不代表服务已经部署、登录或连接成功。
 
+WebMCP 先检查已授权宿主浏览器的真实能力；配置为空时仍可按 [宿主发现与 CDP 路径](references/web-logs.md#宿主浏览器能力发现与-cdp-路径) 验证。分析 Skill 明确页面匹配、按假设查询、逐次覆盖与截断判断、DOM／Computer 因果证据及保存规则。
+
+判断需要 Web 日志后，Agent 本轮自动结合用户截图匹配页面，固定提出本次问题的时间，收集此前 10 分钟目标页面／Account 的全部保留级别记录，组装成单个 `web-logs.log` 并上传到同一条多维表格 Bug 的附件、回读确认；必要时读取可见 DOM。无需 QA 再次询问或重复确认已有授权。采集延迟时扩展原生查询后按固定窗口截取，截断或历史缺口如实记录并补采；只有实际权限、目标或原现场材料缺口才提出必要问题。详见 [固定流程](references/web-logs.md#固定流程提问前-10-分钟--单个-log-附件)。
+
 WebMCP 首次启用时，按 [带截图的启用与授权引导](references/web-logs.md#发给用户的启用与授权引导) 找到 **WebMCP for testing** 并设为 **Enabled**。同一张配置截图已加入插件介绍图片。
 
 远端 Computer 日志通过 [tutti-ops CLI](references/tutti-ops-computer-logs.md) 定位 Computer、复用或创建召回、查询任务和生成链接，再下载、校验并读取日志包。setup 准备 CLI，使用前从 [admin.tutti.sh](https://admin.tutti.sh) 管理端获取 Token，通过 `configure-tutti-token` 隐藏输入，直接验证并保存到 CLI 本机配置，再核对实际环境与权限；当前 npm 包的原子操作已通过帮助、schema 和零网络预览验证，组合采集命令仅在实际发现后使用。
 
 ## 当前接入范围
 
-飞书表格、字段和三个视图已绑定，并在本机通过 user 身份读取验证。两仓库 URL 与 main 分支已配置。Web 日志复用 [PR #2341](https://github.com/tutti-lab/tutti/pull/2341) 的原生 `get_web_logs` 与截图页面识别，需已授权浏览器桥访问目标标签页；已提供识别失败时的启用/授权引导及历史诊断导出方案，见 [Web 日志获取](references/web-logs.md)。本地 computer 日志读取用户指定的明确文件路径；远端 computer 固定复用 Tutti 的日志召回流程，可使用 tutti-ops CLI 或实际 MCP 执行，见 [Computer 日志获取](references/computer-logs.md)。当前 Mac 已保存核实的三个本地主日志及 Codex 临时诊断路径，并记录轮转日志、VM 崩溃报告与导出漏收注意事项；其他机器需确认实际路径。本机 tutti-ops 已安装并完成离线能力核对，远端认证与真实日志采集尚待验证；实际浏览器桥、远端环境／权限及验证地址仍待提供。Skills 可复用当前 Codex 会话的本地工具与已连接 MCP；当前包没有自带飞书连接器、浏览器服务器或常驻调度服务。共享此包携带表格和仓库地址，不授予收件人访问权限，也不携带本机检出路径或凭证。
+飞书表格、字段和三个视图已绑定，并在本机通过 user 身份读取验证。两仓库 URL 与 main 分支已配置。Web 日志复用 [PR #2341](https://github.com/tutti-lab/tutti/pull/2341) 的原生 `get_web_logs` 与截图页面识别，需已授权浏览器桥访问目标标签页；已提供识别失败时的启用/授权引导及历史诊断导出方案，见 [Web 日志获取](references/web-logs.md)。本地 computer 日志读取用户指定的明确文件路径；远端 computer 固定复用 Tutti 的日志召回流程，可使用 tutti-ops CLI 或实际 MCP 执行，见 [Computer 日志获取](references/computer-logs.md)。当前 Mac 已保存核实的三个本地主日志及 Codex 临时诊断路径，并记录轮转日志、VM 崩溃报告与导出漏收注意事项；其他机器需确认实际路径。本机 tutti-ops 已安装并完成离线能力核对，远端认证与真实日志采集尚待验证；本机已通过宿主 Chrome CDP 发现并执行原生 WebMCP，取得匹配页面的日志与现场 DOM；其他使用者的宿主能力、远端环境／权限及验证地址仍需分别核对。Skills 可复用当前 Codex 会话的本地工具与已连接 MCP；当前包没有自带飞书连接器、浏览器服务器或常驻调度服务。共享此包携带表格和仓库地址，不授予收件人访问权限，也不携带本机检出路径或凭证。
 
 飞书事件触发、重试、事件去重、跨设备调度与可信 RD 审批属于后续流程服务，契约见 [工作流与交接](references/workflow.md)。本版 `check-execution` 只检查本地档案一致性；RD 身份与批准来源仍需通过实际飞书记录或直接用户消息核实。
 

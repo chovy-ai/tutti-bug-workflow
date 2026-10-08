@@ -45,6 +45,8 @@ QA 每轮更新两个最新 main，RD 与执行读取交接的固定基线；工
 
 脚本返回码 0 表示清单已生成，不表示工作流可执行；它明确输出 `authentication: not_checked`、`business_access: not_checked`。工具安装计划只是参数数组，脚本不会执行它。原有完整 Setup、`doctor` 和独立安装命令继续可用，`doctor` 的全局结果不替代场景清单。
 
+Web 浏览器桥未配置时，先检查当前宿主的已授权浏览器能力，按 [WebMCP 宿主发现与 CDP 路径](web-logs.md#宿主浏览器能力发现与-cdp-路径) 验证能否发现及执行页面原生只读工具。配置检查失败与本轮真实调用成功可以同时成立，分别保存结果；不凭配置空值认定无法读取，也不为消除提示填写虚构工具名。
+
 ```sh
 # RD 方案场景：检查公共工具和 Mermaid 源码能力
 python3 PLUGIN_SOURCE/scripts/tool_setup.py --scene solution
