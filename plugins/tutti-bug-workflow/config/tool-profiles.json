@@ -65,8 +65,8 @@
     {
       "id": "web-logs", "label": "WebMCP 页面日志",
       "required_in": [], "conditional_in": ["investigate", "execute"],
-      "commands": [], "configuration": "source:web",
-      "requirements": ["页面 get_web_logs 与兼容浏览器", "授权浏览器桥的页面发现、工具发现、执行能力", "匹配现场账号及页面；QA 另一台机器需其侧入口"],
+      "commands": ["node"], "configuration": "source:web-remote",
+      "requirements": ["首选：用户复制的有效 MCP 连接链接与在线页面；Node 20+", "插件自带 tutti-diagnostics 的 get_web_logs / collect_web_logs", "旧 ID：实际授权浏览器桥和原生 get_web_logs"],
       "install_operation": null
     },
     {

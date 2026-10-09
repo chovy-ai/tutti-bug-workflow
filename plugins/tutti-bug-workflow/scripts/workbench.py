@@ -457,6 +457,12 @@ def log_source_configured(source, cfg):
             or not source.get("environment")):
         return False
     transport = source.get("transport", "cli")
+    if transport == "diagnostics-mcp":
+        # The shipped stdio server consumes the ephemeral link per tool call;
+        # credentials are never saved into workstation configuration.
+        return (source.get("mcp_server") == "tutti-diagnostics"
+                and source.get("tool") in ("get_web_logs", "collect_web_logs")
+                and (Path(__file__).resolve().parent / "diagnostics-mcp.mjs").is_file())
     if transport == "browser-webmcp":
         bridge = source.get("browser_bridge")
         if (source.get("tool") != "get_web_logs" or not isinstance(bridge, dict)

@@ -141,6 +141,18 @@ class WorkbenchTests(unittest.TestCase):
         self.save_config(cfg)
         self.assertFalse(self.run_cli("doctor")["integrations_configured"]["logs"])
 
+    def test_shipped_diagnostics_mcp_requires_no_browser_bridge_and_does_not_claim_live_access(self):
+        cfg = self.config()
+        cfg["log_sources"] = [{"name": "web-remote", "transport": "diagnostics-mcp", "environment": "shared_page",
+                               "mcp_server": "tutti-diagnostics", "tool": "collect_web_logs"}]
+        self.save_config(cfg)
+        report = self.run_cli("doctor")
+        self.assertTrue(report["integrations_configured"]["logs"])
+        self.assertEqual(report["log_sources"][0]["source_access"], "not_checked")
+        cfg["log_sources"][0]["mcp_server"] = "unknown"
+        self.save_config(cfg)
+        self.assertFalse(self.run_cli("doctor")["integrations_configured"]["logs"])
+
     def test_native_webmcp_requires_a_browser_bridge_and_does_not_claim_access(self):
         cfg = self.config()
         source = {"name": "web", "transport": "browser-webmcp", "environment": "test",

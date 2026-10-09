@@ -1,3 +1,10 @@
 {
-  "mcpServers": {}
+  "mcpServers": {
+    "tutti-diagnostics": {
+      "command": "node",
+      "args": [
+        "${PLUGIN_ROOT}/scripts/diagnostics-mcp.mjs"
+      ]
+    }
+  }
 }
