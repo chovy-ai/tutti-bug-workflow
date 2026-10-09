@@ -3,6 +3,11 @@ import { spawn } from "node:child_process";
 const protocolVersion = "2025-06-18";
 const pagePattern =
   /^web-diagnostics:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/u;
+const catalogTools = new Set([
+  "list_my_computers",
+  "list_rooms",
+  "list_room_agents"
+]);
 const nativeMethods = new Set([
   "list_pages",
   "list_webmcp_tools",
@@ -347,17 +352,30 @@ export class DiagnosticsClient {
       );
   }
 
-  async read(query = {}) {
-    if (!(await this.pages()).some((page) => page.id === this.pageId))
-      throw new Error("The Tutti page closed or navigated away");
-    this.verify(await this.descriptor(this.pageId));
+  async catalogDescriptor(pageId, toolName) {
+    const result = await this.peer.call(
+      "list_webmcp_tools",
+      { pageId },
+      this.signal
+    );
+    const tools = (result.webmcpTools ?? []).filter(
+      (tool) => tool.name === toolName
+    );
+    if (tools.length !== 1)
+      throw new Error(
+        `Native ${toolName} is unavailable on this page; update Tutti Web`
+      );
+    const page = /Page identity: (web-diagnostics:[0-9a-f-]{36})\./u.exec(
+      tools[0].description ?? ""
+    )?.[1];
+    if (page !== this.pageSessionId || tools[0].annotations?.readOnlyHint !== true)
+      throw new Error(`Native ${toolName} identity or read-only contract changed`);
+  }
+
+  async execute(toolName, query) {
     const response = await this.peer.call(
       "execute_webmcp_tool",
-      {
-        pageId: this.pageId,
-        toolName: "get_web_logs",
-        input: JSON.stringify(query)
-      },
+      { pageId: this.pageId, toolName, input: JSON.stringify(query) },
       this.signal
     );
     let execution;
@@ -370,14 +388,22 @@ export class DiagnosticsClient {
       throw new Error(
         execution.errorText || `Chrome WebMCP execution ${execution.status}`
       );
-    let snapshot = execution.output;
-    if (typeof snapshot === "string") {
+    let output = execution.output;
+    if (typeof output === "string") {
       try {
-        snapshot = JSON.parse(snapshot);
+        output = JSON.parse(output);
       } catch {
-        throw new Error("Invalid native page log snapshot");
+        throw new Error(`Invalid native ${toolName} result`);
       }
     }
+    return output;
+  }
+
+  async read(query = {}) {
+    if (!(await this.pages()).some((page) => page.id === this.pageId))
+      throw new Error("The Tutti page closed or navigated away");
+    this.verify(await this.descriptor(this.pageId));
+    const snapshot = await this.execute("get_web_logs", query);
     if (
       !snapshot ||
       snapshot.pageSessionId !== this.pageSessionId ||
@@ -399,6 +425,26 @@ export class DiagnosticsClient {
         throw new Error("Native WebMCP returned an unrelated page or Account");
     }
     return snapshot;
+  }
+
+  // Directory tools carry no Account identity, so the get_web_logs descriptor
+  // is checked before and after each call to detect an Account switch.
+  async catalog(toolName, query = {}) {
+    if (!catalogTools.has(toolName))
+      throw new Error("Only native read-only directory tools are allowed");
+    if (!(await this.pages()).some((page) => page.id === this.pageId))
+      throw new Error("The Tutti page closed or navigated away");
+    this.verify(await this.descriptor(this.pageId));
+    await this.catalogDescriptor(this.pageId, toolName);
+    const result = await this.execute(toolName, query);
+    this.verify(await this.descriptor(this.pageId));
+    if (
+      !result ||
+      result.pageSessionId !== this.pageSessionId ||
+      !(result.nextCursor === null || typeof result.nextCursor === "string")
+    )
+      throw new Error(`Native ${toolName} page identity or contract changed`);
+    return result;
   }
 
   dispose() {

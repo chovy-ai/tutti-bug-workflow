@@ -6,7 +6,7 @@
 
 | 场景 | 每次需要的工具 | 按实际任务启用 |
 |---|---|---|
-| `investigate`：QA 上报与根因分析 | 本地文件/搜索/终端/图片查看、飞书记录/附件、Git 与代码缓存、提 Bug 结束后的 session 上传 | Web 日志、截图解码、Computer 目录、本地或远端 Computer 日志、Server/Tutti CLI 与 AWS 日志；必要的测试或浏览器复现 |
+| `investigate`：QA 上报与根因分析 | 本地文件/搜索/终端/图片查看、飞书记录/附件、Git 与代码缓存、提 Bug 结束后的 session 上传 | Web 日志、Computer 目录、本地或远端 Computer 日志、Server/Tutti CLI 与 AWS 日志；必要的测试或浏览器复现 |
 | `solution`：RD 方案协商 | 共享的本地/飞书/Git 能力，以及 Mermaid 图源码生成 | 导出图片/PDF 时的实际渲染器；新日志或复现需求交回分析场景 |
 | `execute`：修复与验证 | 共享的本地/飞书/Git 能力、批准核对、项目测试/类型检查/lint、浏览器验收与证据保存 | GitHub/PR 交付工具、部署工具，以及排查或验证需要的日志来源 |
 
@@ -27,7 +27,6 @@ QA 每轮更新两个最新 main，RD 与执行读取交接的固定基线；工
 | `project-checks` | 项目实际运行时、依赖与测试工具 | 读取对应 checkout 的 AGENTS.md、开发说明、锁文件和检查命令后准备 | 相关测试/类型检查/lint 实际通过；环境阻塞与测试失败分开记录 |
 | `browser-validation` | Playwright、浏览器 MCP 或宿主浏览器工具 | 选一个实际入口，准备浏览器、环境 URL、证据输出和版本读取方法 | 登录态、测试数据及所需交互权限；执行验收用例并保存证据 |
 | `web-logs` | 插件自带 tutti-diagnostics → 官方 Chrome MCP → 本机原生 WebMCP | Node/npx；Chrome WebMCP、remote debugging 与连接授权；旧宿主入口作为兼容 | 根据复制引用或 ID 唯一匹配账号和页面，实际调用 get_web_logs；QA 异机需在其侧运行或导出 |
-| `screenshot-decoder` | Tutti 仓库水印解码脚本 | Node 24+、按 checkout 要求的 pnpm/锁文件准备 sharp 及原生依赖 | 原始截图可读；区分依赖缺失、无水印与识别成功 |
 | `computer-directory` | 页面目录；或 tutti-ops 管理目录 | 页面 `list_my_computers`/`list_rooms`/`list_room_agents`；选管理 CLI 时同时启用 `remote-computer` 的 CLI 准备 | 正确账号/环境的目录可见范围；本机身份另用状态命令或可信绑定证据 |
 | `local-computer` | 明确路径的本地日志读取 | 复用文件工具；实际状态目录、临时目录与日志路径 | 本机身份匹配与文件读取权限；实际覆盖时间/轮转情况 |
 | `remote-computer` | 默认 tutti-ops；实际远端 MCP 可替代 | `setup-tutti-ops --install`，缺少时执行 `npm install -g @tutti-os/tutti-ops-cli`；Node >=20/npm/全局目录写权限 | 默认 `https://admin.tutti.sh`、[管理端 Token 获取与本机配置](tutti-ops-computer-logs.md#环境与认证)、目录/召回/下载权限；下载后校验、解包并读取 |

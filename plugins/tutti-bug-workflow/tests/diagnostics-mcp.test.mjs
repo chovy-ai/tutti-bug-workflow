@@ -11,7 +11,12 @@ import {
   DiagnosticsClient,
   parseConnection
 } from "../scripts/chrome-webmcp.mjs";
-import { collectLogs, serve } from "../scripts/diagnostics-mcp.mjs";
+import {
+  collectLogs,
+  listComputerCandidates,
+  readDirectory,
+  serve
+} from "../scripts/diagnostics-mcp.mjs";
 const id = "web-diagnostics:95eafceb-4246-4616-b8ca-15bcbb8eff14";
 const link = `tutti-webmcp://page/${id}?accountId=user-a`;
 const time = "2026-10-08T23:00:00Z";
@@ -160,7 +165,12 @@ test("plugin tools/call generates one attachment and returns its hash; EOF and s
     assert.equal(created[0].peer.closed, true);
     assert.deepEqual(
       responses[0].result.tools.map((tool) => tool.name),
-      ["get_web_logs", "collect_web_logs"]
+      [
+        "get_web_logs",
+        "collect_web_logs",
+        "list_computer_candidates",
+        "list_web_rooms"
+      ]
     );
   } finally {
     input.end();
@@ -223,3 +233,66 @@ test("pagination rejects changed window or a non-advancing cursor", async () => 
     /did not advance/
   );
 });
+test("records read before a stalled cursor are kept as partial", async () => {
+  const until = Date.parse(time);
+  let calls = 0;
+  const logs = await collectLogs(
+    {
+      connection: { reference: link },
+      read: async () => {
+        calls++;
+        return {
+          sinceUnixMs: until - 600000,
+          untilUnixMs: until,
+          records:
+            calls === 1 ? [{ id: 9, occurredAtUnixMs: until - 1000 }] : [],
+          truncated: true,
+          nextBeforeSequence: 9
+        };
+      }
+    },
+    time
+  );
+  assert.equal(logs.metadata.collectionStatus, "partial");
+  assert.equal(logs.metadata.incompleteReason, "pagination_stalled");
+  assert.equal(logs.metadata.paginationComplete, false);
+  assert.equal(logs.metadata.truncated, true);
+  assert.equal(logs.metadata.recordCount, 1);
+});
+test("computer candidates read every page and merge room agents without inventing IDs", async () => {
+  const c = client();
+  try {
+    await c.initialize();
+    const own = await listComputerCandidates(c);
+    assert.deepEqual(
+      own.candidates.map((item) => item.computerId),
+      ["c-1", "c-2"]
+    );
+    assert.equal(own.accountId, "user-a");
+    const withRoom = await listComputerCandidates(c, "r-1");
+    const byId = new Map(withRoom.candidates.map((item) => [item.computerId, item]));
+    assert.deepEqual(byId.get("c-1").sources, ["own", "room_agent"]);
+    assert.equal(byId.get("c-1").agents.length, 1);
+    assert.deepEqual(byId.get("c-9").sources, ["room_agent"]);
+    assert.equal(byId.get(null).agents[0].agentTargetId, "a-0");
+    assert.equal(withRoom.candidateCount, 4);
+    const rooms = await readDirectory(c, "list_rooms", "rooms");
+    assert.equal(rooms.items[0].roomId, "r-1");
+  } finally {
+    await c.dispose();
+  }
+});
+for (const [mode, pattern] of [
+  ["catalog-switch", /page\/Account changed/],
+  ["no-catalog", /unavailable on this page/],
+  ["stale-cursor", /pagination did not finish/]
+])
+  test(`directory failures are explicit: ${mode}`, async () => {
+    const c = client(mode);
+    try {
+      await c.initialize();
+      await assert.rejects(listComputerCandidates(c), pattern);
+    } finally {
+      await c.dispose();
+    }
+  });

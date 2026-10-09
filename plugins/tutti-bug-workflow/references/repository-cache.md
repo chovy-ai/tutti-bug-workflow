@@ -9,7 +9,7 @@
 ~/.local/share/bug-workbench/repositories/tutti-server.git
 ```
 
-配置 `repositories[].cache_path` 相对数据目录解析；必须位于该数据目录内。更换共享数据目录用 `--data-dir` 或已有数据目录环境变量。所有使用者应使用同一个数据目录，插件更新只换源码，保留代码缓存与 Bug 档案。
+配置 `repositories[].cache_path` 相对数据目录解析；必须位于该数据目录内。更换共享数据目录用 `--data-dir` 或已有数据目录环境变量。所有使用者应使用同一个数据目录，插件更新只换源码，保留代码缓存。缓存只用于加速拉取，不是流程状态。
 
 每次分析前运行：
 
@@ -37,6 +37,6 @@ python3 PLUGIN_SOURCE/scripts/sync_code.py --data-dir DATA_DIR
 git -C CACHE_PATH worktree add -b codex/BUG_SUMMARY-analysis-RUN_ID WORKTREE_PATH SHA
 ```
 
-工作树放在共享数据目录的 `bugs/BUG_ID/worktrees/RUN_ID/REPOSITORY`，记录到档案。对每个仓库独立操作。已有分支或工作树使用唯一新运行 ID，不覆盖或重置现有内容。分析、方案与修复读取记录的工作区和 SHA，业务修改不写入共享缓存本体。执行分支继续使用 `codex/<bug-summary>` 约定，并遵守方案批准与版本核对。
+提 Bug（无状态）时，工作树作为临时文件放在会话临时目录，以 detached HEAD 固定在返回的 SHA：`git -C CACHE_PATH worktree add --detach $TMP/worktrees/REPOSITORY SHA`，排查结束后 `git -C CACHE_PATH worktree remove $TMP/worktrees/REPOSITORY`。SHA 写进飞书「代码基线」。对每个仓库独立操作，不覆盖或重置已有工作树。分析、方案与修复读取记录的工作区和 SHA，业务修改不写入共享缓存本体。执行分支继续使用 `codex/<bug-summary>` 约定，并遵守方案批准与版本核对。
 
 worktree 仍需在磁盘检出源码文件，但不重新克隆或下载相同的 Git 对象。依赖安装、Git LFS 内容和 submodule 是独立准备步骤，按实际仓库要求处理。缓存、快照和工作树的清理单独进行，本版同步不自动删除历史运行。

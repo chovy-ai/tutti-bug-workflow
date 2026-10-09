@@ -1,4 +1,4 @@
 interface:
-  display_name: "Bug 上报与根因分析 · QA"
-  short_description: "上报后自行排查代码与日志，再反馈结论或必要的现场追问"
-  default_prompt: "使用 $tutti-bug-workflow:bug-investigate 处理这条 Bug 或 QA 回复。默认登记后读取两个仓库最新 main，结合业务状态与相关日志上下文逐节点推演最终现象；证据不闭合时沿缺失节点继续补采和验证。给出主复现路径，再检查其他可达路径，区分推演与已执行结果；日志按来源集中提交，已有文件原样保留，逐条内容按时间合并。完成本轮可自行执行的分析后反馈结论或必要的现场问题；技术接入与权限缺口保存给维护方，明确仅登记、不分析时遵循用户范围。"
+  display_name: "QA 提 Bug"
+  short_description: "登记 Bug，固定采集 Web 与 Computer 日志，分析到根因后回填飞书"
+  default_prompt: "使用 $tutti-bug-workflow:bug-investigate 处理这条 QA 上报或补充。在飞书建单或找回记录，固定采集 Web 与 Computer 日志并上传，按需查询 Server 日志，读两个最新 main 分析到根因，分字段回填飞书。只有自己无法解决的卡点才一次性向 QA 提问并说明获取方式；排查结束后上传本次会话。"

@@ -23,7 +23,7 @@
 
 | 来源 | 获取方式 | 当前配置 |
 |---|---|---|
-| Web 日志 | 浏览器桥访问 Tutti 原生 `get_web_logs`，通过截图水印匹配页面 | 已固定页面工具与解码入口，等待实际浏览器桥和环境配置 |
+| Web 日志 | 插件 `tutti-diagnostics` 通过本机 Chrome WebMCP 调用 Tutti 原生 `get_web_logs`，按 QA 复制的 WebMCP 连接链接或页面诊断 ID 匹配页面 | 已固定页面工具，等待 Chrome WebMCP 与调试连接授权 |
 | 本地 computer 日志 | 直接读取用户明确指定的文件路径 | 当前 Mac 已保存核实的三个主日志及 Codex 临时诊断路径；分发配置的 `computer-local.paths` 仍为空，新机器需确认后填写 |
 | 远端 computer 日志 | tutti-ops CLI 或实际 MCP 执行 Tutti 日志召回，再下载、校验和读取日志包 | 已记录 CLI 命令与协议；使用时确认实际入口、环境与权限，MCP 待接入 |
 

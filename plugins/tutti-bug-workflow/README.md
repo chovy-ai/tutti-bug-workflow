@@ -48,20 +48,17 @@ python3 PLUGIN_SOURCE/scripts/workbench.py setup-aws-cli --install
 | [待 review 方案](https://ccn53rwonxso.feishu.cn/base/RYLPb6dGma0e6Wsb8v6c4HhBntg?table=tblceDIio9QmR8ou&view=vewVkuJ7Ue) | 方案已回填，RD 讨论和批准；修复执行及未通过的验证继续留在这里 |
 | [已自动修复并验证，待验收](https://ccn53rwonxso.feishu.cn/base/RYLPb6dGma0e6Wsb8v6c4HhBntg?table=tblceDIio9QmR8ou&view=vewaFbwWDG) | 已核对修复版本、完成验证并回填证据，等待 QA/RD 人工验收 |
 
-报告按 [独立字段](references/report-fields.md) 回填：结论、根因、排查验证、基线、代码路径、方案、验收、修复后验证、沟通和待核实项分别保存。根因字段只写简洁因果链，完整报告留在本地档案；旧记录按明确授权迁移。状态切换规则见 [工作流与交接](references/workflow.md)。视图配置已经生效；自动触发需另接后续流程服务。
+报告按 [独立字段](references/report-fields.md) 回填：结论、根因、排查验证、基线、代码路径、方案、验收、修复后验证、沟通和待核实项分别保存。根因字段只写简洁因果链；旧记录按明确授权迁移。状态切换规则见 [工作流与交接](references/workflow.md)。视图配置已经生效；自动触发需另接后续流程服务。
 
-「bug单」场景每次固定两个最新远端 main 的 SHA，在隔离工作树中按 [业务逻辑、日志与复现路径](references/root-cause-analysis.md) 逐节点推演原现象。解释中间报错后仍须验证后续恢复与最终状态；日志与逻辑不闭合时沿缺失节点补 Web、Server、Computer 或必要观测。给出主复现路径后再检查其他入口与时序，分别注明推演和已执行结果。回填用两到四句说明触发、首个错误状态、传播与最终现象；资料不足时继续可自行完成的验证，只有必要的原现场信息才向 QA 追问。
+### QA 提 Bug（`bug-investigate`）
 
-日志附件按 [集中规则](references/registration-logs.md#日志文件与附件数量) 提交：已有单个／多个日志文件或诊断包读取核对后原样上传；逐条取得的内容按时间合并为 `web-logs.log`、`computer-logs.log`、`server-logs.log`，每来源一份，不为凑齐来源制造文件。查询 JSON、清单、工具发现、报告和测试输出默认保存在本地，字段记录必要结论，避免逐轮增加过程附件。
+无状态：流程状态只在 Agent 会话上下文中，飞书记录是唯一事实来源；日志、召回包、代码工作区都是会话临时文件。流程见 [SKILL.md](skills/bug-investigate/SKILL.md)：
 
-提 Bug 流程确认结束后，`bug-investigate` 执行独立的 [session 收尾节点](references/session-upload.md)：确认结束 → 固定当前会话快照 → 按当前 provider 上传 → 核对并保存回执 → 最终反馈。处理中、等待 QA、暂时阻塞或回填失败不触发；方案、修复验证和 Setup 不自动上传。会话原生 JSONL 上传到 Tutti 管理端供后续优化，保存结束依据、Bug/运行关联及失败恢复条件，同一结束节点复用快照和回执。tutti-ops 已核对的发布版本为 0.1.7，旧版需检查并补齐实际 session 命令与上传权限。
-
-用户提出 Bug 时，先按 [登记日志规则](references/registration-logs.md) 保存问题和可获取的相关 Web、desktopd 日志，再默认执行本轮代码与证据分析。明确仅登记或仅补附件、不分析时按其范围执行。日志与工具缺口保存在技术记录中，继续可进行的独立分析。 Web 与 Computer 日志分别按具体证据缺口判断是否需要；先复用已有材料，只采集相关来源。原现场关联、Web DOM 状态及 Computer 执行边界分别验证，已有证据充分时无需追加。
-
-QA 提示词按七步执行，并为每步定义完成条件，见 [QA Bug 上报与根因分析](skills/bug-investigate/SKILL.md)；第七步仅在提 Bug 确认结束后执行会话归档。本轮可自行执行的关键分析完成后，按 [QA 反馈、追问与恢复](references/qa-dialogue.md) 反馈事实与判断；追问仅针对能推进验证的现场观察。接入、命令、内部 ID 和认证细节由维护侧处理，QA 通过产品表现、操作顺序或实际设备名称补充。
-
-涉及 Computer 时按 [Computer 定位与 QA 询问](references/computer-target.md) 判断日志用途，优先关联故障请求中的 ID；缺少时通过页面的 `list_my_computers`、`list_rooms`、`list_room_agents` 查询真实候选，必要时请 QA 确认设备、房间／Agent 和发生时间。当前选中的设备不能代替故障时的目标，目录访问与远端日志权限分别核对。
-
+1. 接收 QA 上报，`scripts/feishu.py create` 建单或找回同名记录。
+2. 固定采集 Web（插件 `collect_web_logs`）与 Computer（`list_computer_candidates` 定位 → `scripts/collect_computer.py` 本机读取或远端召回）；`feishu.py attach` 上传，`scripts/check_collection.py` 汇报现状。采不到就记原因继续。
+3. 读两个最新 main 的代码，按 [业务逻辑、日志与复现路径](references/root-cause-analysis.md) 推演因果链；Server 日志由 Agent 按 [服务端日志](references/server-logs.md) 判断是否查询。
+4. 根因确认后 `feishu.py write` 分字段回填；只有自己无法解决的卡点（缺 WebMCP 链接、需选设备等）才一次性问 QA，并说明获取方式。
+5. 排查结束后上传本次会话一次，见 [会话上传](references/session-upload.md)。
 代码固定缓存到数据目录的 `repositories/tutti.git`、`repositories/tutti-server.git`。首次初始化可复用现有仓库的已提交对象，后续只获取 main 的增量；每条 Bug 使用共享对象的独立 worktree。详见 [代码缓存](references/repository-cache.md)。
 
 创建一份档案：
@@ -89,7 +86,7 @@ AWS CLI 使用专用官方安装器，新安装固定版本，核对安装脚本
 
 新版页面日志优先通过插件自带本机 Chrome WebMCP 接入；旧部署或其他宿主可按 [宿主发现与 CDP 路径](references/web-logs.md#宿主浏览器能力发现与-cdp-路径) 验证。分析 Skill 明确页面匹配、按假设查询、逐次覆盖与截断判断、DOM／Computer 因果证据及保存规则。
 
-判断需要 Web 日志后，Agent 本轮自动结合用户截图匹配页面，固定提出本次问题的时间，读取此前 10 分钟目标页面／Account 的全部保留级别记录。WebMCP 逐条返回的内容归并为单个 `web-logs.log`，已有诊断文件／包保留原样，上传到同一条 Bug 后回读；必要时读取可见 DOM。无需 QA 再次询问或重复确认已有授权。采集延迟时扩展查询后按固定窗口核对，截断或历史缺口如实记录并补采；只有实际权限、目标或原现场材料缺口才提出必要问题。详见 [固定流程](references/web-logs.md#固定流程提问前-10-分钟--单个-log-附件)。
+判断需要 Web 日志后，Agent 本轮自动结合用户截图匹配页面，固定提出本次问题的时间，读取此前 10 分钟目标页面／Account 的全部保留级别记录。WebMCP 逐条返回的内容归并为单个 `web-logs.log`，已有诊断文件／包保留原样，上传到同一条 Bug 后回读；必要时读取可见 DOM。无需 QA 再次询问或重复确认已有授权。插件 `collect_web_logs` 按 `bug.json` 中保存的提问时间固定窗口并翻页到结束；达到大小上限或翻页中断时保留已取得记录并标记 `partial`，历史缺口如实记录；只有实际权限、目标或原现场材料缺口才提出必要问题。详见 [固定流程](references/web-logs.md#固定流程提问前-10-分钟--单个-log-附件)。
 
 WebMCP 首次启用时，按 [带截图的启用与授权引导](references/web-logs.md#发给用户的启用与授权引导) 找到 **WebMCP for testing** 并设为 **Enabled**。同一张配置截图已加入插件介绍图片。
 

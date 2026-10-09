@@ -70,13 +70,6 @@
       "install_operation": null
     },
     {
-      "id": "screenshot-decoder", "label": "截图水印页面识别",
-      "required_in": [], "conditional_in": ["investigate"],
-      "commands": ["node", "pnpm"], "configuration": "repository-specific",
-      "requirements": ["原始截图与 Tutti 解码脚本", "Node 24+", "按 checkout 声明的 pnpm/锁文件准备 sharp 及原生依赖"],
-      "install_operation": null
-    },
-    {
       "id": "computer-directory", "label": "Computer/房间 Agent 目录与本机身份",
       "required_in": [], "conditional_in": ["investigate", "execute"],
       "commands": [], "configuration": "host",

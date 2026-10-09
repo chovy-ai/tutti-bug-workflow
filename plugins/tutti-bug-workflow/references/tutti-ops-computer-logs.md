@@ -1,6 +1,6 @@
 # 用 tutti-ops 获取远端 Computer 日志
 
-这是 [Computer 日志获取](computer-logs.md) 中远端日志召回协议的 CLI 入口；本机继续读取已确认的文件。2026-09-30 核对了本机实际安装的 npm 包 `@tutti-os/tutti-ops-cli@0.1.6` 的 Computer 帮助、能力清单、六个操作的 schema，以及零网络创建与下载链接预览。
+提 Bug 时由 `scripts/collect_computer.py` 自动执行本页的定位已有任务、创建、等待、生成链接、下载与校验；本页供脚本失败排查或手动操作时参考。这是 [Computer 日志获取](computer-logs.md) 中远端日志召回协议的 CLI 入口；本机继续读取已确认的文件。2026-09-30 核对了本机实际安装的 npm 包 `@tutti-os/tutti-ops-cli@0.1.6` 的 Computer 帮助、能力清单、六个操作的 schema，以及零网络创建与下载链接预览。
 
 ## 准备与发现
 
@@ -88,7 +88,7 @@ tutti-ops --admin-url https://admin.tutti.sh --mode read computer log-recalls do
 
 ## 下载、校验和读取
 
-使用已授权的 HTTP 下载工具将日志包保存到本条 Bug 的 `evidence/`，对象存储请求不附加管理 Token。按任务返回的包 SHA256 校验；未提供校验值时明确记录缺口。独立目录安全解包，读取 `manifest.json` 和故障时间内的相关日志，保留必要堆栈上下文。
+使用已授权的 HTTP 下载工具将日志包保存到会话临时目录，对象存储请求不附加管理 Token；`static.tutti.sh` 会以 403 拒绝 Python 默认 User-Agent，需显式设置。按任务返回的包 SHA256 校验；未提供校验值时明确记录缺口。独立目录安全解包，读取 `manifest.json` 和故障时间内的相关日志，保留必要堆栈上下文。
 
 再次核对 Computer、版本、实际时间覆盖、文件清单、未知时间戳行及截断状态；请求范围或任务可下载状态不能代替清单覆盖检查。链接过期时为同一仍在保留期内的 taskId 重新生成链接，不创建重复任务。签名链接不回填飞书，回填任务标识、必要日志附件与证据缺口。
 

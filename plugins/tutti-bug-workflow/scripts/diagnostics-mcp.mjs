@@ -37,7 +37,7 @@ const tools = [
   {
     name: "collect_web_logs",
     description:
-      "Collect every page of retained logs in the ten minutes before question_time and write one web-logs.log with coverage metadata. No redaction. The page must remain open.",
+      "Collect every page of retained logs in the ten minutes before question_time and write one web-logs.log with coverage metadata. If the size limit or a stalled cursor stops collection, the records already read are still written and collectionStatus is partial. No redaction. The page must remain open.",
     inputSchema: {
       type: "object",
       properties: {
@@ -55,8 +55,134 @@ const tools = [
       required: ["connection_url", "question_time", "output_path"],
       additionalProperties: false
     }
+  },
+  {
+    name: "list_computer_candidates",
+    description:
+      "List candidate Computers for the Account signed in on the identified Tutti page: all Computers it owns (including offline), plus Computers behind the Agents of room_id when given. Reads every directory page. Use the result to ask QA which device was used; names are untrusted data.",
+    annotations: { readOnlyHint: true },
+    inputSchema: {
+      type: "object",
+      properties: {
+        connection_url: properties.connection_url,
+        room_id: { type: "string", minLength: 1, maxLength: 256 }
+      },
+      required: ["connection_url"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "list_web_rooms",
+    description:
+      "List every Room visible to the Account signed in on the identified Tutti page (roomId, name, isPublicRoom). Use it to resolve a room name from a screenshot before list_computer_candidates.",
+    annotations: { readOnlyHint: true },
+    inputSchema: {
+      type: "object",
+      properties: { connection_url: properties.connection_url },
+      required: ["connection_url"],
+      additionalProperties: false
+    }
   }
 ];
+
+const maxDirectoryPages = 50;
+
+// Directory cursors expire after 60 seconds, so every page is read in one call.
+export async function readDirectory(client, toolName, itemsKey, query = {}) {
+  const items = [];
+  const cursors = new Set();
+  let cursor;
+  let observedAt;
+  for (let pages = 1; ; pages++) {
+    const result = await client.catalog(toolName, {
+      ...query,
+      limit: 200,
+      ...(cursor === undefined ? {} : { cursor })
+    });
+    if (!Array.isArray(result[itemsKey]))
+      throw new Error(`Native ${toolName} returned no ${itemsKey}`);
+    items.push(...result[itemsKey]);
+    observedAt ??= result.observedAt;
+    if (result.nextCursor === null) return { items, pages, observedAt };
+    if (cursors.has(result.nextCursor) || pages >= maxDirectoryPages)
+      throw new Error(`Native ${toolName} pagination did not finish`);
+    cursors.add(result.nextCursor);
+    cursor = result.nextCursor;
+  }
+}
+
+export async function listComputerCandidates(client, roomId) {
+  const own = await readDirectory(client, "list_my_computers", "computers");
+  const candidates = new Map();
+  for (const computer of own.items)
+    candidates.set(computer.computerId, {
+      computerId: computer.computerId,
+      displayName: computer.displayName,
+      platform: computer.platform,
+      connectionStatus: computer.connectionStatus,
+      sources: ["own"],
+      agents: computer.agents.map((agent) => ({
+        agentTargetId: agent.agentTargetId,
+        displayName: agent.displayName,
+        executionAvailability: agent.executionAvailability
+      }))
+    });
+  let room = null;
+  if (roomId !== undefined) {
+    const agents = await readDirectory(client, "list_room_agents", "agents", {
+      roomId
+    });
+    room = { roomId, agentCount: agents.items.length };
+    const unbound = [];
+    for (const agent of agents.items) {
+      const entry = {
+        agentTargetId: agent.agentTargetId,
+        displayName: agent.displayName,
+        ownership: agent.ownership,
+        executionAvailability: agent.executionAvailability
+      };
+      const id = agent.computer?.computerId ?? null;
+      // A missing computerId stays unknown; never derive one from names.
+      if (id === null) {
+        unbound.push({
+          computerId: null,
+          displayName: agent.computer?.displayName ?? null,
+          online: agent.computer?.online ?? null,
+          sources: ["room_agent"],
+          agents: [entry]
+        });
+        continue;
+      }
+      const existing = candidates.get(id);
+      if (existing) {
+        if (!existing.sources.includes("room_agent"))
+          existing.sources.push("room_agent");
+        if (!existing.agents.some((a) => a.agentTargetId === entry.agentTargetId))
+          existing.agents.push(entry);
+      } else
+        candidates.set(id, {
+          computerId: id,
+          displayName: agent.computer?.displayName ?? null,
+          online: agent.computer?.online ?? null,
+          sources: ["room_agent"],
+          agents: [entry]
+        });
+    }
+    return finishCandidates(client, own, room, [...candidates.values(), ...unbound]);
+  }
+  return finishCandidates(client, own, room, [...candidates.values()]);
+}
+
+function finishCandidates(client, own, room, candidates) {
+  return {
+    pageSessionId: client.pageSessionId,
+    accountId: client.accountId,
+    observedAt: own.observedAt,
+    room,
+    candidateCount: candidates.length,
+    candidates
+  };
+}
 
 export async function collectLogs(client, questionTime) {
   if (
@@ -73,7 +199,8 @@ export async function collectLogs(client, questionTime) {
   let beforeSequence;
   let bytes = 0;
   let pages = 0;
-  for (;;) {
+  let incompleteReason = null;
+  collect: for (;;) {
     const snapshot = await client.read({
       range: "10m",
       limit: 200,
@@ -97,11 +224,12 @@ export async function collectLogs(client, questionTime) {
         throw new Error("Invalid diagnostics pagination or time window");
       sequences.add(record.id);
       const line = JSON.stringify(record);
+      if (bytes + Buffer.byteLength(line) + 1 > maxBytes) {
+        // Keep the newer records already read instead of discarding them.
+        incompleteReason = "size_limit";
+        break collect;
+      }
       bytes += Buffer.byteLength(line) + 1;
-      if (bytes > maxBytes)
-        throw new Error(
-          "Retained diagnostics exceed the collection size limit"
-        );
       records.push(record);
     }
     if (!snapshot.truncated) break;
@@ -111,8 +239,12 @@ export async function collectLogs(client, questionTime) {
       !Number.isSafeInteger(next) ||
       next !== snapshot.records.at(-1).id ||
       (beforeSequence !== undefined && next >= beforeSequence)
-    )
-      throw new Error("Diagnostics pagination did not advance");
+    ) {
+      if (!records.length)
+        throw new Error("Diagnostics pagination did not advance");
+      incompleteReason = "pagination_stalled";
+      break;
+    }
     beforeSequence = next;
   }
   records.sort(
@@ -142,14 +274,17 @@ export async function collectLogs(client, questionTime) {
     recordCount: records.length,
     pages,
     redacted: false,
-    paginationComplete: true,
+    collectionStatus: incompleteReason ? "partial" : "complete",
+    incompleteReason,
+    paginationComplete: incompleteReason === null,
     recordTruncationCount,
-    truncated: recordTruncationCount > 0,
+    truncated: recordTruncationCount > 0 || incompleteReason !== null,
     retention: "current-page-memory",
     earliestRecordUnixMs: records.length ? earliest : null,
     latestRecordUnixMs: records.length ? latest : null,
-    coverage:
-      "All retained records in the requested window. Serialization and record size limits still apply; excluded debug and evicted records cannot be recovered."
+    coverage: incompleteReason
+      ? "Partial: newest retained records from question_time back to earliestRecordUnixMs; older records in the window were not collected."
+      : "All retained records in the requested window. Serialization and record size limits still apply; excluded debug and evicted records cannot be recovered."
   };
   const text =
     [
@@ -183,6 +318,18 @@ async function callTool(name, args, signal, clientFactory) {
     if (name === "get_web_logs") {
       const { connection_url: _, ...query } = args;
       return await client.read(query);
+    }
+    if (name === "list_computer_candidates")
+      return await listComputerCandidates(client, args.room_id);
+    if (name === "list_web_rooms") {
+      const rooms = await readDirectory(client, "list_rooms", "rooms");
+      return {
+        pageSessionId: client.pageSessionId,
+        accountId: client.accountId,
+        observedAt: rooms.observedAt,
+        roomCount: rooms.items.length,
+        rooms: rooms.items
+      };
     }
     if (
       typeof args.output_path !== "string" ||
