@@ -34,7 +34,7 @@ def main():
                  for name, server in portable_mcp.get("mcpServers", {}).items()}
     if converted != legacy_mcp.get("mcpServers"):
         errors.append("Portable/compatibility MCP configurations differ.")
-    catalog = json.loads((ROOT / "config/tool-profiles.json").read_text())
+    catalog = json.loads((ROOT / "skills/bug-setup/config/tool-profiles.json").read_text())
     scene_names = {"investigate", "solution", "execute"}
     if catalog.get("schema_version") != 1 or set(catalog.get("scenes", {})) != scene_names:
         errors.append("Invalid tool scene catalog.")

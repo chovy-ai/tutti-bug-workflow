@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "bug_id": null,
+  "source_url": null,
+  "status": "pending_analysis",
+  "input_revision": 1,
+  "reported_environment": { "name": null, "revisions": {} },
+  "baselines": {},
+  "root_cause": { "version": 0, "status": "unconfirmed", "input_revision": 1 },
+  "plan": { "version": 0, "status": "draft", "root_cause_version": 0 },
+  "acceptance": { "version": 0, "plan_version": 0 },
+  "execution": { "run_id": null, "branch": null, "revisions": {} },
+  "verification": { "status": "not_run", "environment": null, "deployed_revisions": {} },
+  "human_acceptance": { "status": "pending", "actor_id": null, "source_ref": null },
+  "pending_questions": []
+}

@@ -7,14 +7,14 @@ description: 执行 RD 已批准的 Bug 修复方案，运行相关检查，在�
 
 你负责执行已批准的版本，证明修改后行为符合验收方案，并保留人工验收所需的证据。
 
-工具准备按 [场景工具 Setup](../../references/tool-setup.md) 使用 `execute` 清单，核对项目检查和浏览器验收能力，再按已授权交付方式启用 PR/部署工具。按问题实际链路补日志来源，保留真实验证状态。
+工具准备按 [场景工具 Setup](references/tool-setup.md) 使用 `execute` 清单，核对项目检查和浏览器验收能力，再按已授权交付方式启用 PR/部署工具。按问题实际链路补日志来源，保留真实验证状态。
 
 ## 执行前
 
-读取 [工作流与交接](../../references/workflow.md)，加载配置、最新档案、方案、验收标准和批准来源。核实真实 RD 的批准原文，再运行：
+读取 [工作流与交接](references/workflow.md)，加载配置、最新档案、方案、验收标准和批准来源。核实真实 RD 的批准原文，再运行：
 
 ```sh
-python3 PLUGIN_SOURCE/scripts/workbench.py check-execution --bug-id BUG_ID
+python3 PLUGIN_SOURCE/skills/bug-execute/scripts/dossier.py check-execution --bug-id BUG_ID
 ```
 
 将路径与 ID 替换为实际值。脚本通过表示本地交接一致，原始批准仍需在可信来源中核实。检查实际仓库基线与批准 SHA 是否一致；方案、证据或基线变化影响修复时返回方案场景。
@@ -27,11 +27,11 @@ python3 PLUGIN_SOURCE/scripts/workbench.py check-execution --bug-id BUG_ID
 
 ## 验证
 
-根据 `acceptance.md` 逐项执行，复用当前可用的 Playwright、浏览器 MCP 或宿主浏览器工具。接入配置见 [配置说明](../../references/configuration.md)。
+根据 `acceptance.md` 逐项执行，复用当前可用的 Playwright、浏览器 MCP 或宿主浏览器工具。接入配置见 [配置说明](references/configuration.md)。
 
 记录每项用例的步骤、断言、预期、实际结果、环境与版本，以及截图、trace、日志或测试输出的引用。检查原问题与必要回归；无法确认部署版本或执行条件时记为 `blocked`，用例未执行记为 `not_run`。
 
-结果写入 [验证报告模板](../../assets/verification.md) 和 `bug.json`。按当前授权回填指定飞书字段，报告写入结果及尚未完成的部分。
+结果写入 [验证报告模板](assets/verification.md) 和 `bug.json`。按当前授权回填指定飞书字段，报告写入结果及尚未完成的部分。
 
 ## 独立字段回填规则（必须执行）
 
@@ -46,10 +46,10 @@ python3 PLUGIN_SOURCE/scripts/workbench.py check-execution --bug-id BUG_ID
 | 未覆盖风险、执行阻塞及恢复条件 | 待核实与阻塞 | `open_items` |
 | 实际 PR、体验地址与修复后截图 | 相关 PR、体验环境链接、修复后截图证据 | `pull_requests`、`preview_url`、`verification_evidence` |
 
-写入前读取最新字段，保留人工内容、分析结论、根因、修复前排查、批准方案与验收标准。共享字段只维护本场景条目；附件按 [集中附件规则](../../references/registration-logs.md#日志文件与附件数量) 使用专用命令提交，保留原图和历史证据。完整 `verification.md` 与测试输出保存在本地档案，各摘要字段只写自己职责内的内容；独立验收必需的截图／录屏照常提交。未执行记 `not_run`，条件不足记 `blocked`，不能把修复前测试结果写成修复通过。字段缺失或写入失败时记录回填缺口，不退回单字段汇总。详细契约见 [报告字段](../../references/report-fields.md)。
+写入前读取最新字段，保留人工内容、分析结论、根因、修复前排查、批准方案与验收标准。共享字段只维护本场景条目；附件按 [集中附件规则](references/registration-logs.md#日志文件与附件数量) 使用专用命令提交，保留原图和历史证据。完整 `verification.md` 与测试输出保存在本地档案，各摘要字段只写自己职责内的内容；独立验收必需的截图／录屏照常提交。未执行记 `not_run`，条件不足记 `blocked`，不能把修复前测试结果写成修复通过。字段缺失或写入失败时记录回填缺口，不退回单字段汇总。详细契约见 [报告字段](references/report-fields.md)。
 
 ## 完成条件
 
 验证通过进入 `waiting_acceptance`，由 QA/RD 在真实验收记录中决定是否通过。验证失败定位原因，再选择补充执行、返回方案或重新分析。最终交付说明根因、修改内容、验证结果、证据和未覆盖风险。
 
-修复和验证期间飞书阶段保持「待 review 方案」。实际修复部署版本已核实、必要验收用例全部通过且报告与证据成功回填后，才能设置「已自动修复并验证，待验收」。验证失败、阻塞或未执行时不得进入该阶段。按 [独立字段契约](../../references/report-fields.md) 将修复后验证写入「验证结果」，执行/部署版本追加到「代码基线」，沟通和未决项分别更新对应字段；保留根因、排查验证、方案、验收标准和人工内容。
+修复和验证期间飞书阶段保持「待 review 方案」。实际修复部署版本已核实、必要验收用例全部通过且报告与证据成功回填后，才能设置「已自动修复并验证，待验收」。验证失败、阻塞或未执行时不得进入该阶段。按 [独立字段契约](references/report-fields.md) 将修复后验证写入「验证结果」，执行/部署版本追加到「代码基线」，沟通和未决项分别更新对应字段；保留根因、排查验证、方案、验收标准和人工内容。

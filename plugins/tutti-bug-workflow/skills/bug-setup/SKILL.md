@@ -5,14 +5,14 @@ description: 按 QA 分析、RD 方案、修复验证场景初始化工具与接
 
 # 初始化工作台
 
-这是三个业务场景的公共入口。读取 [配置说明](../../references/configuration.md)，从已有会话、数据配置、实际工具和仓库要求取得已有值；下面逐步列出准备条件，具体协议按相应引用核对。
+这是三个业务场景的公共入口。读取 [配置说明](references/configuration.md)，从已有会话、数据配置、实际工具和仓库要求取得已有值；下面逐步列出准备条件，具体协议按相应引用核对。
 
 ## 选择本轮范围
 
 - **梳理模式**：用户要求列出步骤、准备条件或先决定如何获取时，只检查已有配置、文件与本地工具，逐项列出已有值和待决策项。此模式不运行初始化、安装、登录、远端调用或 MCP 注册，也不以占位值补全配置。
 - **执行模式**：用户要求初始化、Setup 或补齐权限时，执行安装、配置、所需身份/权限检查与缺口处理，复用已有安装和有效登录态。先从现有配置发现接入方式，仍缺少的必要输入向用户具体询问，独立步骤继续进行。用户明确只安装、暂不授权或跳过某服务时遵循该范围。
 
-本 Skill 的配置与认证沟通面向环境维护方。由 QA 上报流程进入时，自行检查并保存维护侧缺口；QA 反馈遵循 [QA 反馈规则](../../references/qa-dialogue.md)。现场本人必须允许访问时，仅请求实际可见的授权操作。凭证通过工具或宿主认证存储提供，清单只记非秘密信息。
+本 Skill 的配置与认证沟通面向环境维护方。由 QA 上报流程进入时，自行检查并保存维护侧缺口；面向 QA 只说明处理进度，不让 QA 处理工具、认证或权限问题。现场本人必须允许访问时，仅请求实际可见的授权操作。凭证通过工具或宿主认证存储提供，清单只记非秘密信息。
 
 ## 执行顺序：先安装，再立即授权
 
@@ -25,13 +25,13 @@ description: 按 QA 分析、RD 方案、修复验证场景初始化工具与接
 
 ## 授权处理的完成条件
 
-安装阶段结束后，执行模式必须按 [准备与授权流程](../../references/setup-user-guide.md#主动补齐授权) 处理本轮所需能力：检查 → 定位缺口 → 修复配置或发起登录/授权 → 完成本人操作 → 复查身份与目标资源访问。发现缺口后立即推进可执行的下一步；安装成功或写下“待授权”不是该能力的完成条件。
+安装阶段结束后，执行模式必须按 [准备与授权流程](references/setup-user-guide.md#主动补齐授权) 处理本轮所需能力：检查 → 定位缺口 → 修复配置或发起登录/授权 → 完成本人操作 → 复查身份与目标资源访问。发现缺口后立即推进可执行的下一步；安装成功或写下“待授权”不是该能力的完成条件。
 
 完整初始化包含飞书、两仓库、tutti-ops 管理端与 AWS 当前凭证链的身份检查；业务权限按实际目标核对。场景 Setup 只覆盖必需工具和选中的条件工具。未知环境、账号、profile、日志组或部署目标须取得真实输入；不以默认参考值宣称业务验证通过。每项记录为“已验证”“等待本人操作”“等待管理员处理”“等待必要输入”“安装阻塞”或“用户明确跳过”；等待/阻塞项必须附实际入口或具体缺口、所需范围和恢复验证步骤。
 
 ## 面向使用者的引导
 
-需要用户登录、本人允许访问、补充权限，或解释准备进度时，读取 [易懂的准备与授权流程](../../references/setup-user-guide.md)。
+需要用户登录、本人允许访问、补充权限，或解释准备进度时，读取 [易懂的准备与授权流程](references/setup-user-guide.md)。
 
 - 先完成安装阶段，再核对认证并验证实际访问；梳理模式继续只列现状。
 - 登录或权限确实缺失时，说明用途、真实入口、本人要完成的操作及完成后的检查。Token 获取使用该引用中的管理端教程；凭证只在实际认证入口输入。
@@ -52,17 +52,17 @@ description: 按 QA 分析、RD 方案、修复验证场景初始化工具与接
 | RD 方案协商 `solution` | 共享工具、Mermaid 流程图/架构图源码生成 | 要求图片/PDF 时准备实际渲染器；新证据需求交回分析场景。方案编写使用交接基线 |
 | 修复与验证 `execute` | 共享工具、可信批准读取与一致性检查、项目实际运行时及测试/类型检查/lint、浏览器验收与证据保存 | 按交付方式准备 GitHub/PR 工具和权限、部署工具与权限；按验收/排查链路选择日志来源。还需环境地址、登录态及部署版本读取方法 |
 
-按 [工具目录与 Setup 顺序](../../references/tool-setup.md) 执行：选择场景及条件工具 → 只读清单 → 安装/复用 → 配置/授权 → 验证 → 保存场景结果。已有数据配置时运行：
+按 [工具目录与 Setup 顺序](references/tool-setup.md) 执行：选择场景及条件工具 → 只读清单 → 安装/复用 → 配置/授权 → 验证 → 保存场景结果。已有数据配置时运行：
 
 ```sh
-python3 PLUGIN_SOURCE/scripts/tool_setup.py --scene solution
-python3 PLUGIN_SOURCE/scripts/tool_setup.py --scene investigate --include web-logs --include remote-computer
-python3 PLUGIN_SOURCE/scripts/tool_setup.py --scene execute --include github-delivery --include deployment
+python3 PLUGIN_SOURCE/skills/bug-setup/scripts/tool_setup.py --scene solution
+python3 PLUGIN_SOURCE/skills/bug-setup/scripts/tool_setup.py --scene investigate --include web-logs --include remote-computer
+python3 PLUGIN_SOURCE/skills/bug-setup/scripts/tool_setup.py --scene execute --include github-delivery --include deployment
 ```
 
 清单脚本读取 `config/tool-profiles.json`，仅检查命令路径及配置形状，输出选中工具、准备条件和现有安装参数；返回码 0 只表示生成成功。它不初始化、不安装、不登录、不联网；宿主工具发现、版本、项目依赖、授权和实际业务访问分别核对。选中的 tutti-ops/AWS 先复用现有安装入口，再完成授权处理；其他提供方式待核实后准备，不猜包名或服务器地址。
 
-`investigate` 需准备 [提 Bug 结束后的 session 上传](../../references/session-upload.md)：实际 session 命令、当前宿主 provider/会话定位与原生 JSONL 读取/导出、已配置管理端认证及上传权限。Setup 只检查准备情况；具体提 Bug 确认结束后才执行上传。真实缺口只影响会话归档，方案和执行场景不依赖此收尾能力。
+`investigate` 需准备 [提 Bug 结束后的 session 上传](references/session-upload.md)：实际 session 命令、当前宿主 provider/会话定位与原生 JSONL 读取/导出、已配置管理端认证及上传权限。Setup 只检查准备情况；具体提 Bug 确认结束后才执行上传。真实缺口只影响会话归档，方案和执行场景不依赖此收尾能力。
 
 完成标准：场景必需工具及已启用条件项全部有独立状态，未启用项有条件说明；接入缺口只影响相关能力。整体 `doctor` 的结果不替代场景清单，也不将其他场景尚未准备的工具算作当前场景的阻塞。
 
@@ -70,7 +70,7 @@ python3 PLUGIN_SOURCE/scripts/tool_setup.py --scene execute --include github-del
 
 - **基础必需**：执行本地任务的 Codex、可读取的插件目录、Python 3.10+、可写且有足够空间的数据目录；记录机器与操作系统，确定哪些浏览器、文件和网络可从这台机器访问。
 - **已有默认**：数据目录按 `--data-dir`、`BUG_WORKBENCH_DATA`、`PLUGIN_DATA`、`~/.local/share/bug-workbench` 依次选择，必须位于插件源码与安装缓存之外。插件更新复用同一数据目录。
-- **操作**：执行模式运行 `python3 PLUGIN_SOURCE/scripts/workbench.py init`，再运行 `doctor`；将 `PLUGIN_SOURCE` 换为实际插件目录。`init` 创建配置、Bug 档案和工具目录，保留已有配置。
+- **操作**：执行模式运行 `python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py init`，再运行 `doctor`；将 `PLUGIN_SOURCE` 换为实际插件目录。`init` 创建配置、Bug 档案和工具目录，保留已有配置。
 - **完成标准**：执行目录明确，Python 可用，配置可读取，数据目录可写；记录 `doctor` 原始结果。初始化本身不拉代码或开启连接。
 
 ## 2. 核对公共工具与安装条件
@@ -83,9 +83,9 @@ python3 PLUGIN_SOURCE/scripts/tool_setup.py --scene execute --include github-del
 ## 3. 接入飞书 Bug 表
 
 - **能力必需**：表格链接、Base/Table 标识、实际字段类型及映射、三个状态/视图，以及执行身份和认证入口；该身份需要读取表格/记录/附件、创建与更新 Bug、上传附件并回填报告的权限。
-- **已有默认**：用户指定的「Bug 列表」、真实字段和三个状态已在配置中，默认 `user` 身份。字段覆盖标题、描述、日志、附件、流程状态及 [独立报告字段](../../references/report-fields.md)，另有预览地址、PR 和修复证据。旧配置须先读取本表实际字段再补齐报告映射，保留所有其他设置；更换表格时重新解析字段和视图。
+- **已有默认**：用户指定的「Bug 列表」、真实字段和三个状态已在配置中，默认 `user` 身份。字段覆盖标题、描述、日志、附件、流程状态及 [独立报告字段](references/report-fields.md)，另有预览地址、PR 和修复证据。旧配置须先读取本表实际字段再补齐报告映射，保留所有其他设置；更换表格时重新解析字段和视图。
 - **待确定**：共享给其他使用者时，确定其飞书身份与授权方式；共享插件本身不授予表格权限。CLI、宿主工具或 MCP 的具体认证材料按所选入口要求准备，不能一律要求 App ID/Secret。
-- **操作**：按 [飞书命令适配](../../references/configuration.md#飞书命令适配) 发现帮助，核对身份、字段与访问范围。仅更新已映射字段，独立报告字段保留人工修改；认证材料留在工具存储中。
+- **操作**：按 [飞书命令适配](references/configuration.md#飞书命令适配) 发现帮助，核对身份、字段与访问范围。仅更新已映射字段，独立报告字段保留人工修改；认证材料留在工具存储中。
 - **完成标准**：实际只读访问成功才标记读取已验证；记录写入、附件读取与上传各自的权限/验证状态。未执行写入时保留“写入待验证”，不用试建 Bug 代替检查。
 
 ### 报告字段映射（必须核对）
@@ -105,31 +105,31 @@ python3 PLUGIN_SOURCE/scripts/tool_setup.py --scene execute --include github-del
 | QA/RD沟通 | `dialogue` |
 | 待核实与阻塞 | `open_items` |
 
-`analysis_report` 沿用原「原因分析」字段 ID，只保留根因正文。旧配置只补齐实际核实的映射，保留表格、仓库、日志路径、认证和其他个人设置。字段不存在时，按用户已授权的表格调整范围创建或登记缺口；不未经授权改名、建字段或迁移旧记录。旧记录混合报告先保存原始材料，按用户指定记录逐条迁移并保留人工内容，不能批量推断或覆盖历史 Bug。详细职责见 [报告字段契约](../../references/report-fields.md)。
+`analysis_report` 沿用原「原因分析」字段 ID，只保留根因正文。旧配置只补齐实际核实的映射，保留表格、仓库、日志路径、认证和其他个人设置。字段不存在时，按用户已授权的表格调整范围创建或登记缺口；不未经授权改名、建字段或迁移旧记录。旧记录混合报告先保存原始材料，按用户指定记录逐条迁移并保留人工内容，不能批量推断或覆盖历史 Bug。详细职责见 [报告字段契约](references/report-fields.md)。
 
 ## 4. 准备两个仓库的共享缓存
 
 - **能力必需**：两个仓库 URL、`main` 分支、Git、执行机器对两仓库的读取权限、GitHub 网络，以及可写的缓存/worktree 目录和磁盘空间。
 - **已有默认**：`tutti-lab/tutti`、`tutti-lab/tutti-server`；缓存为数据目录内的 `repositories/tutti.git`、`repositories/tutti-server.git`。
 - **条件项**：已有本地仓库路径仅用于首次预热；Git LFS/submodule、编译和测试依赖按实际仓库要求准备。执行修复并提交 PR 时另需推送/PR 权限，读取源码不要求这些权限。
-- **操作**：Setup 保存并检查缓存配置；用户要求预热或开始分析时才按 [代码缓存](../../references/repository-cache.md) 同步。每轮增量获取最新 main、固定两个 SHA，在 `codex/<场景摘要>` 分支创建隔离 worktree。
+- **操作**：Setup 保存并检查缓存配置；用户要求预热或开始分析时才按 [代码缓存](references/repository-cache.md) 同步。每轮增量获取最新 main、固定两个 SHA，在 `codex/<场景摘要>` 分支创建隔离 worktree。
 - **完成标准**：配置完成与远端访问验证分别报告；两仓库都成功获取后才标记本轮 main 已更新。已有开发目录及未提交修改保持完整。
 
 ## 5. 准备 tutti-ops CLI
 
 - **场景范围**：完整初始化与 `investigate` 准备 tutti-ops，用于提 Bug 结束后的 session 上传；其他场景仅在实际任务需要 Computer/Server 能力时准备对应入口。
 - **基础准备项**：可用的已有 tutti-ops；缺少时需要第 2 步的 Node/npm、全局安装目录写权限及 npm 网络。自定义命令/安装方式需先核对差异。
-- **操作**：执行模式运行 `python3 PLUGIN_SOURCE/scripts/workbench.py setup-tutti-ops --install`；复用已有安装，缺少时按用户指定的 `npm install -g @tutti-os/tutti-ops-cli` 安装。失败保存诊断，不自动使用 sudo 或修改全局前缀。
-- **完成标准**：实际入口可执行，保存安装版本/路径。完整初始化或 `investigate` 按 [session 命令检查](../../references/session-upload.md#1-核对-cli目标与权限) 保存结果；已核对的发布版本为 0.1.7，旧版命令缺失时按该页升级再核对。该包版本从对应 `package.json` 读取，不能假定支持根级 `--version`。全体安装阶段结束后核对选中能力的身份与权限；session 上传需 diagnostics write 与 `session_logs.write`，实际上传留到提 Bug 结束节点。需要 Computer 能力时继续第 9 步的目录只读检查，具体召回按 Bug 目标另行验证。命令帮助、dry-run、权限清单与实际上传分别记录。
+- **操作**：执行模式运行 `python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py setup-tutti-ops --install`；复用已有安装，缺少时按用户指定的 `npm install -g @tutti-os/tutti-ops-cli` 安装。失败保存诊断，不自动使用 sudo 或修改全局前缀。
+- **完成标准**：实际入口可执行，保存安装版本/路径。完整初始化或 `investigate` 按 [session 命令检查](references/session-upload.md#1-核对-cli目标与权限) 保存结果；已核对的发布版本为 0.1.7，旧版命令缺失时按该页升级再核对。该包版本从对应 `package.json` 读取，不能假定支持根级 `--version`。全体安装阶段结束后核对选中能力的身份与权限；session 上传需 diagnostics write 与 `session_logs.write`，实际上传留到提 Bug 结束节点。需要 Computer 能力时继续第 9 步的目录只读检查，具体召回按 Bug 目标另行验证。命令帮助、dry-run、权限清单与实际上传分别记录。
 
 ## 6. 接入 Web 日志与截图页面识别
 
 - **能力必需**：目标环境/页面地址，已部署原生 `get_web_logs` 的页面版本，匹配现场 Account 的登录态，浏览器 WebMCP 能力/站点允许，以及已授权的浏览器桥。
 - **浏览器桥必需能力**：列出可访问页面、发现所选页面原生工具、执行并返回结果；配置 `browser_bridge.kind` 与实际 `list_pages_tool`、`list_tools_tool`、`execute_tool`。MCP 桥还需要第 12 步的服务器接入。
-- **先发现再判缺口**：空配置与 doctor 的配置检查不证明当前会话无访问能力。按 [宿主浏览器能力发现](../../references/web-logs.md#宿主浏览器能力发现与-cdp-路径) 检查已授权宿主工具和标签页 capabilities；支持时可复用 CDP 调用原生只读工具。先读取工具文档并遵守本轮授权及 AGENTS.md；实际入口、API 路径、发现与读取结果分别保存，不虚构配置工具名或设置用户手势覆盖。
+- **先发现再判缺口**：空配置与 doctor 的配置检查不证明当前会话无访问能力。按 [宿主浏览器能力发现](references/web-logs.md#宿主浏览器能力发现与-cdp-路径) 检查已授权宿主工具和标签页 capabilities；支持时可复用 CDP 调用原生只读工具。先读取工具文档并遵守本轮授权及 AGENTS.md；实际入口、API 路径、发现与读取结果分别保存，不虚构配置工具名或设置用户手势覆盖。
 - **页面标识**：截图水印已在 Tutti PR #2529 移除，页面由 QA 在「设置 → 诊断」复制的 WebMCP 连接链接（或「设置 → 实验室」的页面诊断 ID）确定，属于每条 Bug 的材料，无需准备解码工具。
 - **待确定**：浏览器桥如何提供、由谁授权、如何覆盖 QA 所在机器。Tutti 原生 WebMCP 没有可直接填写的 HTTP MCP URL；RD 本机的桥也不能自动读取 QA 另一台机器的页面日志。
-- **操作**：按 [Web 日志与启用截图](../../references/web-logs.md) 发现并验证；需要时指导启用 **WebMCP for testing**。桥暂缺时记录接入条件，兼容方式可采用现场诊断导出附件，由维护方决定准备方式。
+- **操作**：按 [Web 日志与启用截图](references/web-logs.md) 发现并验证；需要时指导启用 **WebMCP for testing**。桥暂缺时记录接入条件，兼容方式可采用现场诊断导出附件，由维护方决定准备方式。
 - **完成标准**：工具安装、浏览器授权、页面版本、页面匹配和日志读取分别记录；成功读取匹配页面并保存每次参数、查询起止、记录实际覆盖和截断信息，才标记该来源已验证。工具可用不代表取得完整日志。
 
 ## 7. 准备 Computer 目录与本机身份核对
@@ -137,14 +137,14 @@ python3 PLUGIN_SOURCE/scripts/tool_setup.py --scene execute --include github-del
 - **能力必需**：能够查询正确账号/环境下真实设备候选的入口；优先使用第 6 步已授权页面的 `list_my_computers`、`list_rooms`、`list_room_agents`，共享 Agent 需要房间目录。
 - **替代入口**：已有实际管理环境与权限时，可使用 tutti-ops 的设备列表/详情；它的身份与可见范围分别记录。
 - **本机条件项**：已有 `tutti-computer` 的只读 `status --json` 能力，或其他可信绑定证据，用于取得并核对本机 Computer 身份。此命令不是所有机器一律要求安装的公共依赖。
-- **操作**：按 [Computer 定位](../../references/computer-target.md) 核对目录工具 schema、本机状态与权限；每条 Bug 再根据故障请求和目录结果确定目标。
+- **操作**：用一个 WebMCP 连接链接实际调用 `tutti-diagnostics.list_computer_candidates`，确认目录可读；本机运行 `tutti-computer status --json` 核对本机身份；每条 Bug 再根据故障请求和目录结果确定目标。
 - **完成标准**：目录入口及其可见范围有实际证据；本机身份核对方式明确。目录可见不能当作日志召回授权，当前选中的设备不能代替故障时的目标。
 
 ## 8. 配置本地 Computer 日志
 
 - **本机场景必需**：经确认的明确文件路径、执行账号读取权限、实际 Computer 状态目录，以及目标与执行机器一致的绑定证据；读取临时诊断时还需实际 `TMPDIR`/`TEMP` 目录。
 - **已核对的 Mac 路径候选**：`~/.tutti-amp/computer/logs/companion.log`、`~/.tutti-amp/computer/logs/desktopd.log`、`~/.tutti-amp/computer/logs/runtime-host.log`、`${TMPDIR}/tutti-codex-appserver-startup.jsonl`。当前机器已保存确认路径；分发配置留空，新机器按实际状态目录确认，路径不绑定个人用户名。
-- **条件项**：需要旧时间段、崩溃或其他系统时，再核对实际轮转文件、崩溃报告及系统路径，见 [Computer 日志](../../references/computer-logs.md)。
+- **条件项**：需要旧时间段、崩溃或其他系统时，再核对实际轮转文件、崩溃报告及系统路径，见 [Computer 日志](references/computer-logs.md)。
 - **操作**：写入 `computer-local.paths`，解析便携路径并检查文件存在与可读；实际采集限定已确认目标和相关时间范围。
 - **完成标准**：路径配置、文件存在、读取权限和目标关联分别报告。`doctor` 只检查路径形状，不能代替实际读取。
 
@@ -153,17 +153,17 @@ python3 PLUGIN_SOURCE/scripts/tool_setup.py --scene execute --include github-del
 - **远端场景必需**：实际目标 API origin/环境、由环境维护方在对应管理端取得的 Token，以及设备查询、召回任务查询/下载链接权限；无可复用日志包时另需创建召回权限。使用前核对部署支持的召回协议。
 - **设备执行条件**：新召回需要目标 Computer 能接收并处理任务；离线、版本不支持或期限届满分别记录。读取已完成历史包时单独核对其可下载状态与时间覆盖。
 - **下载条件**：已授权的 HTTPS 下载工具、可写的 Bug 证据目录、SHA-256 校验与安全解包能力；当前 Tutti main 生成 tar.gz 包和 `manifest.json`，现场格式按实际版本核对。可复用现有工具，无需固定要求新装某个全局下载器。
-- **认证准备**：复用与目标 origin 匹配且有效的本机 Token；缺少或失效时，由环境维护方在管理端获取，再通过 `configure-tutti-token` 在本机隐藏输入、验证并保存，按 [Token 配置与权限验证](../../references/tutti-ops-computer-logs.md#环境与认证) 完成只读检查。Token 保存在维护侧认证存储中，QA 对话只接收必要的现场问题。
+- **认证准备**：复用与目标 origin 匹配且有效的本机 Token；缺少或失效时，由环境维护方在管理端获取，再通过 `configure-tutti-token` 在本机隐藏输入、验证并保存，按 [Token 配置与权限验证](references/tutti-ops-computer-logs.md#环境与认证) 完成只读检查。Token 保存在维护侧认证存储中，QA 对话只接收必要的现场问题。
 - **已确认入口**：管理端为 `https://admin.tutti.sh`；Token 在该管理端获取，命令显式使用此地址；tutti-ops 0.1.7 将其归一化到 API origin `https://tutti.sh`，其他版本按实际实现核对。其他环境另行核对其地址和认证。
 - **待确定**：新使用者的管理端账号、Token 获取权限与业务访问范围；CLI 不依赖 MCP，选择远端 MCP 时另需真实工具/schema 和第 12 步。
-- **操作**：按 [tutti-ops 获取日志](../../references/tutti-ops-computer-logs.md) 核对已安装能力；完整初始化或选择远端能力时，先检查身份与权限；缺少或失效则立即提供管理端入口并准备 `configure-tutti-token` 的本机隐藏输入，直接验证并保存 Token，完成后查询权限与设备目录。Setup 不为试权限创建召回；具体 Bug 再定位目标、复用或创建任务、下载、校验、解包并读取。
+- **操作**：按 [tutti-ops 获取日志](references/tutti-ops-computer-logs.md) 核对已安装能力；完整初始化或选择远端能力时，先检查身份与权限；缺少或失效则立即提供管理端入口并准备 `configure-tutti-token` 的本机隐藏输入，直接验证并保存 Token，完成后查询权限与设备目录。Setup 不为试权限创建召回；具体 Bug 再定位目标、复用或创建任务、下载、校验、解包并读取。
 - **完成标准**：CLI、环境、管理端 Token 准备及有效性、目录读取、历史包读取、新召回权限分别报告。实际包已下载且读完后才说明取得日志；taskId 和下载链接本身不满足该条件。
 
 ## 10. 准备 AWS CLI，按需接入 AWS 日志
 
 - **场景范围**：完整初始化保留 CLI 准备；场景工具 Setup 在选择 AWS 日志来源后执行，并处理认证缺口。
 - **基础准备项**：已有 AWS CLI v2；缺少时需要受支持的操作系统、官方下载安装网络、可写的当前用户安装位置，以及 macOS/Linux 的 Bash 或 Windows 的 PowerShell。其他系统依赖按官方安装器反馈核对。
-- **操作**：执行模式按 [AWS CLI 安装](../../references/aws-cli.md) 运行 `setup-aws-cli --install`，复用已有 v2；新安装使用配置中的官方固定版本，核对安装脚本摘要与最终版本，保存实际入口和非秘密 profile/region。
+- **操作**：执行模式按 [AWS CLI 安装](references/aws-cli.md) 运行 `setup-aws-cli --install`，复用已有 v2；新安装使用配置中的官方固定版本，核对安装脚本摘要与最终版本，保存实际入口和非秘密 profile/region。
 - **AWS 日志条件项**：确认日志实际在 AWS 后，需要目标账号/环境、实际区域、日志服务/日志组、查询读取权限及适用的 SSO/CLI 身份；采用特定 profile 时需其配置。默认 `profile: null` 复用当前凭证链，`us-east-1` 仅是参考区域。
 - **授权时机**：完整初始化或选中 AWS 时运行 `setup-aws-cli --check-auth`；缺少或过期时按实际凭证来源发起登录，完成本人操作后复查。首次 SSO 配置缺少必要输入时具体询问，不猜账号、profile 或登录地址。身份成功后只读验证已确认的日志来源；未提供业务目标时明确其尚未验证。AWS MCP 仅按明确选择接入。
 - **完成标准**：工具安装、身份验证、业务日志访问分别记录；STS 成功不等于日志可读。CLI 可用后仅清理由旧插件创建且未被改动的 AWS MCP，其他连接保留。
@@ -197,6 +197,6 @@ python3 PLUGIN_SOURCE/scripts/tool_setup.py --scene execute --include github-del
 
 ## 自动触发的后续条件（本版未实现）
 
-手动工作流不要求这些条件。要实现“QA 保存记录后自动运行”，另需飞书事件来源及授权、包含记录标识/变更来源的事件、投递或订阅方式、能常驻并执行本地任务的服务，以及同一 Bug 串行执行、去重/过滤自身回填、重试恢复和可信 RD 批准来源；由后续流程服务承担，契约见 [工作流与交接](../../references/workflow.md)。
+手动工作流不要求这些条件。要实现“QA 保存记录后自动运行”，另需飞书事件来源及授权、包含记录标识/变更来源的事件、投递或订阅方式、能常驻并执行本地任务的服务，以及同一 Bug 串行执行、去重/过滤自身回填、重试恢复和可信 RD 批准来源；由后续流程服务承担，契约见 [工作流与交接](references/workflow.md)。
 
 将这些标为未来接入需求，取得具体方案后再实现。Setup 完成不代表已启用事件监听。Computer ID、故障时间/时区、页面 ID、召回任务及单条验收标准由每条 Bug 分析时取得，不列为全局 Setup 必填。
