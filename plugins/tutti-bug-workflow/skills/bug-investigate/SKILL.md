@@ -73,6 +73,8 @@ description: QA Bug 上报与根因分析：接收新 Bug、登记问题、补�
 
 ### 使用 WebMCP 的执行规则（必须执行）
 
+用户粘贴 WebMCP 连接链接或 `web-diagnostics:…` ID 时，优先自动调用插件 `tutti-diagnostics.collect_web_logs`，固定原提问前 10 分钟并保存 `web-logs.log`，然后上传和回读附件。插件通过官方 Chrome MCP 调用本机页面原生 WebMCP，不使用 Browser Use 或 UI 自动化；Chrome 需要启用 WebMCP 并允许远程调试连接。新版页面日志无需脱敏。具体见 [本机 Chrome WebMCP](../../references/web-logs.md#首选本机-chrome-webmcp)。
+
 1. **先匹配现场**：核对截图、Account、房间／会话、故障时间与标签页；有水印时匹配工具描述及结果中的页面 ID。没有水印时保存其他关联依据及限制，不把相同 URL 当作同一页面。
 2. **先发现能力再判阻塞**：读取当前宿主工具文档，检查已授权浏览器的页面发现、原生工具发现及执行能力。`browser_bridge` 空配置或 `doctor` 提示未配置，不能直接证明当前会话不能访问；宿主支持时可按 [已验证的 CDP 路径](../../references/web-logs.md#宿主浏览器能力发现与-cdp-路径) 调用。遵守本轮浏览器操作授权和适用 AGENTS.md，不绕过权限或伪造用户手势。
 3. **执行固定窗口采集**：读取实际 `get_web_logs` 描述、schema 与只读标记，保存提出本次问题的时间及来源，固定提问前 10 分钟。省略 level、设置 limit 200，查询能覆盖固定窗口的最小受支持范围，再截取目标页面／Account 的全部保留记录；不能用采集时间取代提问时间，也不能仅筛关键事件。按 [固定流程](../../references/web-logs.md#固定流程提问前-10-分钟--单个-log-附件) 处理延迟、截断、聚合边界和历史缺口；额外假设查询另记用途。

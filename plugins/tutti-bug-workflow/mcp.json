@@ -1,4 +1,12 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
-  "mcpServers": {}
+  "mcpServers": {
+    "tutti-diagnostics": {
+      "command": "node",
+      "args": [
+        "${PLUGIN_ROOT}/scripts/diagnostics-mcp.mjs"
+      ],
+      "type": "stdio"
+    }
+  }
 }

@@ -26,7 +26,7 @@ QA 每轮更新两个最新 main，RD 与执行读取交接的固定基线；工
 | `approval` | 可信消息读取 + 本地 `check-execution` | 复用飞书/直接用户消息来源、Python 检查脚本 | 每条 Bug 核对真实 RD 批准与方案版本；本地一致性不证明身份 |
 | `project-checks` | 项目实际运行时、依赖与测试工具 | 读取对应 checkout 的 AGENTS.md、开发说明、锁文件和检查命令后准备 | 相关测试/类型检查/lint 实际通过；环境阻塞与测试失败分开记录 |
 | `browser-validation` | Playwright、浏览器 MCP 或宿主浏览器工具 | 选一个实际入口，准备浏览器、环境 URL、证据输出和版本读取方法 | 登录态、测试数据及所需交互权限；执行验收用例并保存证据 |
-| `web-logs` | 能转发原生 WebMCP 的浏览器桥 | 页面发现/工具发现/执行三个能力；桥为 MCP 时再注册服务 | 匹配现场账号和页面，成功调用 `get_web_logs`；QA 异机需要其侧授权入口 |
+| `web-logs` | 插件自带 tutti-diagnostics → 官方 Chrome MCP → 本机原生 WebMCP | Node/npx；Chrome WebMCP、remote debugging 与连接授权；旧宿主入口作为兼容 | 根据复制引用或 ID 唯一匹配账号和页面，实际调用 get_web_logs；QA 异机需在其侧运行或导出 |
 | `screenshot-decoder` | Tutti 仓库水印解码脚本 | Node 24+、按 checkout 要求的 pnpm/锁文件准备 sharp 及原生依赖 | 原始截图可读；区分依赖缺失、无水印与识别成功 |
 | `computer-directory` | 页面目录；或 tutti-ops 管理目录 | 页面 `list_my_computers`/`list_rooms`/`list_room_agents`；选管理 CLI 时同时启用 `remote-computer` 的 CLI 准备 | 正确账号/环境的目录可见范围；本机身份另用状态命令或可信绑定证据 |
 | `local-computer` | 明确路径的本地日志读取 | 复用文件工具；实际状态目录、临时目录与日志路径 | 本机身份匹配与文件读取权限；实际覆盖时间/轮转情况 |

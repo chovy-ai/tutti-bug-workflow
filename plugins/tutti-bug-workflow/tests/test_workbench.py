@@ -141,6 +141,18 @@ class WorkbenchTests(unittest.TestCase):
         self.save_config(cfg)
         self.assertFalse(self.run_cli("doctor")["integrations_configured"]["logs"])
 
+    def test_shipped_diagnostics_mcp_requires_no_browser_bridge_and_does_not_claim_live_access(self):
+        cfg = self.config()
+        cfg["log_sources"] = [{"name": "web-chrome", "transport": "chrome-webmcp", "environment": "local_chrome",
+                               "mcp_server": "tutti-diagnostics", "tool": "collect_web_logs"}]
+        self.save_config(cfg)
+        report = self.run_cli("doctor")
+        self.assertTrue(report["integrations_configured"]["logs"])
+        self.assertEqual(report["log_sources"][0]["source_access"], "not_checked")
+        cfg["log_sources"][0]["mcp_server"] = "unknown"
+        self.save_config(cfg)
+        self.assertFalse(self.run_cli("doctor")["integrations_configured"]["logs"])
+
     def test_native_webmcp_requires_a_browser_bridge_and_does_not_claim_access(self):
         cfg = self.config()
         source = {"name": "web", "transport": "browser-webmcp", "environment": "test",
@@ -219,7 +231,16 @@ class WorkbenchTests(unittest.TestCase):
         self.assertEqual(report["connections"], "not_checked")
         portable = json.loads((source / "mcp.json").read_text())
         legacy = json.loads((source / ".mcp.json").read_text())
-        self.assertEqual(portable["mcpServers"], cfg["mcp_servers"])
+        self.assertEqual({name: value for name, value in portable["mcpServers"].items()
+                          if name != "tutti-diagnostics"}, cfg["mcp_servers"])
+        self.assertEqual(portable["mcpServers"]["tutti-diagnostics"]["args"],
+                         ["${PLUGIN_ROOT}/scripts/diagnostics-mcp.mjs"])
+        self.assertEqual(legacy["mcpServers"]["tutti-diagnostics"]["command"], "node")
+        cfg["mcp_servers"] = {}
+        self.save_config(cfg)
+        self.run_cli("configure-mcp", "--output-dir", str(source))
+        self.assertEqual(set(json.loads((source / "mcp.json").read_text())["mcpServers"]),
+                         {"tutti-diagnostics"})
         self.assertEqual(legacy["mcpServers"]["web"], {"url": "http://127.0.0.1:8123/mcp"})
 
     def test_cli_refuses_unpinned_install(self):

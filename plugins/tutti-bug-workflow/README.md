@@ -1,6 +1,6 @@
 # tutti-bug-workflow
 
-版本：0.1.37。运行方式：Codex 本地会话。三个业务场景通过同一份 Bug 档案交接，公共初始化 Skill 准备配置与依赖。
+版本：0.1.38。运行方式：Codex 本地会话。三个业务场景通过同一份 Bug 档案交接，公共初始化 Skill 准备配置与依赖。
 
 | 入口 | 工作内容 |
 |---|---|
@@ -85,9 +85,9 @@ python3 PLUGIN_SOURCE/scripts/workbench.py new-bug --bug-id BUG-001
 
 AWS CLI 使用专用官方安装器，新安装固定版本，核对安装脚本摘要和最终版本，详见 [AWS CLI 安装与日志读取](references/aws-cli.md)。tutti-ops 使用用户指定的全局 npm 安装方式，要求 Node.js >=20 和 npm，详见 [tutti-ops 准备与使用](references/tutti-ops-computer-logs.md)。其他 CLI 先填写可信 npm 包名与精确版本，再显式调用 `install-cli`；通用私有 npm 安装器不运行包的安装脚本，其他原生工具按实际安装方法适配。
 
-插件内的 MCP 配置目前为空；AWS 默认使用 CLI。确认 CLI 可用后，仅清理由旧插件创建且未被改动的 AWS MCP，保留其他连接。AWS MCP 仅在用户明确要求恢复时按 [兼容接入](references/aws-mcp.md) 配置。其他 MCP 填写真实服务后使用 `configure-mcp --config CONFIG --output-dir PLUGIN_SOURCE` 生成配置，再通过安装流程更新插件。配置生成不代表服务已经部署、登录或连接成功。
+插件内包含本机 `tutti-diagnostics` stdio MCP；AWS 默认使用 CLI。确认 CLI 可用后，仅清理由旧插件创建且未被改动的 AWS MCP，保留其他连接。AWS MCP 仅在用户明确要求恢复时按 [兼容接入](references/aws-mcp.md) 配置。其他 MCP 填写真实服务后使用 `configure-mcp --config CONFIG --output-dir PLUGIN_SOURCE` 生成配置（保留插件自带 tutti-diagnostics），再通过安装流程更新插件。配置生成不代表服务已经部署、登录或连接成功。
 
-WebMCP 先检查已授权宿主浏览器的真实能力；配置为空时仍可按 [宿主发现与 CDP 路径](references/web-logs.md#宿主浏览器能力发现与-cdp-路径) 验证。分析 Skill 明确页面匹配、按假设查询、逐次覆盖与截断判断、DOM／Computer 因果证据及保存规则。
+新版页面日志优先通过插件自带本机 Chrome WebMCP 接入；旧部署或其他宿主可按 [宿主发现与 CDP 路径](references/web-logs.md#宿主浏览器能力发现与-cdp-路径) 验证。分析 Skill 明确页面匹配、按假设查询、逐次覆盖与截断判断、DOM／Computer 因果证据及保存规则。
 
 判断需要 Web 日志后，Agent 本轮自动结合用户截图匹配页面，固定提出本次问题的时间，读取此前 10 分钟目标页面／Account 的全部保留级别记录。WebMCP 逐条返回的内容归并为单个 `web-logs.log`，已有诊断文件／包保留原样，上传到同一条 Bug 后回读；必要时读取可见 DOM。无需 QA 再次询问或重复确认已有授权。采集延迟时扩展查询后按固定窗口核对，截断或历史缺口如实记录并补采；只有实际权限、目标或原现场材料缺口才提出必要问题。详见 [固定流程](references/web-logs.md#固定流程提问前-10-分钟--单个-log-附件)。
 
@@ -97,7 +97,9 @@ WebMCP 首次启用时，按 [带截图的启用与授权引导](references/web-
 
 ## 当前接入范围
 
-飞书表格、字段和三个视图已绑定，并在本机通过 user 身份读取验证。两仓库 URL 与 main 分支已配置。Web 日志复用 [PR #2341](https://github.com/tutti-lab/tutti/pull/2341) 的原生 `get_web_logs` 与截图页面识别，需已授权浏览器桥访问目标标签页；已提供识别失败时的启用/授权引导及历史诊断导出方案，见 [Web 日志获取](references/web-logs.md)。本地 computer 日志读取用户指定的明确文件路径；远端 computer 固定复用 Tutti 的日志召回流程，可使用 tutti-ops CLI 或实际 MCP 执行，见 [Computer 日志获取](references/computer-logs.md)。当前 Mac 已保存核实的三个本地主日志及 Codex 临时诊断路径，并记录轮转日志、VM 崩溃报告与导出漏收注意事项；其他机器需确认实际路径。本机 tutti-ops 已安装并完成离线能力核对，远端认证与真实日志采集尚待验证；本机已通过宿主 Chrome CDP 发现并执行原生 WebMCP，取得匹配页面的日志与现场 DOM；其他使用者的宿主能力、远端环境／权限及验证地址仍需分别核对。Skills 可复用当前 Codex 会话的本地工具与已连接 MCP；当前包没有自带飞书连接器、浏览器服务器或常驻调度服务。共享此包携带表格和仓库地址，不授予收件人访问权限，也不携带本机检出路径或凭证。
+0.1.38 新增本机 Chrome WebMCP 联动：Tutti「设置 → 诊断」复制 WebMCP 连接链接，贴给本地 Codex 后由插件自带 `tutti-diagnostics` 通过官方 Chrome MCP 唯一匹配页面，调用原生 `get_web_logs`，自动分页生成未脱敏的 `web-logs.log`。旧页面 ID 也可使用。只需 Web 和插件配套版本；Chrome 需启用 WebMCP 并允许调试连接，不需要 Server 或 Gateway 改动。不会修改已安装缓存或全局配置；源码测试通过不代表线上页面和安装包已更新。
+
+飞书表格、字段和三个视图已绑定，并在本机通过 user 身份读取验证。两仓库 URL 与 main 分支已配置。Web 日志复用 [PR #2341](https://github.com/tutti-lab/tutti/pull/2341) 的原生 `get_web_logs` 与截图页面识别，需已授权浏览器桥访问目标标签页；已提供识别失败时的启用/授权引导及历史诊断导出方案，见 [Web 日志获取](references/web-logs.md)。本地 computer 日志读取用户指定的明确文件路径；远端 computer 固定复用 Tutti 的日志召回流程，可使用 tutti-ops CLI 或实际 MCP 执行，见 [Computer 日志获取](references/computer-logs.md)。当前 Mac 已保存核实的三个本地主日志及 Codex 临时诊断路径，并记录轮转日志、VM 崩溃报告与导出漏收注意事项；其他机器需确认实际路径。本机 tutti-ops 已安装并完成离线能力核对，远端认证与真实日志采集尚待验证；本机已通过宿主 Chrome CDP 发现并执行原生 WebMCP，取得匹配页面的日志与现场 DOM；其他使用者的宿主能力、远端环境／权限及验证地址仍需分别核对。Skills 可复用当前 Codex 会话的本地工具与已连接 MCP；当前包包含只读 Web 日志的本机 Chrome MCP 接入，没有自带飞书连接器或常驻调度服务。共享此包携带表格和仓库地址，不授予收件人访问权限，也不携带本机检出路径或凭证。
 
 飞书事件触发、重试、事件去重、跨设备调度与可信 RD 审批属于后续流程服务，契约见 [工作流与交接](references/workflow.md)。本版 `check-execution` 只检查本地档案一致性；RD 身份与批准来源仍需通过实际飞书记录或直接用户消息核实。
 
@@ -109,7 +111,8 @@ WebMCP 首次启用时，按 [带截图的启用与授权引导](references/web-
 
 ```sh
 python3 PLUGIN_SOURCE/scripts/validate_plugin.py
-python3 -m unittest discover -s PLUGIN_SOURCE/tests -v
+python3 -m unittest discover -s PLUGIN_SOURCE/tests
+node --test PLUGIN_SOURCE/tests/diagnostics-mcp.test.mjs
 ```
 
 打包时包括根部 `plugin.json`、`mcp.json`、`skills/` 和隐藏兼容文件。排除业务数据、凭证、工具安装目录与缓存。
