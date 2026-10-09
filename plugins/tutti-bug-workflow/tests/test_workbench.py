@@ -231,7 +231,16 @@ class WorkbenchTests(unittest.TestCase):
         self.assertEqual(report["connections"], "not_checked")
         portable = json.loads((source / "mcp.json").read_text())
         legacy = json.loads((source / ".mcp.json").read_text())
-        self.assertEqual(portable["mcpServers"], cfg["mcp_servers"])
+        self.assertEqual({name: value for name, value in portable["mcpServers"].items()
+                          if name != "tutti-diagnostics"}, cfg["mcp_servers"])
+        self.assertEqual(portable["mcpServers"]["tutti-diagnostics"]["args"],
+                         ["${PLUGIN_ROOT}/scripts/diagnostics-mcp.mjs"])
+        self.assertEqual(legacy["mcpServers"]["tutti-diagnostics"]["command"], "node")
+        cfg["mcp_servers"] = {}
+        self.save_config(cfg)
+        self.run_cli("configure-mcp", "--output-dir", str(source))
+        self.assertEqual(set(json.loads((source / "mcp.json").read_text())["mcpServers"]),
+                         {"tutti-diagnostics"})
         self.assertEqual(legacy["mcpServers"]["web"], {"url": "http://127.0.0.1:8123/mcp"})
 
     def test_cli_refuses_unpinned_install(self):

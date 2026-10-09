@@ -85,9 +85,9 @@ python3 PLUGIN_SOURCE/scripts/workbench.py new-bug --bug-id BUG-001
 
 AWS CLI 使用专用官方安装器，新安装固定版本，核对安装脚本摘要和最终版本，详见 [AWS CLI 安装与日志读取](references/aws-cli.md)。tutti-ops 使用用户指定的全局 npm 安装方式，要求 Node.js >=20 和 npm，详见 [tutti-ops 准备与使用](references/tutti-ops-computer-logs.md)。其他 CLI 先填写可信 npm 包名与精确版本，再显式调用 `install-cli`；通用私有 npm 安装器不运行包的安装脚本，其他原生工具按实际安装方法适配。
 
-插件内包含本机 `tutti-diagnostics` stdio MCP；AWS 默认使用 CLI。确认 CLI 可用后，仅清理由旧插件创建且未被改动的 AWS MCP，保留其他连接。AWS MCP 仅在用户明确要求恢复时按 [兼容接入](references/aws-mcp.md) 配置。其他 MCP 填写真实服务后使用 `configure-mcp --config CONFIG --output-dir PLUGIN_SOURCE` 生成配置，再通过安装流程更新插件。配置生成不代表服务已经部署、登录或连接成功。
+插件内包含本机 `tutti-diagnostics` stdio MCP；AWS 默认使用 CLI。确认 CLI 可用后，仅清理由旧插件创建且未被改动的 AWS MCP，保留其他连接。AWS MCP 仅在用户明确要求恢复时按 [兼容接入](references/aws-mcp.md) 配置。其他 MCP 填写真实服务后使用 `configure-mcp --config CONFIG --output-dir PLUGIN_SOURCE` 生成配置（保留插件自带 tutti-diagnostics），再通过安装流程更新插件。配置生成不代表服务已经部署、登录或连接成功。
 
-WebMCP 先检查已授权宿主浏览器的真实能力；配置为空时仍可按 [宿主发现与 CDP 路径](references/web-logs.md#宿主浏览器能力发现与-cdp-路径) 验证。分析 Skill 明确页面匹配、按假设查询、逐次覆盖与截断判断、DOM／Computer 因果证据及保存规则。
+新版页面日志优先通过插件自带本机 Chrome WebMCP 接入；旧部署或其他宿主可按 [宿主发现与 CDP 路径](references/web-logs.md#宿主浏览器能力发现与-cdp-路径) 验证。分析 Skill 明确页面匹配、按假设查询、逐次覆盖与截断判断、DOM／Computer 因果证据及保存规则。
 
 判断需要 Web 日志后，Agent 本轮自动结合用户截图匹配页面，固定提出本次问题的时间，读取此前 10 分钟目标页面／Account 的全部保留级别记录。WebMCP 逐条返回的内容归并为单个 `web-logs.log`，已有诊断文件／包保留原样，上传到同一条 Bug 后回读；必要时读取可见 DOM。无需 QA 再次询问或重复确认已有授权。采集延迟时扩展查询后按固定窗口核对，截断或历史缺口如实记录并补采；只有实际权限、目标或原现场材料缺口才提出必要问题。详见 [固定流程](references/web-logs.md#固定流程提问前-10-分钟--单个-log-附件)。
 

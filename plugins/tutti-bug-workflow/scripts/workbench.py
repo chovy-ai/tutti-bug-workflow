@@ -18,6 +18,8 @@ from urllib.parse import urlparse
 from urllib.request import urlopen
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
+DIAGNOSTICS_MCP = {"type": "stdio", "command": "node",
+                   "args": ["${PLUGIN_ROOT}/scripts/diagnostics-mcp.mjs"]}
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}\Z")
 PACKAGE = re.compile(r"(?:@[a-z0-9_.-]+/)?[a-z0-9][a-z0-9_.-]*\Z")
 VERSION = re.compile(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?\Z")
@@ -951,6 +953,9 @@ def configure_mcp(args, root):
     manifest = read_json(target / "plugin.json")
     if manifest.get("name") != read_json(PLUGIN_ROOT / "plugin.json").get("name"):
         raise ValueError("Output must be this plugin's source directory.")
+    if "tutti-diagnostics" in servers and servers["tutti-diagnostics"] != DIAGNOSTICS_MCP:
+        raise ValueError("tutti-diagnostics is the plugin-owned local Chrome WebMCP entry.")
+    servers = {**servers, "tutti-diagnostics": DIAGNOSTICS_MCP}
     portable = {"$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json", "mcpServers": servers}
     legacy = {"mcpServers": {name: {key: value for key, value in server.items() if key != "type"}
                               for name, server in servers.items()}}
