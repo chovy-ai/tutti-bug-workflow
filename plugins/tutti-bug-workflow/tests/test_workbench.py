@@ -143,7 +143,7 @@ class WorkbenchTests(unittest.TestCase):
 
     def test_shipped_diagnostics_mcp_requires_no_browser_bridge_and_does_not_claim_live_access(self):
         cfg = self.config()
-        cfg["log_sources"] = [{"name": "web-remote", "transport": "diagnostics-mcp", "environment": "shared_page",
+        cfg["log_sources"] = [{"name": "web-chrome", "transport": "chrome-webmcp", "environment": "local_chrome",
                                "mcp_server": "tutti-diagnostics", "tool": "collect_web_logs"}]
         self.save_config(cfg)
         report = self.run_cli("doctor")

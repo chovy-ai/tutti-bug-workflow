@@ -457,12 +457,13 @@ def log_source_configured(source, cfg):
             or not source.get("environment")):
         return False
     transport = source.get("transport", "cli")
-    if transport == "diagnostics-mcp":
-        # The shipped stdio server consumes the ephemeral link per tool call;
-        # credentials are never saved into workstation configuration.
+    if transport == "chrome-webmcp":
+        # The shipped stdio server selects the local Chrome page per request;
+        # configuration presence does not prove Chrome permission or WebMCP support.
         return (source.get("mcp_server") == "tutti-diagnostics"
                 and source.get("tool") in ("get_web_logs", "collect_web_logs")
-                and (Path(__file__).resolve().parent / "diagnostics-mcp.mjs").is_file())
+                and all((Path(__file__).resolve().parent / file).is_file()
+                        for file in ("diagnostics-mcp.mjs", "chrome-webmcp.mjs")))
     if transport == "browser-webmcp":
         bridge = source.get("browser_bridge")
         if (source.get("tool") != "get_web_logs" or not isinstance(bridge, dict)
