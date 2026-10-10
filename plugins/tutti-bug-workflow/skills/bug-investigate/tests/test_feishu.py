@@ -101,6 +101,44 @@ class FeishuTests(unittest.TestCase):
         self.feishu("download", "--record-id", "rec1", "--name", "missing.zip",
                     "--output-dir", str(self.base / "dl"), expected=2)
 
+    def people_env(self):
+        users = [{"open_id": "ou_me", "localized_name": "韦超", "has_chatted": True},
+                 {"open_id": "ou_z1", "localized_name": "张三", "department": "Web", "has_chatted": True},
+                 {"open_id": "ou_z2", "localized_name": "张三丰", "department": "Server"},
+                 {"open_id": "ou_l1", "localized_name": "李四", "department": "QA"},
+                 {"open_id": "ou_l2", "localized_name": "李四", "department": "Ops"}]
+        config = json.loads((self.data / "config.json").read_text())
+        config["feishu"]["field_map"].update({"reporter": "fldReporter", "assignee": "fldAssignee"})
+        (self.data / "config.json").write_text(json.dumps(config))
+        return {**self.env, "FAKE_LARK_USERS": json.dumps(users)}
+
+    def test_reporter_is_the_logged_in_user_and_assignee_resolves_by_name(self):
+        env = self.people_env()
+        self.feishu("create", "--title", "T", "--description", "D", env=env)
+        self.assertEqual(self.record()["fldReporter"], [{"id": "ou_me"}])
+        result = self.feishu("assign", "--record-id", "rec1", "--name", "张三", env=env)
+        self.assertEqual((result["status"], result["assignee"]["open_id"]), ("assigned", "ou_z1"))
+        self.assertEqual(self.record()["fldAssignee"], [{"id": "ou_z1"}])
+
+    def test_assignee_ambiguous_missing_or_unknown_is_reported_not_written(self):
+        env = self.people_env()
+        self.feishu("create", "--title", "T", "--description", "D", env=env)
+        ambiguous = self.feishu("assign", "--record-id", "rec1", "--name", "李四", env=env)
+        self.assertEqual(ambiguous["status"], "ambiguous")
+        self.assertEqual({c["department"] for c in ambiguous["candidates"]}, {"QA", "Ops"})
+        missing = self.feishu("assign", "--record-id", "rec1", env=env)
+        self.assertEqual(missing["status"], "missing")
+        self.assertEqual({u["name"] for u in missing["suggestions"]}, {"韦超", "张三"})
+        unknown = self.feishu("assign", "--record-id", "rec1", "--name", "王五", env=env)
+        self.assertEqual((unknown["status"], unknown["candidates"]), ("not_found", []))
+        self.assertNotIn("fldAssignee", self.record())
+        self.assertEqual(len(self.feishu("suggest-users", env=env)["users"]), 2)
+
+    def test_person_fields_are_skipped_when_not_configured(self):
+        self.feishu("create", "--title", "T", "--description", "D")
+        self.assertNotIn("fldReporter", self.record())
+        self.feishu("assign", "--record-id", "rec1", "--name", "张三", expected=2)
+
     def test_cli_failures_are_explicit(self):
         failing = {**self.env, "FAKE_LARK_FAIL": "+record-upsert"}
         error = self.feishu("create", "--title", "T", "--description", "D", expected=2, env=failing)

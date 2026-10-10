@@ -6,6 +6,8 @@
 
 | 配置键 | 飞书字段 | 内容 | 拥有场景 |
 |---|---|---|---|
+| `reporter` | 提出人 | lark-cli 当前登录用户，建单时自动写入（人员字段，值为 `[{"id": "ou_..."}]`） | investigate |
+| `assignee` | 跟进人 | 用户在对话里指定的姓名，经 `contact +search-user` 唯一匹配后写入；不唯一或未指定时请用户指定，不猜 | investigate |
 | `analysis_conclusion` | 分析结论 | 已确认事实、初步判断与确认程度；区分代码复现和现场确认 | investigate |
 | `analysis_report` | 根因分析 | 触发条件、首个错误状态、因果链、影响范围；原则上两到四句 | investigate |
 | `investigation_evidence` | 排查验证 | 修复前测试、日志、断点、主复现路径与其他可达路径、验证命令与实际结果；区分推演与已执行并引用证据 | investigate |

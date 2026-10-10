@@ -7,6 +7,8 @@
     "table_name": "Bug 列表",
     "identity": "user",
     "field_map": {
+      "reporter": null,
+      "assignee": null,
       "title": "fldKVQlMaE",
       "description": "fldFMSSMBv",
       "logs": "fldMuKioHc",

@@ -18,7 +18,8 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
   | 自查项 | 必须有的结果 |
   |---|---|
-  | 飞书记录 | `record_id` 已建或已找回 |
+  | 飞书记录 | `record_id` 已建或已找回，提出人已填 |
+  | 跟进人 | 已写入；或已在回复中请用户指定 |
   | Web 日志 | `captured`／`partial`，或 `pending` 并写明缺什么 |
   | Computer 日志 | `captured`／`partial`／`blocked`，或 `pending` 并写明缺什么 |
   | 附件 | 已上传，`check_collection` 显示 `attached: true` |
@@ -35,13 +36,18 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 ## 1. 接收与建单
 
-1. 从 QA 消息整理：标题、期望与实际表现、复现步骤与频率、环境、发生时间与时区、截图／录屏（实际查看）、WebMCP 连接链接、QA 附带的 Web 诊断包（`tutti-web-diagnostics-*.zip`）。QA 原话、你已验证的事实、待验证的推断分开记。
+1. 从 QA 消息整理：标题、期望与实际表现、复现步骤与频率、环境、发生时间与时区、截图／录屏（实际查看）、WebMCP 连接链接、QA 附带的 Web 诊断包（`tutti-web-diagnostics-*.zip`）、用户指定的跟进人姓名（如「跟进人：张三」）。QA 原话、你已验证的事实、待验证的推断分开记。
 2. 固定 `question_time`：触发本次上报的消息时间（含时区的 ISO 8601）；拿不到时用你收到消息的时间并注明近似。本次排查内所有采集窗口都用它。
 3. 建单或找回：
    ```sh
    python3 scripts/feishu.py create --title "标题" --description @$TMP/description.md
    ```
-   已有同名记录时返回该记录（`action: existing`），不会重复建单。QA 已给出记录链接时直接使用其中的 `record_id`。新记录的流程状态自动为「bug单」。
+   已有同名记录时返回该记录（`action: existing`），不会重复建单。QA 已给出记录链接时直接使用其中的 `record_id`。新记录的流程状态自动为「bug单」，提出人自动填为 lark-cli 当前登录用户。
+4. 跟进人：
+   ```sh
+   python3 scripts/feishu.py assign --record-id REC --name "张三"   # 用户没指定时省略 --name
+   ```
+   只匹配到一人时写入并回读确认（`status: assigned`）。同名多人（`ambiguous`）、查不到（`not_found`）或用户没指定（`missing`）时不写入，返回候选或当前组织里常联系的人（`suggestions`），留到第 5 步请用户指定；不为此停下。也可以用 `feishu.py suggest-users --query 关键字` 按名字在组织里查人。
 
 建单后不回复 QA，直接进入第 2 步。
 
@@ -120,6 +126,7 @@ python3 scripts/feishu.py write --record-id REC \
 |---|---|
 | Web 诊断包 | 在出问题的那个浏览器、同一账号下打开 Tutti「设置 → 诊断」，「导出范围」选能覆盖问题发生时间的一档（例如最近 1 小时），点「导出日志」，把下载的 zip 发过来 |
 | 故障设备 | 从列出的候选（名称、平台、版本）里选当时用的那台；列不出候选时直接提供设备名称或 Computer ID |
+| 跟进人 | 未指定：「这条 Bug 由谁跟进？直接回复名字即可」，可附上 `suggestions` 里的几个常联系的人；同名多人：列出候选的姓名与部门，请用户选一位 |
 | 现场事实 | 只问 QA 能观察到、且会改变下一项验证的事实，例如操作顺序、是否稳定复现 |
 
 工具、权限、认证问题不问 QA，写进「待核实与阻塞」交给维护方。QA 回复后再次调用本 Skill，读取同一记录继续。

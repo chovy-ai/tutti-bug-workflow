@@ -68,6 +68,23 @@ class Feishu:
             raise LarkError(f"lark-cli {shortcut} failed: {error.get('message') or value}")
         return value.get("data") or {}
 
+    def contact(self, *arguments):
+        command = [self.command, "contact", "+search-user", "--as", "user", "--format", "json",
+                   "--exclude-external-users", *arguments]
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, timeout=120, check=False)
+            value = json.loads(result.stdout)
+        except (FileNotFoundError, json.JSONDecodeError):
+            raise LarkError("lark-cli contact +search-user failed or returned non-JSON.") from None
+        if result.returncode != 0 or value.get("ok") is not True:
+            raise LarkError(f"lark-cli contact +search-user failed: {(value.get('error') or {}).get('message') or value}")
+        return [{"open_id": user.get("open_id"), "name": user.get("localized_name"),
+                 "department": user.get("department") or None, "email": user.get("email") or user.get("enterprise_email") or None}
+                for user in (value.get("data") or {}).get("users") or [] if user.get("open_id")]
+
+    def configured(self, key):
+        return bool(self.fields.get(key))
+
     def read(self, record_id, keys):
         arguments = ["--record-id", record_id, "--format", "json"]
         for key in keys:
@@ -126,6 +143,11 @@ def create(args, client):
         return
     values = {client.field_id("title"): args.title,
               client.field_id("description"): text_value(args.description)}
+    if client.configured("reporter"):
+        me = client.contact("--user-ids", "me")
+        if len(me) != 1:
+            raise LarkError("Could not resolve the logged-in lark-cli user for 提出人.")
+        values[client.field_id("reporter")] = [{"id": me[0]["open_id"]}]
     stage = client.status_values.get("bug")
     if stage and "workflow_status" in client.fields:
         values[client.field_id("workflow_status")] = stage
@@ -230,14 +252,51 @@ def download(args, client):
              "file_token": matches[0]["file_token"]})
 
 
+def person_ids(value):
+    items = value if isinstance(value, list) else [value] if value else []
+    return {item.get("id") or item.get("open_id") for item in items if isinstance(item, dict)}
+
+
+def suggestions(client, query=None):
+    # People in the organisation the current user has chatted with, to offer as choices.
+    arguments = ["--query", query] if query else []
+    return client.contact(*arguments, "--has-chatted", "--page-size", "20")
+
+
+def assign(args, client):
+    if not client.configured("assignee"):
+        raise ValueError("field_map has no assignee (跟进人) field.")
+    if not args.name:
+        wb.emit({"record_id": args.record_id, "status": "missing",
+                 "message": "未指定跟进人，请用户回复跟进人的名字。", "suggestions": suggestions(client)})
+        return
+    matches = client.contact("--query", args.name)
+    exact = [user for user in matches if user["name"] == args.name]
+    chosen = exact if exact else matches
+    if len(chosen) != 1:
+        status = "ambiguous" if chosen else "not_found"
+        wb.emit({"record_id": args.record_id, "status": status, "name": args.name,
+                 "candidates": chosen, "suggestions": [] if chosen else suggestions(client)})
+        return
+    user = chosen[0]
+    client.upsert({client.field_id("assignee"): [{"id": user["open_id"]}]}, args.record_id)
+    if user["open_id"] not in person_ids(client.read(args.record_id, ["assignee"])["assignee"]):
+        raise LarkError("跟进人 read-back does not contain the assigned user.")
+    wb.emit({"record_id": args.record_id, "status": "assigned", "assignee": user, "verified": True})
+
+
+def suggest_users(args, client):
+    wb.emit({"users": suggestions(client, args.query)})
+
+
 def parser():
     result = argparse.ArgumentParser(description=__doc__)
     commands = result.add_subparsers(dest="operation", required=True)
-    for name in ("create", "read", "write", "attach", "download"):
+    for name in ("create", "read", "write", "attach", "download", "assign", "suggest-users"):
         command = commands.add_parser(name)
         command.add_argument("--data-dir")
         command.add_argument("--config")
-        if name != "create":
+        if name not in ("create", "suggest-users"):
             command.add_argument("--record-id", required=True)
         if name == "create":
             command.add_argument("--title", required=True)
@@ -250,6 +309,10 @@ def parser():
         if name == "attach":
             command.add_argument("--file", action="append", required=True)
             command.add_argument("--field", default="attachments")
+        if name == "assign":
+            command.add_argument("--name", help="跟进人姓名，由用户在对话里提供；缺省时返回建议名单。")
+        if name == "suggest-users":
+            command.add_argument("--query")
         if name == "download":
             command.add_argument("--name", required=True, help="Attachment file name on the record.")
             command.add_argument("--output-dir", required=True)
@@ -263,7 +326,7 @@ def main():
         root = wb.data_root(args)
         client = Feishu(wb.load_config(args, root))
         {"create": create, "read": read, "write": write, "attach": attach,
-         "download": download}[args.operation](args, client)
+         "download": download, "assign": assign, "suggest-users": suggest_users}[args.operation](args, client)
     except (ValueError, OSError, subprocess.TimeoutExpired) as error:
         wb.emit({"ok": False, "error": str(error)})
         return 2

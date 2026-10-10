@@ -9,6 +9,18 @@ import sys
 state_path = Path(os.environ["FAKE_LARK_STATE"])
 state = json.loads(state_path.read_text()) if state_path.exists() else {"records": {}, "next": 1, "calls": []}
 args = sys.argv[1:]
+if args[0] == "contact":
+    users = json.loads(os.environ.get("FAKE_LARK_USERS", "[]"))
+    def flag(name):
+        return args[args.index(name) + 1] if name in args else None
+    if flag("--user-ids") == "me":
+        found = [users[0]]
+    elif flag("--query"):
+        found = [u for u in users if flag("--query") in u["localized_name"]]
+    else:
+        found = [u for u in users if u.get("has_chatted")]
+    print(json.dumps({"ok": True, "data": {"users": found, "has_more": False}}))
+    sys.exit(0)
 assert args[0] == "base"
 shortcut = args[1]
 
