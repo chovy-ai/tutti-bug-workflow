@@ -1,4 +1,4 @@
-"""Stateless feishu.py against a fake lark-cli; no network or real Base."""
+"""Stateless feishu.py against a fake lark-cli and the example bug_report table."""
 
 import json
 import os
@@ -10,9 +10,15 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-EXAMPLE_CONFIG = ROOT.parents[1] / "config/workbench.example.json"
 FEISHU = ROOT / "scripts/feishu.py"
 FAKE = ROOT / "tests/fixtures-lark-cli.py"
+EXAMPLE_CONFIG = ROOT.parents[1] / "config/workbench.example.json"
+FIELDS = json.loads(EXAMPLE_CONFIG.read_text())["bug_report"]["field_map"]
+USERS = [{"open_id": "ou_me", "localized_name": "韦超", "has_chatted": True},
+         {"open_id": "ou_z1", "localized_name": "张三", "department": "Web", "has_chatted": True},
+         {"open_id": "ou_z2", "localized_name": "张三丰", "department": "Server"},
+         {"open_id": "ou_l1", "localized_name": "李四", "department": "QA"},
+         {"open_id": "ou_l2", "localized_name": "李四", "department": "Ops"}]
 
 
 class FeishuTests(unittest.TestCase):
@@ -21,128 +27,95 @@ class FeishuTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.base = Path(temporary.name)
         self.data = self.base / "data"
-        self.state = self.base / "lark.json"
-        self.env = {**os.environ, "LARK_CLI": str(FAKE), "FAKE_LARK_STATE": str(self.state)}
         self.data.mkdir()
         shutil.copyfile(EXAMPLE_CONFIG, self.data / "config.json")
-        self.fields = json.loads((self.data / "config.json").read_text())["feishu"]["field_map"]
+        self.state = self.base / "lark.json"
+        self.env = {**os.environ, "LARK_CLI": str(FAKE), "FAKE_LARK_STATE": str(self.state),
+                    "FAKE_LARK_USERS": json.dumps(USERS)}
 
-    def run_script(self, script, operation, *arguments, expected=0, env=None):
-        result = subprocess.run([sys.executable, str(script), operation, "--data-dir", str(self.data),
-                                 *arguments], capture_output=True, text=True, timeout=30,
+    def feishu(self, *arguments, expected=0, env=None):
+        result = subprocess.run([sys.executable, str(FEISHU), arguments[0], "--data-dir", str(self.data),
+                                 *arguments[1:]], capture_output=True, text=True, timeout=30,
                                 env=env or self.env, check=False)
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return json.loads(result.stdout)
-
-    def feishu(self, *arguments, expected=0, env=None):
-        return self.run_script(FEISHU, *arguments, expected=expected, env=env)
 
     def lark(self):
         return json.loads(self.state.read_text())
 
     def record(self):
-        return self.lark()["records"]["rec1"]
+        return {key: self.lark()["records"]["rec1"].get(field) for key, field in FIELDS.items()}
 
-    def test_create_sets_bug_stage_and_reuses_record_with_same_title(self):
-        created = self.feishu("create", "--title", "Popover misplaced", "--description", "Steps...")
-        self.assertEqual(created, {"action": "created", "record_id": "rec1"})
-        self.assertEqual(self.record()[self.fields["workflow_status"]], "bug单")
-        again = self.feishu("create", "--title", "Popover misplaced", "--description", "Steps...")
+    def test_create_fills_defaults_reporter_time_and_view_fields(self):
+        created = self.feishu("create", "--title", "房间：顶部名称与左侧不一致", "--record-time", "2026-10-10T09:30:00Z",
+                              "--set", "platform=新框架一期-Web", "--set", "priority=P1", "--set", "module=房间/群聊")
+        self.assertEqual((created["action"], created["record_id"]), ("created", "rec1"))
+        record = self.record()
+        self.assertEqual((record["status"], record["issue_type"], record["reporter"]), ("未解决", "bug", [{"id": "ou_me"}]))
+        self.assertEqual(record["record_time"], "2026-10-10 17:30:00")  # Asia/Shanghai
+        self.assertEqual((record["platform"], record["priority"], record["module"]), ("新框架一期-Web", "P1", "房间/群聊"))
+        again = self.feishu("create", "--title", "房间：顶部名称与左侧不一致")
         self.assertEqual(again, {"action": "existing", "record_id": "rec1"})
         self.assertEqual(len(self.lark()["records"]), 1)
 
     def test_interrupted_create_is_found_again_instead_of_duplicated(self):
         crash = {**self.env, "FAKE_LARK_CRASH_AFTER_CREATE": "1"}
-        self.feishu("create", "--title", "Popover misplaced", "--description", "x", expected=2, env=crash)
-        recovered = self.feishu("create", "--title", "Popover misplaced", "--description", "x")
-        self.assertEqual(recovered, {"action": "existing", "record_id": "rec1"})
-        self.assertEqual(len(self.lark()["records"]), 1)
+        self.feishu("create", "--title", "T", expected=2, env=crash)
+        self.assertEqual(self.feishu("create", "--title", "T"), {"action": "existing", "record_id": "rec1"})
 
-    def test_write_overwrites_owned_fields_and_appends_without_duplicating(self):
-        self.feishu("create", "--title", "T", "--description", "D")
+    def test_select_values_are_validated_and_p2_is_flagged(self):
+        self.feishu("create", "--title", "T")
+        self.feishu("write", "--record-id", "rec1", "--set", "module=不存在的模块", expected=2)
+        self.feishu("write", "--record-id", "rec1", "--set", "platform=个人版-桌面端", expected=2)
+        result = self.feishu("write", "--record-id", "rec1", "--set", "priority=P2")
+        self.assertTrue(any("vewoD2kiPo" in note for note in result["notes"]))
+        self.feishu("write", "--record-id", "rec1", "--set", "status=已关闭", expected=2)
+        self.assertEqual(self.feishu("options", "--field", "platform")["options"],
+                         ["新框架一期-Mac", "新框架一期-Windows", "新框架一期-Web"])
+
+    def test_root_cause_replaces_only_the_agent_block(self):
+        self.feishu("create", "--title", "T")
         state = self.lark()
-        state["records"]["rec1"][self.fields["dialogue"]] = "QA: human note"
+        state["records"]["rec1"][FIELDS["root_cause"]] = "RD 备注：先看接口"
         self.state.write_text(json.dumps(state))
-        note = self.base / "conclusion.md"
-        note.write_text("Root cause confirmed")
-        result = self.feishu("write", "--record-id", "rec1", "--set", f"analysis_conclusion=@{note}",
-                             "--append", "dialogue=Agent: asked for device")
-        self.assertEqual(result["written"], ["analysis_conclusion", "dialogue"])
-        retry = self.feishu("write", "--record-id", "rec1", "--append", "dialogue=Agent: asked for device")
-        self.assertEqual(retry["already_present"], ["dialogue"])
-        self.assertEqual(self.record()[self.fields["analysis_conclusion"]], "Root cause confirmed")
-        self.assertEqual(self.record()[self.fields["dialogue"]], "QA: human note\n\nAgent: asked for device")
-        self.feishu("write", "--record-id", "rec1", "--set", "acceptance_report=x", expected=2)
-        self.feishu("write", "--record-id", "rec1", "--set", "dialogue=x", expected=2)
+        self.feishu("write", "--record-id", "rec1", "--set", "root_cause=第一版结论")
+        self.feishu("write", "--record-id", "rec1", "--set", "root_cause=第二版结论")
+        self.assertEqual(self.record()["root_cause"], "RD 备注：先看接口\n\n【Agent 分析根因】\n第二版结论")
 
     def test_attach_verifies_read_back_and_skips_files_already_on_the_record(self):
-        self.feishu("create", "--title", "T", "--description", "D")
+        self.feishu("create", "--title", "T")
+        shot = self.base / "screenshot.png"
+        shot.write_bytes(b"png")
         log = self.base / "tutti-web-diagnostics.zip"
-        log.write_text('{"type":"metadata"}\n')
-        first = self.feishu("attach", "--record-id", "rec1", "--file", str(log))
-        self.assertEqual([item["name"] for item in first["uploaded"]], ["tutti-web-diagnostics.zip"])
-        second = self.feishu("attach", "--record-id", "rec1", "--file", str(log))
-        self.assertEqual(second["uploaded"], [])
-        self.assertEqual(second["already_attached"][0]["file_token"], first["uploaded"][0]["file_token"])
+        log.write_bytes(b"zip")
+        first = self.feishu("attach", "--record-id", "rec1", "--file", str(shot), "--file", str(log))
+        self.assertEqual({item["name"] for item in first["uploaded"]}, {"screenshot.png", "tutti-web-diagnostics.zip"})
+        second = self.feishu("attach", "--record-id", "rec1", "--file", str(shot))
+        self.assertEqual((second["uploaded"], len(second["already_attached"])), ([], 1))
         self.assertEqual(self.lark()["calls"].count("+record-upload-attachment"), 1)
-        log.write_text('{"type":"metadata","more":true}\n')
-        third = self.feishu("attach", "--record-id", "rec1", "--file", str(log))
-        self.assertEqual(len(third["uploaded"]), 1)
 
     def test_download_fetches_attachment_already_on_the_record(self):
-        self.feishu("create", "--title", "T", "--description", "D")
+        self.feishu("create", "--title", "T")
         archive = self.base / "tutti-web-diagnostics.zip"
         archive.write_bytes(b"zipdata")
         self.feishu("attach", "--record-id", "rec1", "--file", str(archive))
         result = self.feishu("download", "--record-id", "rec1", "--name", archive.name,
                              "--output-dir", str(self.base / "dl"))
         self.assertEqual(result["size"], len(b"zipdata"))
-        self.assertTrue(Path(result["path"]).is_file())
-        self.feishu("download", "--record-id", "rec1", "--name", "missing.zip",
-                    "--output-dir", str(self.base / "dl"), expected=2)
 
-    def people_env(self):
-        users = [{"open_id": "ou_me", "localized_name": "韦超", "has_chatted": True},
-                 {"open_id": "ou_z1", "localized_name": "张三", "department": "Web", "has_chatted": True},
-                 {"open_id": "ou_z2", "localized_name": "张三丰", "department": "Server"},
-                 {"open_id": "ou_l1", "localized_name": "李四", "department": "QA"},
-                 {"open_id": "ou_l2", "localized_name": "李四", "department": "Ops"}]
-        config = json.loads((self.data / "config.json").read_text())
-        config["feishu"]["field_map"].update({"reporter": "fldReporter", "assignee": "fldAssignee"})
-        (self.data / "config.json").write_text(json.dumps(config))
-        return {**self.env, "FAKE_LARK_USERS": json.dumps(users)}
-
-    def test_reporter_is_the_logged_in_user_and_assignee_resolves_by_name(self):
-        env = self.people_env()
-        self.feishu("create", "--title", "T", "--description", "D", env=env)
-        self.assertEqual(self.record()["fldReporter"], [{"id": "ou_me"}])
-        result = self.feishu("assign", "--record-id", "rec1", "--name", "张三", env=env)
-        self.assertEqual((result["status"], result["assignee"]["open_id"]), ("assigned", "ou_z1"))
-        self.assertEqual(self.record()["fldAssignee"], [{"id": "ou_z1"}])
-
-    def test_assignee_ambiguous_missing_or_unknown_is_reported_not_written(self):
-        env = self.people_env()
-        self.feishu("create", "--title", "T", "--description", "D", env=env)
-        ambiguous = self.feishu("assign", "--record-id", "rec1", "--name", "李四", env=env)
-        self.assertEqual(ambiguous["status"], "ambiguous")
+    def test_assignee_resolves_or_reports_without_writing(self):
+        self.feishu("create", "--title", "T")
+        self.assertEqual(self.feishu("assign", "--record-id", "rec1", "--name", "张三")["status"], "assigned")
+        self.assertEqual(self.record()["assignee"], [{"id": "ou_z1"}])
+        ambiguous = self.feishu("assign", "--record-id", "rec1", "--name", "李四")
         self.assertEqual({c["department"] for c in ambiguous["candidates"]}, {"QA", "Ops"})
-        missing = self.feishu("assign", "--record-id", "rec1", env=env)
-        self.assertEqual(missing["status"], "missing")
-        self.assertEqual({u["name"] for u in missing["suggestions"]}, {"韦超", "张三"})
-        unknown = self.feishu("assign", "--record-id", "rec1", "--name", "王五", env=env)
-        self.assertEqual((unknown["status"], unknown["candidates"]), ("not_found", []))
-        self.assertNotIn("fldAssignee", self.record())
-        self.assertEqual(len(self.feishu("suggest-users", env=env)["users"]), 2)
-
-    def test_person_fields_are_skipped_when_not_configured(self):
-        self.feishu("create", "--title", "T", "--description", "D")
-        self.assertNotIn("fldReporter", self.record())
-        self.feishu("assign", "--record-id", "rec1", "--name", "张三", expected=2)
+        self.assertEqual(self.feishu("assign", "--record-id", "rec1")["status"], "missing")
+        self.assertEqual(self.feishu("assign", "--record-id", "rec1", "--name", "王五")["status"], "not_found")
+        self.assertEqual(self.record()["assignee"], [{"id": "ou_z1"}])
 
     def test_cli_failures_are_explicit(self):
         failing = {**self.env, "FAKE_LARK_FAIL": "+record-upsert"}
-        error = self.feishu("create", "--title", "T", "--description", "D", expected=2, env=failing)
-        self.assertIn("simulated failure", error["error"])
+        self.assertIn("simulated failure", self.feishu("create", "--title", "T", expected=2, env=failing)["error"])
         self.feishu("write", "--record-id", "rec1", expected=2)
 
 

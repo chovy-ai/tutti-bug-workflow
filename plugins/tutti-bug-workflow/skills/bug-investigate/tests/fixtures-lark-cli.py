@@ -45,6 +45,15 @@ fail = os.environ.get("FAKE_LARK_FAIL")
 if fail == shortcut:
     reply("simulated failure", ok=False, code=1)
 records = state["records"]
+OPTIONS = {
+    "flde3A945T": ["未解决", "修复中", "已关闭"],
+    "fldOM70Xsj": ["个人版-桌面端", "新框架一期-Mac", "新框架一期-Windows", "新框架一期-Web"],
+    "fldssWEn1b": ["P00", "P0", "P1", "P2", "P3"],
+    "fldAaKSJu5": ["bug", "反馈/建议"],
+    "fldIpeAABN": ["房间/群聊", "Agent GUI", "Computer"],
+}
+if shortcut == "+field-get":
+    reply({"field": {"property": {"options": [{"name": n} for n in OPTIONS[value("--field-id")]]}}})
 if shortcut == "+record-upsert":
     fields = json.loads(value("--json"))
     record_id = value("--record-id")
@@ -76,8 +85,8 @@ if shortcut == "+record-upload-attachment":
     reply({})
 if shortcut == "+record-download-attachment":
     token = value("--file-token")
-    item = next(i for i in records[value("--record-id")].get(os.environ.get("FAKE_LARK_ATTACH_FIELD", "fldEOh3AxT"), [])
-                if i["file_token"] == token)
+    item = next(i for cell in records[value("--record-id")].values() if isinstance(cell, list)
+                for i in cell if isinstance(i, dict) and i.get("file_token") == token)
     Path(value("--output")).write_bytes(b"x" * item["size"])
     reply({"saved": value("--output")})
 reply(f"unsupported {shortcut}", ok=False, code=1)

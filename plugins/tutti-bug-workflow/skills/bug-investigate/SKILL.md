@@ -18,14 +18,14 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
   | 自查项 | 必须有的结果 |
   |---|---|
-  | 飞书记录 | `record_id` 已建或已找回，提出人已填 |
+  | 飞书记录 | `record_id` 已建或已找回；提交人、状态、问题类型、记录时间已填；所属端、优先级已判断，业务模块已选或确无合适项 |
   | 跟进人 | 已写入；或已在回复中请用户指定 |
   | Web 日志 | `captured`／`partial`，或 `pending` 并写明缺什么 |
   | Computer 日志 | `captured`／`partial`／`blocked`，或 `pending` 并写明缺什么 |
-  | 附件 | 已上传，`check_collection` 显示 `attached: true` |
+  | 附件 | QA 的截图／视频与日志都已上传到「截图、视频、日志」，`check_collection` 显示 `attached: true` |
   | 代码 | 两个仓库已同步并读过相关代码 |
   | 根因 | 已确认；或已排查到底仍无法确定，写明已排除的、仍成立的候选和无法推进的原因；回复里没有留给别人做的「下一步」 |
-  | 飞书字段 | 结论、根因、排查验证、代码基线、相关代码已写入并回读 |
+  | 分析根因 | 结论、根因、证据、代码基线、待确认已写入并回读 |
   | 会话上传 | 根因确认时已上传一次 |
 
 **无状态。** 本 Skill 与脚本都不在本地保存流程状态。`record_id`、提问时间、采集结果、已问过 QA 的问题都记在本次会话上下文中；对外唯一的事实来源是飞书记录本身。日志、召回包、代码工作区都是本次会话的临时文件，放在会话开始时创建的临时目录（下称 `$TMP`）里，用完即可丢弃。QA 补充信息后再次调用本 Skill 时，从飞书记录读取已有内容继续。
@@ -38,12 +38,17 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 1. 从 QA 消息整理：标题、期望与实际表现、复现步骤与频率、环境、发生时间与时区、截图／录屏（实际查看）、WebMCP 连接链接、QA 附带的 Web 诊断包（`tutti-web-diagnostics-*.zip`）、用户指定的跟进人姓名（如「跟进人：张三」）。QA 原话、你已验证的事实、待验证的推断分开记。
 2. 固定 `question_time`：触发本次上报的消息时间（含时区的 ISO 8601）；拿不到时用你收到消息的时间并注明近似。本次排查内所有采集窗口都用它。
-3. 建单或找回：
+3. 判断三个分类字段（都由你判断，不问用户）：
+   - **所属端**：`新框架一期-Mac`／`新框架一期-Windows`／`新框架一期-Web`，按问题出现的位置判断（浏览器页面选 Web，桌面客户端按系统选 Mac 或 Windows）。只有这三个值能进「新框架（一期）」视图。
+   - **优先级**：`P00`／`P0`／`P1`／`P2`／`P3`，按影响面判断：阻断核心流程或数据丢失为 P0 及以上，主要功能异常但有绕过方式为 P1，体验或局部问题为 P2／P3。拿不准时取 P1。P2 的记录不会出现在该视图里，脚本会提示，按实际判断填写即可。
+   - **业务模块**：用 `python3 scripts/feishu.py options --field module` 取现有选项，选最贴近的一个；没有合适的就不填。
+4. 建单或找回，「Bug 描述」写精简的一行，格式参考已有记录「类别：现象」，例如「房间：顶部名称与左侧选中房间名称不一致」：
    ```sh
-   python3 scripts/feishu.py create --title "标题" --description @$TMP/description.md
+   python3 scripts/feishu.py create --title "房间：顶部名称与左侧选中房间名称不一致" --record-time <question_time> \
+     --set platform=新框架一期-Web --set priority=P1 --set module=房间/群聊
    ```
-   已有同名记录时返回该记录（`action: existing`），不会重复建单。QA 已给出记录链接时直接使用其中的 `record_id`。新记录的流程状态自动为「bug单」，提出人自动填为 lark-cli 当前登录用户。
-4. 跟进人：
+   已有同名记录时返回该记录（`action: existing`），不会重复建单。QA 已给出记录链接时直接使用其中的 `record_id`。新记录自动填：状态「未解决」、问题类型「bug」、提交人为 lark-cli 当前登录用户、记录时间。单选值不在选项里时脚本报错并列出可选项，换一个再写。
+5. 跟进人（写入「指派人」）：
    ```sh
    python3 scripts/feishu.py assign --record-id REC --name "张三"   # 用户没指定时省略 --name
    ```
@@ -74,15 +79,11 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 **上传与现状**：
 
 ```sh
-python3 scripts/feishu.py attach --record-id REC --file <web-logs.log 或 Web 诊断包> --file <召回包>
+python3 scripts/feishu.py attach --record-id REC --file <QA 的截图／视频> --file <web-logs.log 或 Web 诊断包> --file <召回包>
 python3 scripts/check_collection.py --record-id REC --web @$TMP/web.json --computer @$TMP/computer.json
 ```
 
-只上传日志原件或汇总日志，见 [附件规则](references/registration-logs.md#日志文件与附件数量)；过程文件不上传。`check_collection` 只返回现状（各来源状态、文件是否已在飞书上），据此把采集摘要追加到「相关日志」：
-
-```sh
-python3 scripts/feishu.py write --record-id REC --append "logs=@$TMP/logs-summary.md"
-```
+所有文件都上传到「截图、视频、日志」：QA 在对话里发来的截图和视频、日志原件或汇总日志，见 [附件规则](references/registration-logs.md#日志文件与附件数量)；过程文件不上传。`check_collection` 只返回现状（各来源状态、文件是否已在飞书上），采集情况写进第 5 步「分析根因」的「证据」一节。
 
 ## 3. 分析
 
@@ -109,18 +110,16 @@ python3 scripts/feishu.py write --record-id REC --append "logs=@$TMP/logs-summar
 
 ## 5. 回填与停下
 
-回填前用 `feishu.py read --record-id REC` 读最新内容；QA 在此期间补充了信息就先纳入分析。按 [字段契约](references/report-fields.md) 分字段写，根因字段只写两到四句因果链：
+回填前用 `feishu.py read --record-id REC` 读最新内容；QA 在此期间补充了信息就先纳入分析。分析结果全部写进「分析根因」，按 [字段契约](references/report-fields.md) 的结构；分析中对所属端、优先级、业务模块有了更准确的判断时一并修正：
 
 ```sh
-python3 scripts/feishu.py write --record-id REC \
-  --set analysis_conclusion=@$TMP/conclusion.md --set analysis_report=@$TMP/root-cause.md \
-  --set investigation_evidence=@$TMP/evidence.md --set code_baselines=@$TMP/baselines.md \
-  --set code_references=@$TMP/code-refs.md --append open_items=@$TMP/open-items.md
+python3 scripts/feishu.py write --record-id REC --set root_cause=@$TMP/root-cause.md \
+  [--set priority=P0] [--set module=...] [--set platform=...]
 ```
 
-可写字段：`--set` 覆盖 `analysis_conclusion`、`analysis_report`、`investigation_evidence`、`code_baselines`、`code_references`、`suspected_modules`、`ui_only`；`--append` 追加 `logs`、`dialogue`、`open_items`（保留人工内容）。脚本写后回读核对。
+「分析根因」只替换 `【Agent 分析根因】` 标记以下的内容，别人写在前面的内容保留。可写字段：`title`、`platform`、`priority`、`module`、`issue_type`、`record_time`、`root_cause`；脚本校验单选值并在写后回读核对。
 
-**只有遇到自己无法解决的卡点才停下。** 先把不依赖卡点的工作做完；确实推进不下去时，一次列出所有需要 QA 提供的东西，每项说明为什么需要、怎么获取，追加到「QA/RD沟通」并回复 QA。见 [QA 反馈](references/qa-dialogue.md)。常见的获取方式：
+**只有遇到自己无法解决的卡点才停下。** 先把不依赖卡点的工作做完；确实推进不下去时，一次列出所有需要 QA 提供的东西，每项说明为什么需要、怎么获取，写在回复里，并在「分析根因」的「待确认」一节记一笔。见 [QA 反馈](references/qa-dialogue.md)。常见的获取方式：
 
 | 缺什么 | 怎么请 QA 提供 |
 |---|---|
@@ -129,7 +128,7 @@ python3 scripts/feishu.py write --record-id REC \
 | 跟进人 | 未指定：「这条 Bug 由谁跟进？直接回复名字即可」，可附上 `suggestions` 里的几个常联系的人；同名多人：列出候选的姓名与部门，请用户选一位 |
 | 现场事实 | 只问 QA 能观察到、且会改变下一项验证的事实，例如操作顺序、是否稳定复现 |
 
-工具、权限、认证问题不问 QA，写进「待核实与阻塞」交给维护方。QA 回复后再次调用本 Skill，读取同一记录继续。
+工具、权限、认证问题不问 QA，写在「分析根因」的「待确认」一节交给维护方。QA 回复后再次调用本 Skill，读取同一记录继续。
 
 ## 6. 结束并上传会话
 
