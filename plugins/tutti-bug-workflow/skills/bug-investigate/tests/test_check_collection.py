@@ -36,12 +36,12 @@ class CheckCollectionTests(unittest.TestCase):
         return json.loads(result.stdout)
 
     def test_reports_status_and_attachment_presence_without_blocking(self):
-        web_log = self.base / "web-logs.log"
+        web_log = self.base / "tutti-web-diagnostics.zip"
         web_log.write_text("{}\n")
         package = self.base / "logs.tar.gz"
         package.write_bytes(b"pkg")
         self.call(FEISHU, "attach", "--record-id", "rec1", "--file", str(web_log))
-        web = {"collectionStatus": "complete", "recordCount": 3, "outputPath": str(web_log)}
+        web = {"status": "captured", "files": [str(web_log)]}
         computer = {"status": "captured", "files": [{"path": str(package)}]}
         result = self.call(CHECK, "--record-id", "rec1", "--web", json.dumps(web), "--computer", json.dumps(computer))
         self.assertEqual(result["web"]["status"], "captured")
@@ -56,9 +56,9 @@ class CheckCollectionTests(unittest.TestCase):
         self.assertEqual(result["web"], {"status": "not_attempted"})
         self.assertEqual(result["computer"], {"status": "pending", "files": [],
                                               "reason": "waiting for QA device choice"})
-        partial = {"collectionStatus": "partial", "incompleteReason": "size_limit", "recordCount": 9}
-        self.assertEqual(self.call(CHECK, "--record-id", "rec1", "--web", json.dumps(partial))["web"],
-                         {"status": "partial", "files": [], "reason": "size_limit"})
+        pending = {"status": "pending", "reason": "no_export"}
+        self.assertEqual(self.call(CHECK, "--record-id", "rec1", "--web", json.dumps(pending))["web"],
+                         {"status": "pending", "files": [], "reason": "no_export"})
 
 
 if __name__ == "__main__":

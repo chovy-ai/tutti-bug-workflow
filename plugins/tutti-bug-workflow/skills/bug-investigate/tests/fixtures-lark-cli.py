@@ -62,4 +62,10 @@ if shortcut == "+record-upload-attachment":
         cell.append({"file_token": f"tok{state['next']}", "name": Path(path).name,
                      "size": Path(path).stat().st_size})
     reply({})
+if shortcut == "+record-download-attachment":
+    token = value("--file-token")
+    item = next(i for i in records[value("--record-id")].get(os.environ.get("FAKE_LARK_ATTACH_FIELD", "fldEOh3AxT"), [])
+                if i["file_token"] == token)
+    Path(value("--output")).write_bytes(b"x" * item["size"])
+    reply({"saved": value("--output")})
 reply(f"unsupported {shortcut}", ok=False, code=1)

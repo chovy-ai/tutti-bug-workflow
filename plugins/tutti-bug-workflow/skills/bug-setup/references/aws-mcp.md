@@ -57,4 +57,4 @@ AWS 当前公布的 access token 有效期为 1 小时，refresh token 最多有
 
 OAuth 直连没有旧代理的 `--read-only` 工具过滤。因此只读是本工作流的使用约束，不能声称已在 MCP 层强制限制；AWS IAM 才是云端权限边界。优先以具有所需日志读取权限的角色授权，setup 不授予或扩大权限。Bug 分析只调用查询、读取和状态检查，不执行云端资源写入。
 
-AWS MCP 用于已确认存储在 AWS 的服务端日志。Web 仍使用 WebMCP，本地 Computer 仍读取明确的文件路径，远端 Computer 仍使用 tutti-ops / Tutti 日志召回。按实际工具 schema 核实 CloudWatch Logs 查询能力，并限定账号、区域、日志组、时间与时区、computer/session/request 标识；保存覆盖范围、分页/截断和关键证据。注册成功不代表这些日志源已接入。
+AWS MCP 用于已确认存储在 AWS 的服务端日志。Web 仍使用 QA 导出的诊断包，本地 Computer 仍读取明确的文件路径，远端 Computer 仍使用 tutti-ops / Tutti 日志召回。按实际工具 schema 核实 CloudWatch Logs 查询能力，并限定账号、区域、日志组、时间与时区、computer/session/request 标识；保存覆盖范围、分页/截断和关键证据。注册成功不代表这些日志源已接入。

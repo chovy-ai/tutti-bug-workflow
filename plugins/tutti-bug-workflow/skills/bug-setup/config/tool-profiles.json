@@ -7,115 +7,296 @@
   },
   "tools": [
     {
-      "id": "local-workspace", "label": "本地文件、搜索、终端与图片查看",
-      "required_in": ["investigate", "solution", "execute"], "conditional_in": [],
-      "commands": [], "configuration": "host",
-      "requirements": ["Python 3.10+", "数据目录读写", "源码和附件读取、搜索、图片查看", "实际宿主工具发现"],
+      "id": "local-workspace",
+      "label": "本地文件、搜索、终端与图片查看",
+      "required_in": [
+        "investigate",
+        "solution",
+        "execute"
+      ],
+      "conditional_in": [],
+      "commands": [],
+      "configuration": "host",
+      "requirements": [
+        "Python 3.10+",
+        "数据目录读写",
+        "源码和附件读取、搜索、图片查看",
+        "实际宿主工具发现"
+      ],
       "install_operation": null
     },
     {
-      "id": "feishu", "label": "飞书记录与附件操作",
-      "required_in": ["investigate", "solution", "execute"], "conditional_in": [],
-      "commands": ["lark-cli"], "configuration": "feishu",
-      "requirements": ["实际表格字段与状态映射", "身份认证", "记录读取、创建、分节更新及附件读写权限；宿主工具可作为替代入口"],
+      "id": "feishu",
+      "label": "飞书记录与附件操作",
+      "required_in": [
+        "investigate",
+        "solution",
+        "execute"
+      ],
+      "conditional_in": [],
+      "commands": [
+        "lark-cli"
+      ],
+      "configuration": "feishu",
+      "requirements": [
+        "实际表格字段与状态映射",
+        "身份认证",
+        "记录读取、创建、分节更新及附件读写权限；宿主工具可作为替代入口"
+      ],
       "install_operation": null
     },
     {
-      "id": "code", "label": "Git、共享代码缓存与隔离工作区",
-      "required_in": ["investigate", "solution", "execute"], "conditional_in": [],
-      "commands": ["git"], "configuration": "repositories",
-      "requirements": ["两仓库读取权限与网络", "缓存/worktree 空间", "QA 更新 main；RD/执行使用交接的固定基线"],
+      "id": "code",
+      "label": "Git、共享代码缓存与隔离工作区",
+      "required_in": [
+        "investigate",
+        "solution",
+        "execute"
+      ],
+      "conditional_in": [],
+      "commands": [
+        "git"
+      ],
+      "configuration": "repositories",
+      "requirements": [
+        "两仓库读取权限与网络",
+        "缓存/worktree 空间",
+        "QA 更新 main；RD/执行使用交接的固定基线"
+      ],
       "install_operation": null
     },
     {
-      "id": "session-upload", "label": "提 Bug 结束后上传当前 provider 会话",
-      "required_in": ["investigate"], "conditional_in": [],
-      "commands": ["tutti-ops"], "configuration": "host",
-      "requirements": ["支持 diagnostics +upload-session-log 与 session-logs complete 的实际 tutti-ops 入口；已核对发布版本 0.1.7", "当前宿主 provider、当前 session ID 与原生 JSONL 读取/导出；核对日志身份", "已配置管理端认证、diagnostics write 与 session_logs.write 权限；服务与对象存储已部署", "仅在本次提 Bug 确认结束后固定快照、上传并确认 uploaded；保存结束依据、本地关联回执及恢复状态，等待或暂时阻塞不触发"],
+      "id": "session-upload",
+      "label": "提 Bug 结束后上传当前 provider 会话",
+      "required_in": [
+        "investigate"
+      ],
+      "conditional_in": [],
+      "commands": [
+        "tutti-ops"
+      ],
+      "configuration": "host",
+      "requirements": [
+        "支持 diagnostics +upload-session-log 与 session-logs complete 的实际 tutti-ops 入口；已核对发布版本 0.1.7",
+        "当前宿主 provider、当前 session ID 与原生 JSONL 读取/导出；核对日志身份",
+        "已配置管理端认证、diagnostics write 与 session_logs.write 权限；服务与对象存储已部署",
+        "仅在本次提 Bug 确认结束后固定快照、上传并确认 uploaded；保存结束依据、本地关联回执及恢复状态，等待或暂时阻塞不触发"
+      ],
       "install_operation": "setup-tutti-ops"
     },
     {
-      "id": "diagrams", "label": "Mermaid 流程图与架构图",
-      "required_in": ["solution"], "conditional_in": [],
-      "commands": [], "configuration": "source-only",
-      "requirements": ["Mermaid 源码生成", "导出图片/PDF 时再选择实际渲染器"],
+      "id": "diagrams",
+      "label": "Mermaid 流程图与架构图",
+      "required_in": [
+        "solution"
+      ],
+      "conditional_in": [],
+      "commands": [],
+      "configuration": "source-only",
+      "requirements": [
+        "Mermaid 源码生成",
+        "导出图片/PDF 时再选择实际渲染器"
+      ],
       "install_operation": null
     },
     {
-      "id": "approval", "label": "批准来源核对与执行一致性检查",
-      "required_in": ["execute"], "conditional_in": [],
-      "commands": [], "configuration": "per-bug",
-      "requirements": ["可信 RD 批准来源的读取入口", "每条 Bug 的批准版本与摘要", "workbench.py check-execution；检查一致性不证明批准身份"],
+      "id": "approval",
+      "label": "批准来源核对与执行一致性检查",
+      "required_in": [
+        "execute"
+      ],
+      "conditional_in": [],
+      "commands": [],
+      "configuration": "per-bug",
+      "requirements": [
+        "可信 RD 批准来源的读取入口",
+        "每条 Bug 的批准版本与摘要",
+        "workbench.py check-execution；检查一致性不证明批准身份"
+      ],
       "install_operation": null
     },
     {
-      "id": "project-checks", "label": "项目运行时、测试、类型检查与 lint",
-      "required_in": ["execute"], "conditional_in": ["investigate"],
-      "commands": [], "configuration": "repository-specific",
-      "requirements": ["相关 checkout 的 AGENTS.md、开发说明、锁文件与检查命令", "所需运行时和依赖", "必要测试数据及服务"],
+      "id": "project-checks",
+      "label": "项目运行时、测试、类型检查与 lint",
+      "required_in": [
+        "execute"
+      ],
+      "conditional_in": [
+        "investigate"
+      ],
+      "commands": [],
+      "configuration": "repository-specific",
+      "requirements": [
+        "相关 checkout 的 AGENTS.md、开发说明、锁文件与检查命令",
+        "所需运行时和依赖",
+        "必要测试数据及服务"
+      ],
       "install_operation": null
     },
     {
-      "id": "browser-validation", "label": "浏览器复现与验收证据",
-      "required_in": ["execute"], "conditional_in": ["investigate"],
-      "commands": [], "configuration": "validation",
-      "requirements": ["实际 Playwright/浏览器 MCP/宿主工具", "环境地址与登录态", "部署版本读取方法", "截图、trace 或日志保存入口"],
+      "id": "browser-validation",
+      "label": "浏览器复现与验收证据",
+      "required_in": [
+        "execute"
+      ],
+      "conditional_in": [
+        "investigate"
+      ],
+      "commands": [],
+      "configuration": "validation",
+      "requirements": [
+        "实际 Playwright/浏览器 MCP/宿主工具",
+        "环境地址与登录态",
+        "部署版本读取方法",
+        "截图、trace 或日志保存入口"
+      ],
       "install_operation": null
     },
     {
-      "id": "web-logs", "label": "WebMCP 页面日志",
-      "required_in": [], "conditional_in": ["investigate", "execute"],
-      "commands": ["node", "npx"], "configuration": "source:web-chrome",
-      "requirements": ["本机 Chrome；原生 WebMCP 与 remote debugging 已启用、允许连接；Node ^20.19.0 || ^22.12.0 || >=23 + npx", "插件自带 tutti-diagnostics 的 get_web_logs / collect_web_logs", "复制 WebMCP 页面引用或旧 ID；唯一匹配页面和 Account"],
+      "id": "web-logs",
+      "label": "Web 日志（本机 Chrome WebMCP，兜底为 QA 导出包）",
+      "required_in": [],
+      "conditional_in": [
+        "investigate",
+        "execute"
+      ],
+      "commands": [
+        "node",
+        "npx"
+      ],
+      "configuration": "source:web-chrome",
+      "requirements": [
+        "插件注册的 chrome-devtools MCP（chrome-devtools-mcp --autoConnect --categoryExperimentalWebmcp）",
+        "Chrome 开启 WebMCP for testing 与远程调试，并允许连接",
+        "不可用时使用 QA 在「设置 → 诊断」导出的诊断包"
+      ],
       "install_operation": null
     },
     {
-      "id": "computer-directory", "label": "Computer/房间 Agent 目录与本机身份",
-      "required_in": [], "conditional_in": ["investigate", "execute"],
-      "commands": [], "configuration": "host",
-      "requirements": ["授权页面目录工具，或 tutti-ops 管理目录", "本机身份使用 tutti-computer status --json 或可信绑定证据", "目录权限与日志权限单独核对"],
+      "id": "computer-directory",
+      "label": "Computer/房间 Agent 目录与本机身份",
+      "required_in": [],
+      "conditional_in": [
+        "investigate",
+        "execute"
+      ],
+      "commands": [],
+      "configuration": "host",
+      "requirements": [
+        "授权页面目录工具，或 tutti-ops 管理目录",
+        "本机身份使用 tutti-computer status --json 或可信绑定证据",
+        "目录权限与日志权限单独核对"
+      ],
       "install_operation": null
     },
     {
-      "id": "local-computer", "label": "本地 Computer 日志读取",
-      "required_in": [], "conditional_in": ["investigate", "execute"],
-      "commands": [], "configuration": "source:computer-local",
-      "requirements": ["明确日志文件路径及读取权限", "实际状态和临时目录", "故障目标与执行机器的身份关联"],
+      "id": "local-computer",
+      "label": "本地 Computer 日志读取",
+      "required_in": [],
+      "conditional_in": [
+        "investigate",
+        "execute"
+      ],
+      "commands": [],
+      "configuration": "source:computer-local",
+      "requirements": [
+        "明确日志文件路径及读取权限",
+        "实际状态和临时目录",
+        "故障目标与执行机器的身份关联"
+      ],
       "install_operation": null
     },
     {
-      "id": "remote-computer", "label": "tutti-ops 远端日志召回",
-      "required_in": [], "conditional_in": ["investigate", "execute"],
-      "commands": ["tutti-ops"], "configuration": "remote-route",
-      "requirements": ["安装缺少时需 Node >=20、npm、全局安装目录权限", "管理端 https://admin.tutti.sh；API origin 由实际 CLI 归一化；configure-tutti-token 直接验证并保存 Token，复用有效本机认证", "设备/任务/下载权限及条件性的新召回权限", "HTTPS 下载、SHA-256、安全解包及日志读取；MCP 可作为替代入口"],
+      "id": "remote-computer",
+      "label": "tutti-ops 远端日志召回",
+      "required_in": [],
+      "conditional_in": [
+        "investigate",
+        "execute"
+      ],
+      "commands": [
+        "tutti-ops"
+      ],
+      "configuration": "remote-route",
+      "requirements": [
+        "安装缺少时需 Node >=20、npm、全局安装目录权限",
+        "管理端 https://admin.tutti.sh；API origin 由实际 CLI 归一化；configure-tutti-token 直接验证并保存 Token，复用有效本机认证",
+        "设备/任务/下载权限及条件性的新召回权限",
+        "HTTPS 下载、SHA-256、安全解包及日志读取；MCP 可作为替代入口"
+      ],
       "install_operation": "setup-tutti-ops"
     },
     {
-      "id": "server-logs", "label": "Tutti CLI 服务端日志与证据补采",
-      "required_in": [], "conditional_in": ["investigate", "execute"],
-      "commands": ["tutti-ops"], "configuration": "per-bug",
-      "requirements": ["实际CLI help/schema、只读性质与现有身份/API origin", "匹配服务、环境、原问题时间窗与请求/房间/账号；成功日志与HTTP失败归因区分", "必需或建议补/可辅助后本轮立即采集、保存、上传同一条Bug并回读；不足且已确认AWS来源时启用aws-logs", "认证过期主动恢复；失败/空/截断/未匹配分别记录，不停在建议"],
+      "id": "server-logs",
+      "label": "Tutti CLI 服务端日志与证据补采",
+      "required_in": [],
+      "conditional_in": [
+        "investigate",
+        "execute"
+      ],
+      "commands": [
+        "tutti-ops"
+      ],
+      "configuration": "per-bug",
+      "requirements": [
+        "实际CLI help/schema、只读性质与现有身份/API origin",
+        "匹配服务、环境、原问题时间窗与请求/房间/账号；成功日志与HTTP失败归因区分",
+        "必需或建议补/可辅助后本轮立即采集、保存、上传同一条Bug并回读；不足且已确认AWS来源时启用aws-logs",
+        "认证过期主动恢复；失败/空/截断/未匹配分别记录，不停在建议"
+      ],
       "install_operation": "setup-tutti-ops"
     },
     {
-      "id": "aws-logs", "label": "AWS CLI 服务端日志",
-      "required_in": [], "conditional_in": ["investigate", "execute"],
-      "commands": ["aws"], "configuration": "aws-cli",
-      "requirements": ["AWS CLI v2；缺少时需官方安装网络与用户安装目录权限", "实际账号、区域、日志服务/日志组与读取权限", "选中后检查身份并处理认证缺口；目标日志访问单独验证"],
+      "id": "aws-logs",
+      "label": "AWS CLI 服务端日志",
+      "required_in": [],
+      "conditional_in": [
+        "investigate",
+        "execute"
+      ],
+      "commands": [
+        "aws"
+      ],
+      "configuration": "aws-cli",
+      "requirements": [
+        "AWS CLI v2；缺少时需官方安装网络与用户安装目录权限",
+        "实际账号、区域、日志服务/日志组与读取权限",
+        "选中后检查身份并处理认证缺口；目标日志访问单独验证"
+      ],
       "install_operation": "setup-aws-cli"
     },
     {
-      "id": "github-delivery", "label": "提交与 PR 交付",
-      "required_in": [], "conditional_in": ["execute"],
-      "commands": ["gh"], "configuration": "host",
-      "requirements": ["选定的 GitHub CLI 或宿主工具", "目标分支推送/PR 权限", "PR 创建后附加到当前任务的宿主能力"],
+      "id": "github-delivery",
+      "label": "提交与 PR 交付",
+      "required_in": [],
+      "conditional_in": [
+        "execute"
+      ],
+      "commands": [
+        "gh"
+      ],
+      "configuration": "host",
+      "requirements": [
+        "选定的 GitHub CLI 或宿主工具",
+        "目标分支推送/PR 权限",
+        "PR 创建后附加到当前任务的宿主能力"
+      ],
       "install_operation": null
     },
     {
-      "id": "deployment", "label": "修复版本部署或预览交付",
-      "required_in": [], "conditional_in": ["execute"],
-      "commands": [], "configuration": "environment-specific",
-      "requirements": ["实际部署工具/流水线与目标环境权限", "已授权的交付方式", "部署完成状态与实际修复 SHA 的核对入口"],
+      "id": "deployment",
+      "label": "修复版本部署或预览交付",
+      "required_in": [],
+      "conditional_in": [
+        "execute"
+      ],
+      "commands": [],
+      "configuration": "environment-specific",
+      "requirements": [
+        "实际部署工具/流水线与目标环境权限",
+        "已授权的交付方式",
+        "部署完成状态与实际修复 SHA 的核对入口"
+      ],
       "install_operation": null
     }
   ]

@@ -17,4 +17,4 @@ codex plugin add tutti-bug-workflow@tutti-bug-workflow-local
 
 将路径替换为本目录的真实路径。安装后在新的 Codex 会话中选择相应 Skill。以上命令已按当前本地 Codex CLI 的帮助确认；桌面可见性以实际安装结果为准。
 
-本机 Chrome WebMCP 联动见 [插件 Web 日志文档](plugins/tutti-bug-workflow/skills/bug-investigate/references/web-logs.md#首选本机-chrome-webmcp)。对应版本 0.1.38，只涉及 Tutti Web 和插件；Chrome 需启用 WebMCP 并允许调试连接。
+Web 日志使用 QA 在 Tutti「设置 → 诊断」导出的诊断包，见 [插件 Web 日志文档](plugins/tutti-bug-workflow/skills/bug-investigate/references/web-logs.md)。

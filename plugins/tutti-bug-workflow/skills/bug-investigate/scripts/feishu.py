@@ -213,10 +213,27 @@ def attach(args, client):
                                   for file, size in files if (file.name, size) in attached]})
 
 
+def download(args, client):
+    # Fetch an attachment already on the record (e.g. a diagnostics zip QA attached) for local reading.
+    existing = client.read(args.record_id, [args.field])[args.field] or []
+    matches = [item for item in existing if item.get("name") == args.name]
+    if len(matches) != 1:
+        raise ValueError(f"Expected exactly one attachment named {args.name!r}, found {len(matches)}.")
+    output = Path(args.output_dir).expanduser().resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    target = output / Path(args.name).name
+    client.run("+record-download-attachment", "--record-id", args.record_id,
+               "--file-token", matches[0]["file_token"], "--output", str(target), "--overwrite")
+    if not target.is_file() or target.stat().st_size != matches[0].get("size"):
+        raise LarkError(f"Downloaded {args.name} is missing or its size differs from the record.")
+    wb.emit({"record_id": args.record_id, "path": str(target), "size": target.stat().st_size,
+             "file_token": matches[0]["file_token"]})
+
+
 def parser():
     result = argparse.ArgumentParser(description=__doc__)
     commands = result.add_subparsers(dest="operation", required=True)
-    for name in ("create", "read", "write", "attach"):
+    for name in ("create", "read", "write", "attach", "download"):
         command = commands.add_parser(name)
         command.add_argument("--data-dir")
         command.add_argument("--config")
@@ -233,6 +250,10 @@ def parser():
         if name == "attach":
             command.add_argument("--file", action="append", required=True)
             command.add_argument("--field", default="attachments")
+        if name == "download":
+            command.add_argument("--name", required=True, help="Attachment file name on the record.")
+            command.add_argument("--output-dir", required=True)
+            command.add_argument("--field", default="attachments")
     return result
 
 
@@ -241,7 +262,8 @@ def main():
     try:
         root = wb.data_root(args)
         client = Feishu(wb.load_config(args, root))
-        {"create": create, "read": read, "write": write, "attach": attach}[args.operation](args, client)
+        {"create": create, "read": read, "write": write, "attach": attach,
+         "download": download}[args.operation](args, client)
     except (ValueError, OSError, subprocess.TimeoutExpired) as error:
         wb.emit({"ok": False, "error": str(error)})
         return 2

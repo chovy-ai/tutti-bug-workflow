@@ -48,7 +48,7 @@ description: 按 QA 分析、RD 方案、修复验证场景初始化工具与接
 | 工具组 / 场景 | 必需工具 | 条件工具与所需输入 |
 |---|---|---|
 | 三个场景共享 | 本地文件/搜索/终端/图片查看、Python、飞书操作、Git 与固定代码工作区 | 飞书身份及记录/附件读写权限，两仓库访问权限，数据目录读写；共享工具准备一次后复用 |
-| QA 上报与根因分析 `investigate` | 上述共享工具、提 Bug 结束后的 session 上传 | Web 日志桥及页面授权；设备目录与身份；本地日志路径或远端 tutti-ops/实际 MCP 的环境与认证；实际在 AWS 的日志；必要的测试/浏览器复现工具 |
+| QA 上报与根因分析 `investigate` | 上述共享工具、提 Bug 结束后的 session 上传 | WebMCP（chrome-devtools MCP、Chrome WebMCP flag 与远程调试授权）；设备目录与身份；本地日志路径或远端 tutti-ops/实际 MCP 的环境与认证；实际在 AWS 的日志；必要的测试/浏览器复现工具 |
 | RD 方案协商 `solution` | 共享工具、Mermaid 流程图/架构图源码生成 | 要求图片/PDF 时准备实际渲染器；新证据需求交回分析场景。方案编写使用交接基线 |
 | 修复与验证 `execute` | 共享工具、可信批准读取与一致性检查、项目实际运行时及测试/类型检查/lint、浏览器验收与证据保存 | 按交付方式准备 GitHub/PR 工具和权限、部署工具与权限；按验收/排查链路选择日志来源。还需环境地址、登录态及部署版本读取方法 |
 
@@ -56,7 +56,7 @@ description: 按 QA 分析、RD 方案、修复验证场景初始化工具与接
 
 ```sh
 python3 PLUGIN_SOURCE/skills/bug-setup/scripts/tool_setup.py --scene solution
-python3 PLUGIN_SOURCE/skills/bug-setup/scripts/tool_setup.py --scene investigate --include web-logs --include remote-computer
+python3 PLUGIN_SOURCE/skills/bug-setup/scripts/tool_setup.py --scene investigate --include remote-computer
 python3 PLUGIN_SOURCE/skills/bug-setup/scripts/tool_setup.py --scene execute --include github-delivery --include deployment
 ```
 
@@ -122,22 +122,20 @@ python3 PLUGIN_SOURCE/skills/bug-setup/scripts/tool_setup.py --scene execute --i
 - **操作**：执行模式运行 `python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py setup-tutti-ops --install`；复用已有安装，缺少时按用户指定的 `npm install -g @tutti-os/tutti-ops-cli` 安装。失败保存诊断，不自动使用 sudo 或修改全局前缀。
 - **完成标准**：实际入口可执行，保存安装版本/路径。完整初始化或 `investigate` 按 [session 命令检查](references/session-upload.md#1-核对-cli目标与权限) 保存结果；已核对的发布版本为 0.1.7，旧版命令缺失时按该页升级再核对。该包版本从对应 `package.json` 读取，不能假定支持根级 `--version`。全体安装阶段结束后核对选中能力的身份与权限；session 上传需 diagnostics write 与 `session_logs.write`，实际上传留到提 Bug 结束节点。需要 Computer 能力时继续第 9 步的目录只读检查，具体召回按 Bug 目标另行验证。命令帮助、dry-run、权限清单与实际上传分别记录。
 
-## 6. 接入 Web 日志与截图页面识别
+## 6. 连接 WebMCP（Web 日志）
 
-- **能力必需**：目标环境/页面地址，已部署原生 `get_web_logs` 的页面版本，匹配现场 Account 的登录态，浏览器 WebMCP 能力/站点允许，以及已授权的浏览器桥。
-- **浏览器桥必需能力**：列出可访问页面、发现所选页面原生工具、执行并返回结果；配置 `browser_bridge.kind` 与实际 `list_pages_tool`、`list_tools_tool`、`execute_tool`。MCP 桥还需要第 12 步的服务器接入。
-- **先发现再判缺口**：空配置与 doctor 的配置检查不证明当前会话无访问能力。按 [宿主浏览器能力发现](references/web-logs.md#宿主浏览器能力发现与-cdp-路径) 检查已授权宿主工具和标签页 capabilities；支持时可复用 CDP 调用原生只读工具。先读取工具文档并遵守本轮授权及 AGENTS.md；实际入口、API 路径、发现与读取结果分别保存，不虚构配置工具名或设置用户手势覆盖。
-- **页面标识**：截图水印已在 Tutti PR #2529 移除，页面由 QA 复制的 WebMCP 连接链接确定（「设置 → 诊断」或「设置 → 实验室 → WebMCP」，内容相同；单独的页面诊断 ID 入口已在 PR #2597 移除），属于每条 Bug 的材料，无需准备解码工具。
-- **待确定**：浏览器桥如何提供、由谁授权、如何覆盖 QA 所在机器。Tutti 原生 WebMCP 没有可直接填写的 HTTP MCP URL；RD 本机的桥也不能自动读取 QA 另一台机器的页面日志。
-- **操作**：按 [Web 日志与启用截图](references/web-logs.md) 发现并验证；需要时指导启用 **WebMCP for testing**。桥暂缺时记录接入条件，兼容方式可采用现场诊断导出附件，由维护方决定准备方式。
-- **完成标准**：工具安装、浏览器授权、页面版本、页面匹配和日志读取分别记录；成功读取匹配页面并保存每次参数、查询起止、记录实际覆盖和截断信息，才标记该来源已验证。工具可用不代表取得完整日志。
+Web 日志有两个来源：本机 Chrome 的 WebMCP（优先），以及 QA 从 Tutti「设置 → 诊断」导出的诊断包（兜底，无需准备）。本步准备前者，按 [WebMCP 连接准备](references/web-logs.md) 执行：
+
+- **MCP**：插件已注册 `chrome-devtools`（`npx -y chrome-devtools-mcp@1.10.1 --autoConnect --categoryExperimentalWebmcp`）；确认 Node `^20.19.0 || ^22.12.0 || >=23` 与 `npx` 可用，宿主已加载该 server。
+- **Chrome，本人操作**：`chrome://flags/#enable-webmcp-testing` 设为 Enabled 并重启；`chrome://inspect/#remote-debugging` 开启远程调试；Agent 首次连接时在 Chrome 弹窗中允许。
+- **验证**：打开并登录 Tutti 页面，`list_pages` → `list_webmcp_tools({pageId})` 看到 `get_web_logs` → `execute_webmcp_tool` 读到快照。只读验证，不刷新、不跳转页面。
+- **完成标准**：三步调用都成功才算 WebMCP 可用，分别记录。失败时写明是 Node、MCP 加载、WebMCP flag 还是调试授权的问题；提 Bug 仍可用导出包，不因此阻塞。
 
 ## 7. 准备 Computer 目录与本机身份核对
 
-- **能力必需**：能够查询正确账号/环境下真实设备候选的入口；优先使用第 6 步已授权页面的 `list_my_computers`、`list_rooms`、`list_room_agents`，共享 Agent 需要房间目录。
-- **替代入口**：已有实际管理环境与权限时，可使用 tutti-ops 的设备列表/详情；它的身份与可见范围分别记录。
+- **能力必需**：能按设备名称查到 `computerId`、按 ID 查到设备名称的入口：WebMCP 可用时用页面的 `list_my_computers`／`list_room_agents`（第 6 步）；否则用 tutti-ops 的 `computer devices list/get`（第 5、9 步准备）。两者的身份与可见范围分别记录。Web 诊断包的 `manifest.computers[]` 只有 ID、平台和版本，没有名称。
 - **本机条件项**：已有 `tutti-computer` 的只读 `status --json` 能力，或其他可信绑定证据，用于取得并核对本机 Computer 身份。此命令不是所有机器一律要求安装的公共依赖。
-- **操作**：用一个 WebMCP 连接链接实际调用 `tutti-diagnostics.list_computer_candidates`，确认目录可读；本机运行 `tutti-computer status --json` 核对本机身份；每条 Bug 再根据故障请求和目录结果确定目标。
+- **操作**：用一个已知设备名称运行 `tutti-ops ... computer devices list --name-query NAME` 确认目录可读；本机运行 `tutti-computer status --json` 核对本机身份。
 - **完成标准**：目录入口及其可见范围有实际证据；本机身份核对方式明确。目录可见不能当作日志召回授权，当前选中的设备不能代替故障时的目标。
 
 ## 8. 配置本地 Computer 日志

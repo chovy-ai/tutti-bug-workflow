@@ -10,4 +10,4 @@ AWS CLI 的安装与授权由 bug-setup 准备；本页说明排查时如何查�
 
 按实际 CLI 的帮助核对 CloudWatch Logs 命令和参数，先确认日志组、区域、时间与时区，再按 computer/session/request 等标识限定查询。只执行查询、读取和状态检查；记录命令、目标来源、时间覆盖、分页/截断和关键证据。安装、STS 检查、读取业务日志分别报告，空结果不能当作没有错误。保存实际记录为server-logs.log，脱敏后追加上传同一条Bug并回读；查询失败另存阻塞证据，不伪造日志。
 
-Web 仍使用 WebMCP，本地 Computer 仍读取明确文件路径，远端 Computer 仍使用 tutti-ops / Tutti 日志召回；只有确认日志存储在 AWS 后才走 AWS CLI。
+Web 仍使用 QA 导出的诊断包，本地 Computer 仍读取明确文件路径，远端 Computer 仍使用 tutti-ops / Tutti 日志召回；只有确认日志存储在 AWS 后才走 AWS CLI。

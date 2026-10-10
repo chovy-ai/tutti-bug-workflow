@@ -18,8 +18,9 @@ from urllib.parse import urlparse
 from urllib.request import urlopen
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[3]
-DIAGNOSTICS_MCP = {"type": "stdio", "command": "node",
-                   "args": ["${PLUGIN_ROOT}/scripts/diagnostics-mcp.mjs"]}
+CHROME_DEVTOOLS_MCP = {"type": "stdio", "command": "npx",
+                       "args": ["-y", "chrome-devtools-mcp@1.10.1", "--autoConnect",
+                                "--categoryExperimentalWebmcp"]}
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}\Z")
 PACKAGE = re.compile(r"(?:@[a-z0-9_.-]+/)?[a-z0-9][a-z0-9_.-]*\Z")
 VERSION = re.compile(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?\Z")
@@ -458,26 +459,12 @@ def log_source_configured(source, cfg):
             or not source.get("environment")):
         return False
     transport = source.get("transport", "cli")
-    if transport == "chrome-webmcp":
-        # The shipped stdio server selects the local Chrome page per request;
-        # configuration presence does not prove Chrome permission or WebMCP support.
-        return (source.get("mcp_server") == "tutti-diagnostics"
-                and source.get("tool") in ("get_web_logs", "collect_web_logs")
-                and all((PLUGIN_ROOT / "scripts" / file).is_file()
-                        for file in ("diagnostics-mcp.mjs", "chrome-webmcp.mjs")))
-    if transport == "browser-webmcp":
-        bridge = source.get("browser_bridge")
-        if (source.get("tool") != "get_web_logs" or not isinstance(bridge, dict)
-                or not all(isinstance(bridge.get(key), str) and bridge[key].strip()
-                           for key in ("list_pages_tool", "list_tools_tool", "execute_tool"))):
-            return False
-        if bridge.get("kind") == "host-tools":
-            return True
-        if bridge.get("kind") == "mcp":
-            return log_source_configured({"name": source["name"], "environment": source["environment"],
-                                          "transport": "mcp", "mcp_server": bridge.get("mcp_server"),
-                                          "tool": bridge["execute_tool"]}, cfg)
-        return False
+    if transport == "user-export":
+        # QA exports the archive from Tutti Settings → Diagnostics; nothing to connect.
+        return True
+    if transport == "chrome-devtools-mcp":
+        # Registered by the plugin; Chrome WebMCP and remote-debugging consent are checked live.
+        return source.get("mcp_server") == "chrome-devtools"
     if transport == "files":
         if "paths" in source:
             paths = source["paths"]
@@ -837,15 +824,15 @@ def configure_mcp(args, root):
     cfg = load_config(args, root)
     servers = cfg.get("mcp_servers", {})
     validate_servers(servers)
+    if "chrome-devtools" in servers and servers["chrome-devtools"] != CHROME_DEVTOOLS_MCP:
+        raise ValueError("chrome-devtools is the plugin-owned Chrome WebMCP entry.")
+    servers = {**servers, "chrome-devtools": CHROME_DEVTOOLS_MCP}
     target = Path(args.output_dir).expanduser().resolve()
     if ".codex" in target.parts and "cache" in target.parts:
         raise ValueError("Generate MCP configuration in source, not the installed plugin cache.")
     manifest = read_json(target / "plugin.json")
     if manifest.get("name") != read_json(PLUGIN_ROOT / "plugin.json").get("name"):
         raise ValueError("Output must be this plugin's source directory.")
-    if "tutti-diagnostics" in servers and servers["tutti-diagnostics"] != DIAGNOSTICS_MCP:
-        raise ValueError("tutti-diagnostics is the plugin-owned local Chrome WebMCP entry.")
-    servers = {**servers, "tutti-diagnostics": DIAGNOSTICS_MCP}
     portable = {"$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json", "mcpServers": servers}
     legacy = {"mcpServers": {name: {key: value for key, value in server.items() if key != "type"}
                               for name, server in servers.items()}}

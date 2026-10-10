@@ -109,44 +109,25 @@ class WorkbenchTests(unittest.TestCase):
         self.save_config(cfg)
         self.assertFalse(self.run_cli("doctor")["integrations_configured"]["logs"])
 
-    def test_shipped_diagnostics_mcp_requires_no_browser_bridge_and_does_not_claim_live_access(self):
+    def test_chrome_devtools_web_source_requires_the_plugin_server(self):
         cfg = self.config()
-        cfg["log_sources"] = [{"name": "web-chrome", "transport": "chrome-webmcp", "environment": "local_chrome",
-                               "mcp_server": "tutti-diagnostics", "tool": "collect_web_logs"}]
+        cfg["log_sources"] = [{"name": "web-chrome", "transport": "chrome-devtools-mcp",
+                               "environment": "local_chrome", "mcp_server": "chrome-devtools"}]
         self.save_config(cfg)
         report = self.run_cli("doctor")
         self.assertTrue(report["integrations_configured"]["logs"])
         self.assertEqual(report["log_sources"][0]["source_access"], "not_checked")
-        cfg["log_sources"][0]["mcp_server"] = "unknown"
+        cfg["log_sources"][0]["mcp_server"] = "other"
         self.save_config(cfg)
         self.assertFalse(self.run_cli("doctor")["integrations_configured"]["logs"])
 
-    def test_native_webmcp_requires_a_browser_bridge_and_does_not_claim_access(self):
+    def test_exported_web_archive_needs_no_connection(self):
         cfg = self.config()
-        source = {"name": "web", "transport": "browser-webmcp", "environment": "test",
-                  "tool": "get_web_logs", "mcp_server": "web-logs",
-                  "browser_bridge": {"kind": None, "list_pages_tool": None,
-                                     "list_tools_tool": None, "execute_tool": None}}
-        cfg["log_sources"] = [source]
-        cfg["mcp_servers"]["web-logs"] = {"type": "streamable-http", "url": "http://127.0.0.1:8123/mcp"}
-        self.save_config(cfg)
-        self.assertFalse(self.run_cli("doctor")["integrations_configured"]["logs"])
-        source["browser_bridge"].update({"kind": "host-tools", "list_pages_tool": "synthetic-list-pages",
-                                         "list_tools_tool": "synthetic-list-tools",
-                                         "execute_tool": "synthetic-execute"})
+        cfg["log_sources"] = [{"name": "web-export", "transport": "user-export", "environment": "qa_browser"}]
         self.save_config(cfg)
         report = self.run_cli("doctor")
         self.assertTrue(report["integrations_configured"]["logs"])
         self.assertEqual(report["log_sources"][0]["source_access"], "not_checked")
-        source["browser_bridge"]["kind"] = "mcp"
-        self.save_config(cfg)
-        self.assertFalse(self.run_cli("doctor")["integrations_configured"]["logs"])
-        source["browser_bridge"]["mcp_server"] = "web-logs"
-        self.save_config(cfg)
-        self.assertTrue(self.run_cli("doctor")["integrations_configured"]["logs"])
-        source["browser_bridge"]["list_tools_tool"] = None
-        self.save_config(cfg)
-        self.assertFalse(self.run_cli("doctor")["integrations_configured"]["logs"])
 
     def test_mcp_rejects_placeholders_without_overwriting_configuration(self):
         source = self.base / "plugin-source"
@@ -172,15 +153,13 @@ class WorkbenchTests(unittest.TestCase):
         portable = json.loads((source / "mcp.json").read_text())
         legacy = json.loads((source / ".mcp.json").read_text())
         self.assertEqual({name: value for name, value in portable["mcpServers"].items()
-                          if name != "tutti-diagnostics"}, cfg["mcp_servers"])
-        self.assertEqual(portable["mcpServers"]["tutti-diagnostics"]["args"],
-                         ["${PLUGIN_ROOT}/scripts/diagnostics-mcp.mjs"])
-        self.assertEqual(legacy["mcpServers"]["tutti-diagnostics"]["command"], "node")
+                          if name != "chrome-devtools"}, cfg["mcp_servers"])
+        self.assertIn("--categoryExperimentalWebmcp", portable["mcpServers"]["chrome-devtools"]["args"])
+        self.assertEqual(legacy["mcpServers"]["chrome-devtools"]["command"], "npx")
         cfg["mcp_servers"] = {}
         self.save_config(cfg)
         self.run_cli("configure-mcp", "--output-dir", str(source))
-        self.assertEqual(set(json.loads((source / "mcp.json").read_text())["mcpServers"]),
-                         {"tutti-diagnostics"})
+        self.assertEqual(set(json.loads((source / "mcp.json").read_text())["mcpServers"]), {"chrome-devtools"})
         self.assertEqual(legacy["mcpServers"]["web"], {"url": "http://127.0.0.1:8123/mcp"})
 
     def test_cli_refuses_unpinned_install(self):

@@ -11,7 +11,7 @@
 - `feishu.base_url`、`base_token`、`table_id`：已固定为用户指定的「Bug 列表」；`field_map` 的键为业务语义，值为真实字段 ID。更换表格前必须重新解析和读取字段，不能复用原字段或视图 ID。
 - `feishu.workflow.status_values`、`view_ids`：三个阶段的真实选项名和视图 ID；状态字段通过 `field_map.workflow_status` 定位。`empty_status_stage: bug` 表示空状态旧记录归入 bug单视图。具体推进规则见 [工作流与交接](workflow.md)。
 - `repositories`：默认配置 tutti 与 tutti-server 两个仓库的远端 main；每项提供 `name`、`url`、`base_branch`、`cache_path` 和可选 `local_path`。固定 bare 缓存供所有 Bug 复用，本地路径仅用于首次预热；Skill 为各 Bug 准备隔离工作区。操作见 代码缓存，其他分支需用户指定。
-- `log_sources`：每项提供 `name`、`kind`、`transport`、`environment` 及对应入口。Web 使用 `browser-webmcp`、`get_web_logs` 与实际 `browser_bridge`，见 Web 日志获取；`files` 使用明确的文件 `paths`，支持绝对路径、`~/`、`${TMPDIR}/` 和 `${TEMP}/`，读取前解析为本机绝对路径；`mcp` 使用 `mcp_server` 与实际 `tool`；兼容旧配置的 `cli` 使用 `argv` 与可选 `cwd`。Computer 的路径规则及远端协议见 Computer 日志获取。缺少入口时保留空值，检查逐个报告未配置；配置检查不表示已取得日志。
+- `log_sources`：每项提供 `name`、`kind`、`transport`、`environment` 及对应入口。Web 有两个来源：`chrome-devtools-mcp`（插件注册的 chrome-devtools MCP）与 `user-export`（QA 导出的诊断包）；`files` 使用明确的文件 `paths`，支持绝对路径、`~/`、`${TMPDIR}/` 和 `${TEMP}/`，读取前解析为本机绝对路径；`mcp` 使用 `mcp_server` 与实际 `tool`；兼容旧配置的 `cli` 使用 `argv` 与可选 `cwd`。Computer 的路径规则及远端协议见 Computer 日志获取。缺少入口时保留空值，检查逐个报告未配置；配置检查不表示已取得日志。
 - `validation`：实际环境、URL、浏览器工具，以及部署版本的读取方法。部署操作仍按当前任务授权执行。
 - `aws_cli`：默认 AWS 接入，保存 profile 与查询参考区域。执行 `setup-aws-cli --install` 准备 CLI v2；完整 Setup 或选择 AWS 时接续 `--check-auth` 并处理认证缺口，详见 AWS CLI 安装与日志读取。
 - `aws_mcp`：保留旧版显式 MCP 接入设置，当前 setup 不使用此项自动注册；CLI 可用后清理由插件创建且未被改动的旧 AWS MCP。

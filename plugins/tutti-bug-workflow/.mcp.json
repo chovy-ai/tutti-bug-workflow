@@ -1,9 +1,12 @@
 {
   "mcpServers": {
-    "tutti-diagnostics": {
-      "command": "node",
+    "chrome-devtools": {
+      "command": "npx",
       "args": [
-        "${PLUGIN_ROOT}/scripts/diagnostics-mcp.mjs"
+        "-y",
+        "chrome-devtools-mcp@1.10.1",
+        "--autoConnect",
+        "--categoryExperimentalWebmcp"
       ]
     }
   }

@@ -5,9 +5,9 @@ Stateless and non-blocking: it only reports. Each source gets its status (or
 not_attempted when no result was given) and, for every collected file, whether a
 file with the same name and size is attached to the record right now.
 
---web accepts the collect_web_logs result; --computer accepts collect_computer.py
-output. Either may also be a plain {"status": ..., "reason": ...} object, e.g. for a
-pending device choice. Values are inline JSON or @file.
+--web takes {"status": ..., "files": [<exported zip>], "reason": ...} for the diagnostics
+package QA exported; --computer takes collect_computer.py output or the same plain
+shape, e.g. for a pending device choice. Values are inline JSON or @file.
 """
 
 import argparse
@@ -30,16 +30,7 @@ def load(raw):
     return value
 
 
-def web_state(result):
-    if "collectionStatus" in result:  # collect_web_logs metadata
-        status = "partial" if result["collectionStatus"] == "partial" else (
-            "empty" if result.get("recordCount") == 0 else "captured")
-        files = [result["outputPath"]] if result.get("outputPath") else []
-        return status, result.get("incompleteReason"), files
-    return result.get("status", "unknown"), result.get("reason"), result.get("files", [])
-
-
-def computer_state(result):
+def state(result):
     files = [item["path"] if isinstance(item, dict) else item for item in result.get("files", [])]
     return result.get("status", "unknown"), result.get("reason"), files
 
@@ -77,8 +68,8 @@ def main():
         return 2
     attachments = {(item.get("name"), item.get("size")) for item in existing}
     wb.emit({"record_id": args.record_id,
-             "web": report(web, web_state, attachments),
-             "computer": report(computer, computer_state, attachments)})
+             "web": report(web, state, attachments),
+             "computer": report(computer, state, attachments)})
     return 0
 
 

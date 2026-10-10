@@ -47,8 +47,8 @@
     { "name": "tutti-server", "url": "https://github.com/tutti-lab/tutti-server.git", "base_branch": "main", "cache_path": "repositories/tutti-server.git" }
   ],
   "log_sources": [
-    { "name": "web-chrome", "kind": "web", "transport": "chrome-webmcp", "environment": "local_chrome", "mcp_server": "tutti-diagnostics", "tool": "collect_web_logs", "scope": "local_account_and_page", "credential_source": "chrome_permission" },
-    { "name": "web", "kind": "web", "transport": "browser-webmcp", "environment": null, "tool": "get_web_logs", "browser_bridge": { "kind": null, "mcp_server": null, "list_pages_tool": null, "list_tools_tool": null, "execute_tool": null }, "scope": "current_account_and_page", "source_pr": "https://github.com/tutti-lab/tutti/pull/2341" },
+    { "name": "web-chrome", "kind": "web", "transport": "chrome-devtools-mcp", "environment": "local_chrome", "mcp_server": "chrome-devtools", "tool": "get_web_logs", "scope": "local_account_and_page" },
+    { "name": "web-export", "kind": "web", "transport": "user-export", "environment": "qa_browser", "scope": "exported_archive", "source": "Tutti 设置 → 诊断 → 导出日志" },
     { "name": "computer-local", "kind": "computer", "transport": "files", "environment": "execution_host", "paths": [], "scope": "execution_host_only" },
     { "name": "computer-remote", "kind": "computer", "transport": "mcp", "acquisition": "tutti-runtime-log-recall", "environment": null, "mcp_server": null, "tool": null, "scope": "reported_computer" }
   ],

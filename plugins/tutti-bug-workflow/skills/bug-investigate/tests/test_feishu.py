@@ -77,10 +77,10 @@ class FeishuTests(unittest.TestCase):
 
     def test_attach_verifies_read_back_and_skips_files_already_on_the_record(self):
         self.feishu("create", "--title", "T", "--description", "D")
-        log = self.base / "web-logs.log"
+        log = self.base / "tutti-web-diagnostics.zip"
         log.write_text('{"type":"metadata"}\n')
         first = self.feishu("attach", "--record-id", "rec1", "--file", str(log))
-        self.assertEqual([item["name"] for item in first["uploaded"]], ["web-logs.log"])
+        self.assertEqual([item["name"] for item in first["uploaded"]], ["tutti-web-diagnostics.zip"])
         second = self.feishu("attach", "--record-id", "rec1", "--file", str(log))
         self.assertEqual(second["uploaded"], [])
         self.assertEqual(second["already_attached"][0]["file_token"], first["uploaded"][0]["file_token"])
@@ -88,6 +88,18 @@ class FeishuTests(unittest.TestCase):
         log.write_text('{"type":"metadata","more":true}\n')
         third = self.feishu("attach", "--record-id", "rec1", "--file", str(log))
         self.assertEqual(len(third["uploaded"]), 1)
+
+    def test_download_fetches_attachment_already_on_the_record(self):
+        self.feishu("create", "--title", "T", "--description", "D")
+        archive = self.base / "tutti-web-diagnostics.zip"
+        archive.write_bytes(b"zipdata")
+        self.feishu("attach", "--record-id", "rec1", "--file", str(archive))
+        result = self.feishu("download", "--record-id", "rec1", "--name", archive.name,
+                             "--output-dir", str(self.base / "dl"))
+        self.assertEqual(result["size"], len(b"zipdata"))
+        self.assertTrue(Path(result["path"]).is_file())
+        self.feishu("download", "--record-id", "rec1", "--name", "missing.zip",
+                    "--output-dir", str(self.base / "dl"), expected=2)
 
     def test_cli_failures_are_explicit(self):
         failing = {**self.env, "FAKE_LARK_FAIL": "+record-upsert"}
