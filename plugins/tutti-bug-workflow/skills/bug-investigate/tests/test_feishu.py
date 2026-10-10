@@ -73,14 +73,14 @@ class FeishuTests(unittest.TestCase):
         self.assertEqual(self.feishu("options", "--field", "platform")["options"],
                          ["新框架一期-Mac", "新框架一期-Windows", "新框架一期-Web"])
 
-    def test_root_cause_replaces_only_the_agent_block(self):
-        self.feishu("create", "--title", "T")
-        state = self.lark()
-        state["records"]["rec1"][FIELDS["root_cause"]] = "RD 备注：先看接口"
-        self.state.write_text(json.dumps(state))
-        self.feishu("write", "--record-id", "rec1", "--set", "root_cause=第一版结论")
-        self.feishu("write", "--record-id", "rec1", "--set", "root_cause=第二版结论")
-        self.assertEqual(self.record()["root_cause"], "RD 备注：先看接口\n\n【Agent 分析根因】\n第二版结论")
+    def test_context_fields_are_written_and_root_cause_is_not_settable(self):
+        self.feishu("create", "--title", "T", "--set", "page_url=https://tutti.sh/platform/rooms/r1",
+                    "--set", "env_version=环境：生产（tutti.sh）\nWeb：abc123", "--set", "context=期望：一致\n实际：不一致")
+        record = self.record()
+        self.assertEqual(record["page_url"], "https://tutti.sh/platform/rooms/r1")
+        self.assertIn("生产", record["env_version"])
+        self.assertIn("实际", record["context"])
+        self.feishu("write", "--record-id", "rec1", "--set", "root_cause=x", expected=2)
 
     def test_attach_verifies_read_back_and_skips_files_already_on_the_record(self):
         self.feishu("create", "--title", "T")

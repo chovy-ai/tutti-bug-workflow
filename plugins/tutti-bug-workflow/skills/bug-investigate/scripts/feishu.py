@@ -5,8 +5,8 @@ Stateless: nothing is persisted locally. The agent keeps record_id in its sessio
 context and passes it on every call; the Feishu record itself is the source of
 truth. Records go to the `bug_report` table in the data-directory config (falling
 back to the plugin's example config). This script owns field mapping, select-option
-validation, date conversion, the agent-owned root-cause block, attachment
-de-duplication, person lookup and read-back verification.
+validation, date conversion, attachment de-duplication, person lookup and read-back
+verification. The bug-report flow records context only; it does not write 分析根因.
 """
 
 import argparse
@@ -22,10 +22,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import common as wb  # noqa: E402
 
 # Fields the agent may set with --set. Person fields use `assign`; attachments use `attach`.
-SETTABLE = {"title", "platform", "priority", "module", "issue_type", "record_time", "root_cause"}
+SETTABLE = {"title", "platform", "priority", "module", "issue_type", "record_time",
+            "env_version", "page_url", "context"}
 SELECTS = {"status", "platform", "priority", "issue_type", "module"}
 ATTACHMENT_FIELDS = {"attachments"}
-ROOT_CAUSE_MARK = "【Agent 分析根因】"
 
 
 class LarkError(ValueError):
@@ -187,30 +187,20 @@ def as_text(value):
     return json.dumps(value, ensure_ascii=False)
 
 
-def merge_root_cause(existing, content):
-    """Replace only the agent-owned block; keep anything people wrote."""
-    existing = as_text(existing).rstrip()
-    block = f"{ROOT_CAUSE_MARK}\n{content}"
-    if ROOT_CAUSE_MARK in existing:
-        return existing[:existing.index(ROOT_CAUSE_MARK)].rstrip() + ("\n\n" if existing.split(ROOT_CAUSE_MARK)[0].strip() else "") + block
-    return f"{existing}\n\n{block}" if existing else block
-
-
 def matches(key, expected, actual):
     if key == "record_time":
         return bool(actual) and str(actual)[:10] == expected[:10]
     if key in SELECTS:
         values = actual if isinstance(actual, list) else [actual]
         return expected in values
+    if key == "page_url":
+        return expected.strip() in as_text(actual)  # URL cells may come back as a link object
     return as_text(actual).strip() == expected.strip()
 
 
 def write_values(client, record_id, values):
     """Write converted values, then read back and compare."""
     cells = {key: client.cell(key, value) for key, value in values.items()}
-    if "root_cause" in cells:
-        current = client.read(record_id, ["root_cause"])["root_cause"]
-        cells["root_cause"] = merge_root_cause(current, cells["root_cause"])
     client.upsert({client.field_id(key): value for key, value in cells.items()}, record_id)
     actual = client.read(record_id, sorted(cells))
     mismatched = [key for key, value in cells.items() if not matches(key, value, actual.get(key))]

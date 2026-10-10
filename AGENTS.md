@@ -24,7 +24,7 @@ plugins/tutti-bug-workflow/
 1. **Skill 之间不互相引用文件。** 一个 Skill 的 SKILL.md、references、scripts 只链接或调用本 Skill 目录下的文件。多个 Skill 需要同一份内容时，各自保留一份，并只保留与本 Skill 相关的部分；接受重复，避免耦合。例如 `feishu.py` 由各 Skill 按自己的读写需要各自维护。
 2. **需要另一个 Skill 的能力时，引用 Skill 而不是文件**，例如「工具安装与认证由 `$tutti-bug-workflow:bug-setup` 处理」。
 3. **使用和准备分开写。** 工具的安装、认证、授权写在 bug-setup；如何使用写在使用它的 Skill。
-4. **插件级目录只放插件本身的东西**：插件清单、MCP 注册文件（`mcp.json`、`.mcp.json`，当前没有自带 server）、`scripts/validate_plugin.py`、各 Skill 共同读取的运行配置模板 `config/workbench.example.json`、README。不要在插件级新增 `references/`、`assets/` 或业务脚本。
+4. **插件级目录只放插件本身的东西**：插件清单、MCP 注册文件（`mcp.json`、`.mcp.json`，注册官方 `chrome-devtools-mcp`）、`scripts/validate_plugin.py`、各 Skill 共同读取的运行配置模板 `config/workbench.example.json`、README。不要在插件级新增 `references/`、`assets/` 或业务脚本。
 5. Skill 内脚本的路径写成相对 Skill 目录（如 `scripts/feishu.py`），或插件源码下的完整路径（如 `PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py`）。
 
 ## 测试

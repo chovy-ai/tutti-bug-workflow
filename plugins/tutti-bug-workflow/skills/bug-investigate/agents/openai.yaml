@@ -1,4 +1,4 @@
 interface:
   display_name: "QA 提 Bug"
-  short_description: "记 Bug 即走完全程：登记、采集日志、分析到根因、回填飞书"
-  default_prompt: "使用 $tutti-bug-workflow:bug-investigate 处理这条 QA 上报或补充，无论用户说的是记个 bug 还是排查，都走完全程：一步接一步连续执行，中途不停下汇报或询问是否继续，耗时操作等它完成。在飞书建单或找回记录，固定采集 Web 与 Computer 日志并上传，按需查询 Server 日志，读两个最新 main 分析到根因，分字段回填飞书。只有自己无法解决的卡点才一次性向 QA 提问并说明获取方式；排查结束后上传本次会话。"
+  short_description: "记 Bug 即走完全程：登记、带全现场（Web/Server/Computer）、填表"
+  default_prompt: "使用 $tutti-bug-workflow:bug-investigate 处理这条 QA 上报：在飞书 Bug 管理表登记，固定采集当时的全部现场（Web 页面日志、Network、Console、截图与快照，tutti-server 日志，Computer 日志），原样上传并填写环境与版本、页面链接、问题上下文；不分析根因。一步接一步连续执行，能并行的并行，耗时操作等它完成，只有自己无法解决的卡点才问用户。"

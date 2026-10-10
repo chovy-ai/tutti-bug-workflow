@@ -2,7 +2,7 @@
 
 提 Bug 时由 `scripts/collect_computer.py` 自动执行本页的定位已有任务、创建、等待、生成链接、下载与校验；本页供脚本失败排查或手动操作时参考。这是 [Computer 日志获取](computer-logs.md) 中远端日志召回协议的 CLI 入口；本机继续读取已确认的文件。2026-09-30 核对了本机实际安装的 npm 包 `@tutti-os/tutti-ops-cli@0.1.6` 的 Computer 帮助、能力清单、六个操作的 schema，以及零网络创建与下载链接预览。
 
-tutti-ops 的安装、Token 与权限由 bug-setup 准备；认证或权限失败写进「分析根因」的「待确认」交给维护方。
+tutti-ops 的安装、Token 与权限由 bug-setup 准备；认证或权限失败在最终回复里说明，交给维护方。
 
 ## 定位目标与已有任务
 

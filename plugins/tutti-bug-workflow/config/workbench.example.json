@@ -62,7 +62,9 @@
       "issue_type": "fldAaKSJu5",
       "module": "fldIpeAABN",
       "record_time": "fldeyo0hFE",
-      "root_cause": "fldTqpQGom"
+      "env_version": "fld766hlvY",
+      "page_url": "fldb3gv4M0",
+      "context": "fldqyueosk"
     },
     "defaults": { "status": "未解决", "issue_type": "bug" },
     "platform_choices": ["新框架一期-Mac", "新框架一期-Windows", "新框架一期-Web"],
