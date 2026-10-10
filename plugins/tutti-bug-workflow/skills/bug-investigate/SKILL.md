@@ -15,7 +15,7 @@ description: QA 提 Bug：接收 QA 上报或补充，在飞书登记，固定�
 
 ## 1. 接收与建单
 
-1. 从 QA 消息整理：标题、期望与实际表现、复现步骤与频率、环境、发生时间与时区、截图／录屏（实际查看）、WebMCP 连接链接或页面诊断 ID。QA 原话、你已验证的事实、待验证的推断分开记。
+1. 从 QA 消息整理：标题、期望与实际表现、复现步骤与频率、环境、发生时间与时区、截图／录屏（实际查看）、WebMCP 连接链接。QA 原话、你已验证的事实、待验证的推断分开记。
 2. 固定 `question_time`：触发本次上报的消息时间（含时区的 ISO 8601）；拿不到时用你收到消息的时间并注明近似。本次排查内所有采集窗口都用它。
 3. 建单或找回：
    ```sh
@@ -29,7 +29,7 @@ description: QA 提 Bug：接收 QA 上报或补充，在飞书登记，固定�
 
 **Web**（详见 [WebMCP 日志](references/web-logs.md#固定流程提问前-10-分钟--单个-log-附件)）：
 
-- 有连接链接或页面诊断 ID：调用 MCP `tutti-diagnostics.collect_web_logs({connection_url, question_time, output_path: "$TMP/web-logs.log"})`。
+- 有连接链接：调用 MCP `tutti-diagnostics.collect_web_logs({connection_url, question_time, output_path: "$TMP/web-logs.log"})`。
 - 没有：记为 `{"status": "blocked", "reason": "no_link"}`。
 
 **Computer**（详见 [Computer 定位](references/computer-target.md)）：
@@ -83,7 +83,7 @@ python3 scripts/feishu.py write --record-id REC \
 
 | 缺什么 | 怎么请 QA 提供 |
 |---|---|
-| WebMCP 连接链接 | 在 Tutti「设置 → 诊断」点「复制 WebMCP 连接链接」发过来，并保持该页面不要刷新 |
+| WebMCP 连接链接 | 在出问题的 Tutti 页面打开「设置 → 诊断」，点「复制 WebMCP 连接链接」发过来（也可用「设置 → 实验室 → WebMCP → 复制连接链接」），并保持该页面不要刷新 |
 | 页面已刷新、旧日志取不到 | 在「设置 → 诊断」选择覆盖故障时间的范围，点「导出日志」，把文件发过来 |
 | 故障设备 | 从列出的候选（名称、平台、在线状态）里选当时用的那台；列不出候选时直接提供设备名称或 Computer ID |
 | 现场事实 | 只问 QA 能观察到、且会改变下一项验证的事实，例如操作顺序、是否稳定复现 |
