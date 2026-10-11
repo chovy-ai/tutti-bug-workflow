@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def configuration_status(kind, cfg):
     if kind == "feishu":
-        value = cfg.get("feishu", {})
+        value = cfg.get("bug_report", {})
         configured = bool(workbench.real_url(value.get("base_url")) and value.get("table_id")
                           and value.get("field_map"))
     elif kind == "repositories":

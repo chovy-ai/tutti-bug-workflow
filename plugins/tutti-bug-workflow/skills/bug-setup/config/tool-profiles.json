@@ -39,17 +39,16 @@
       ],
       "configuration": "feishu",
       "requirements": [
-        "实际表格字段与状态映射",
+        "Bug 管理表（bug_report）的实际字段映射",
         "身份认证",
-        "记录读取、创建、分节更新及附件读写权限；宿主工具可作为替代入口"
+        "记录读取、创建、字段更新及附件读写权限；宿主工具可作为替代入口"
       ],
       "install_operation": null
     },
     {
       "id": "code",
-      "label": "Git、共享代码缓存与隔离工作区",
+      "label": "Git、共享代码缓存、全局分析检出与修复 worktree",
       "required_in": [
-        "investigate",
         "solution",
         "execute"
       ],
@@ -60,8 +59,8 @@
       "configuration": "repositories",
       "requirements": [
         "两仓库读取权限与网络",
-        "缓存/worktree 空间",
-        "QA 更新 main；RD/执行使用交接的固定基线"
+        "缓存与检出的磁盘空间",
+        "分析用全局检出跟随最新 main；修复从远端 main 切 worktree，推送需写权限"
       ],
       "install_operation": null
     },
@@ -86,22 +85,24 @@
     },
     {
       "id": "diagrams",
-      "label": "Mermaid 流程图与架构图",
+      "label": "Mermaid 源码与 PNG 渲染（mmdc）",
       "required_in": [
         "solution"
       ],
       "conditional_in": [],
-      "commands": [],
+      "commands": [
+        "mmdc"
+      ],
       "configuration": "source-only",
       "requirements": [
-        "Mermaid 源码生成",
-        "导出图片/PDF 时再选择实际渲染器"
+        "@mermaid-js/mermaid-cli 提供的 mmdc 可执行",
+        "渲染所需的 Chromium（mmdc 自带 puppeteer）"
       ],
       "install_operation": null
     },
     {
       "id": "approval",
-      "label": "批准来源核对与执行一致性检查",
+      "label": "RD 批准校验",
       "required_in": [
         "execute"
       ],
@@ -109,9 +110,8 @@
       "commands": [],
       "configuration": "per-bug",
       "requirements": [
-        "可信 RD 批准来源的读取入口",
-        "每条 Bug 的批准版本与摘要",
-        "workbench.py check-execution；检查一致性不证明批准身份"
+        "Bug 记录的方案状态为「已批准」",
+        "bug-execute 的 feishu.py check-approval"
       ],
       "install_operation": null
     },
@@ -268,10 +268,10 @@
     {
       "id": "github-delivery",
       "label": "提交与 PR 交付",
-      "required_in": [],
-      "conditional_in": [
+      "required_in": [
         "execute"
       ],
+      "conditional_in": [],
       "commands": [
         "gh"
       ],
@@ -286,16 +286,15 @@
     {
       "id": "deployment",
       "label": "修复版本部署或预览交付",
-      "required_in": [],
-      "conditional_in": [
+      "required_in": [
         "execute"
       ],
+      "conditional_in": [],
       "commands": [],
       "configuration": "environment-specific",
       "requirements": [
-        "实际部署工具/流水线与目标环境权限",
-        "已授权的交付方式",
-        "部署完成状态与实际修复 SHA 的核对入口"
+        "gh 对 tutti-lab/tutti、tutti-lab/tutti-server 触发 workflow 的权限",
+        "deploy-lane / platform-web-preview / computer-artifacts-release 工作流可用"
       ],
       "install_operation": null
     }

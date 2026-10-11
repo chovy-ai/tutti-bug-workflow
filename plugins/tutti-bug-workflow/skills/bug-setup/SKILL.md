@@ -70,7 +70,7 @@ python3 PLUGIN_SOURCE/skills/bug-setup/scripts/tool_setup.py --scene execute --i
 
 - **基础必需**：执行本地任务的 Codex、可读取的插件目录、Python 3.10+、可写且有足够空间的数据目录；记录机器与操作系统，确定哪些浏览器、文件和网络可从这台机器访问。
 - **已有默认**：数据目录按 `--data-dir`、`BUG_WORKBENCH_DATA`、`PLUGIN_DATA`、`~/.local/share/bug-workbench` 依次选择，必须位于插件源码与安装缓存之外。插件更新复用同一数据目录。
-- **操作**：执行模式运行 `python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py init`，再运行 `doctor`；将 `PLUGIN_SOURCE` 换为实际插件目录。`init` 创建配置、Bug 档案和工具目录，保留已有配置。
+- **操作**：执行模式运行 `python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py init`，再运行 `doctor`；将 `PLUGIN_SOURCE` 换为实际插件目录。`init` 创建配置和工具目录，保留已有配置。
 - **完成标准**：执行目录明确，Python 可用，配置可读取，数据目录可写；记录 `doctor` 原始结果。初始化本身不拉代码或开启连接。
 
 ## 2. 核对公共工具与安装条件
@@ -82,38 +82,19 @@ python3 PLUGIN_SOURCE/skills/bug-setup/scripts/tool_setup.py --scene execute --i
 
 ## 3. 接入飞书 Bug 表
 
-- **能力必需**：表格链接、Base/Table 标识、实际字段类型及映射、三个状态/视图，以及执行身份和认证入口；该身份需要读取表格/记录/附件、创建与更新 Bug、上传附件并回填报告的权限。
-- **已有默认**：用户指定的「Bug 列表」、真实字段和三个状态已在配置中，默认 `user` 身份。字段覆盖标题、描述、日志、附件、流程状态及 [独立报告字段](references/report-fields.md)，另有预览地址、PR 和修复证据。旧配置须先读取本表实际字段再补齐报告映射，保留所有其他设置；更换表格时重新解析字段和视图。
-- **待确定**：共享给其他使用者时，确定其飞书身份与授权方式；共享插件本身不授予表格权限。CLI、宿主工具或 MCP 的具体认证材料按所选入口要求准备，不能一律要求 App ID/Secret。
-- **操作**：按 [飞书命令适配](references/configuration.md#飞书命令适配) 发现帮助，核对身份、字段与访问范围。仅更新已映射字段，独立报告字段保留人工修改；认证材料留在工具存储中。
-- **完成标准**：实际只读访问成功才标记读取已验证；记录写入、附件读取与上传各自的权限/验证状态。未执行写入时保留“写入待验证”，不用试建 Bug 代替检查。
+- **能力必需**：Bug 管理表的链接、Base/Table 标识、实际字段类型及映射，以及执行身份和认证入口；该身份需要读取记录与附件、创建与更新 Bug、上传附件的权限。
+- **已有默认**：Bug 管理表（视图「新框架（一期）」）及全部字段 ID 已在配置的 `bug_report` 段中，默认 `user` 身份。三个场景共用这张表，字段与职责见 [字段与职责](references/report-fields.md)。
+- **待确定**：共享给其他使用者时，确定其飞书身份与授权方式；共享插件本身不授予表格权限。
+- **操作**：按 [飞书命令适配](references/configuration.md#飞书命令适配) 核对身份、字段与访问范围；用 `lark-cli base +field-list` 读取实际字段，核对 `bug_report.field_map` 的每个 ID 都存在。旧配置只有 `feishu` 段（旧「Bug 列表」）时，补上 `bug_report` 段，保留其他设置。
+- **完成标准**：实际只读访问成功才标记读取已验证；记录写入、附件读取与上传各自记录权限/验证状态。未执行写入时保留「写入待验证」，不用试建 Bug 代替检查。
 
-### 报告字段映射（必须核对）
+## 4. 准备两个仓库的代码缓存
 
-报告使用以下独立字段，不能只配置一个「原因分析」承载全部报告。读取目标表的真实字段类型与 ID 后保存到 `feishu.field_map`；不能凭字段名称构造 ID。
-
-| 飞书字段 | field_map 键 |
-|---|---|
-| 分析结论 | `analysis_conclusion` |
-| 根因分析 | `analysis_report` |
-| 排查验证 | `investigation_evidence` |
-| 代码基线 | `code_baselines` |
-| 相关代码 | `code_references` |
-| 修复方案 | `solution_report` |
-| 验收标准 | `acceptance_report` |
-| 验证结果 | `verification_report` |
-| QA/RD沟通 | `dialogue` |
-| 待核实与阻塞 | `open_items` |
-
-`analysis_report` 沿用原「原因分析」字段 ID，只保留根因正文。旧配置只补齐实际核实的映射，保留表格、仓库、日志路径、认证和其他个人设置。字段不存在时，按用户已授权的表格调整范围创建或登记缺口；不未经授权改名、建字段或迁移旧记录。旧记录混合报告先保存原始材料，按用户指定记录逐条迁移并保留人工内容，不能批量推断或覆盖历史 Bug。详细职责见 [报告字段契约](references/report-fields.md)。
-
-## 4. 准备两个仓库的共享缓存
-
-- **能力必需**：两个仓库 URL、`main` 分支、Git、执行机器对两仓库的读取权限、GitHub 网络，以及可写的缓存/worktree 目录和磁盘空间。
-- **已有默认**：`tutti-lab/tutti`、`tutti-lab/tutti-server`；缓存为数据目录内的 `repositories/tutti.git`、`repositories/tutti-server.git`。
-- **条件项**：已有本地仓库路径仅用于首次预热；Git LFS/submodule、编译和测试依赖按实际仓库要求准备。执行修复并提交 PR 时另需推送/PR 权限，读取源码不要求这些权限。
-- **操作**：Setup 保存并检查缓存配置；用户要求预热或开始分析时才按 [代码缓存](references/repository-cache.md) 同步。每轮增量获取最新 main、固定两个 SHA，在 `codex/<场景摘要>` 分支创建隔离 worktree。
-- **完成标准**：配置完成与远端访问验证分别报告；两仓库都成功获取后才标记本轮 main 已更新。已有开发目录及未提交修改保持完整。
+- **能力必需**：两个仓库 URL、`main` 分支、Git、执行机器对两仓库的读取权限、GitHub 网络，以及可写的数据目录和磁盘空间。
+- **已有默认**：`tutti-lab/tutti`、`tutti-lab/tutti-server`；数据目录内 `repositories/<仓库>.git` 为 bare 缓存，`repositories/<仓库>` 为全局分析检出。
+- **条件项**：Git LFS/submodule、编译和测试依赖按实际仓库要求准备。修复并提 PR 时另需推送/PR 权限，读取源码不要求这些权限。
+- **操作**：Setup 保存并检查仓库配置；用户要求预热时按 [代码缓存与检出](references/repository-cache.md) 初始化。分析时由 bug-solution 同步全局检出，修复时由 bug-execute 切 worktree。
+- **完成标准**：配置完成与远端访问验证分别报告；已有检出中的本地改动保持完整。
 
 ## 5. 准备 tutti-ops CLI
 

@@ -1,47 +1,5 @@
 {
   "schema_version": 1,
-  "feishu": {
-    "base_url": "https://ccn53rwonxso.feishu.cn/base/RYLPb6dGma0e6Wsb8v6c4HhBntg?table=tblceDIio9QmR8ou&view=vewOTNRVFB",
-    "base_token": "RYLPb6dGma0e6Wsb8v6c4HhBntg",
-    "table_id": "tblceDIio9QmR8ou",
-    "table_name": "Bug 列表",
-    "identity": "user",
-    "field_map": {
-      "title": "fldKVQlMaE",
-      "description": "fldFMSSMBv",
-      "logs": "fldMuKioHc",
-      "attachments": "fldEOh3AxT",
-      "analysis_report": "fld72L7y9S",
-      "analysis_conclusion": "fldop0q7pb",
-      "investigation_evidence": "fld2NroDwV",
-      "code_baselines": "fldlXo2Z6Y",
-      "code_references": "fldej464tV",
-      "solution_report": "fldNR0Ezxq",
-      "acceptance_report": "fldkLKtmo9",
-      "verification_report": "fld3wCpU26",
-      "dialogue": "fldQT8L6vb",
-      "open_items": "fldMpnko3a",
-      "preview_url": "fld0WeCK23",
-      "pull_requests": "flddyMBhGX",
-      "verification_evidence": "fldYBdMYSe",
-      "ui_only": "fldqfxN0g1",
-      "suspected_modules": "fldghDg5dB",
-      "workflow_status": "fld1qLVCDf"
-    },
-    "workflow": {
-      "status_values": {
-        "bug": "bug单",
-        "review": "待 review 方案",
-        "acceptance": "已自动修复并验证，待验收"
-      },
-      "view_ids": {
-        "bug": "vewOTNRVFB",
-        "review": "vewVkuJ7Ue",
-        "acceptance": "vewaFbwWDG"
-      },
-      "empty_status_stage": "bug"
-    }
-  },
   "bug_report": {
     "base_url": "https://ccn53rwonxso.feishu.cn/base/CEHMbNF8Zavq5wsAO3ecrpQ6nPc?table=tblieImZwMnvZ8My&view=vewoD2kiPo",
     "base_token": "CEHMbNF8Zavq5wsAO3ecrpQ6nPc",
@@ -64,15 +22,58 @@
       "record_time": "fldeyo0hFE",
       "env_version": "fld766hlvY",
       "page_url": "fldb3gv4M0",
-      "context": "fldqyueosk"
+      "context": "fldqyueosk",
+      "root_cause": "fldTqpQGom",
+      "solution": "fld1KYGjrO",
+      "acceptance": "fldjWBiXnK",
+      "verification": "fldkbXHbtG",
+      "pull_requests": "fldeUIY2k9",
+      "diagrams": "fldlTE3qwJ",
+      "plan_status": "fld8Dz9R5w",
+      "rejection": "fldB6Bg8uL",
+      "fix_progress": "fldicn3CQW"
     },
+    "plan_status": { "open": ["未处理", "已驳回"], "review": "待评审", "approved": "已批准", "rejected": "已驳回",
+                     "fixing": "修复中", "deployed": "已部署待验收", "fix_failed": "修复失败" },
     "defaults": { "status": "未解决", "issue_type": "bug" },
     "platform_choices": ["新框架一期-Mac", "新框架一期-Windows", "新框架一期-Web"],
     "excluded_priorities": ["P2"]
   },
+  "solution_schedule": {
+    "interval_seconds": 3600,
+    "timeout_minutes": 45,
+    "keep_days": 7,
+    "codex_command": "codex"
+  },
+  "execute_schedule": {
+    "interval_seconds": 3600,
+    "timeout_minutes": 180,
+    "keep_days": 7,
+    "codex_command": "codex"
+  },
+  "deploy": {
+    "branch_prefix": "codex/bug-",
+    "server": {
+      "repository": "tutti-lab/tutti-server",
+      "workflow": "deploy-lane.yml",
+      "lane_prefix": "bug-",
+      "inputs": { "connector_authorization_enabled": "false" },
+      "destroy_workflow": "destroy-lane.yml"
+    },
+    "web": {
+      "repository": "tutti-lab/tutti",
+      "workflow": "platform-web-preview.yml",
+      "dispatch_ref": "main",
+      "preview_url": "https://tutti.sh/platform/?webBranch={branch}"
+    },
+    "computer": {
+      "repository": "tutti-lab/tutti",
+      "workflow": "computer-artifacts-release.yml"
+    }
+  },
   "repositories": [
-    { "name": "tutti", "url": "https://github.com/tutti-lab/tutti.git", "base_branch": "main", "cache_path": "repositories/tutti.git" },
-    { "name": "tutti-server", "url": "https://github.com/tutti-lab/tutti-server.git", "base_branch": "main", "cache_path": "repositories/tutti-server.git" }
+    { "name": "tutti", "url": "https://github.com/tutti-lab/tutti.git", "base_branch": "main", "cache_path": "repositories/tutti.git", "checkout_path": "repositories/tutti" },
+    { "name": "tutti-server", "url": "https://github.com/tutti-lab/tutti-server.git", "base_branch": "main", "cache_path": "repositories/tutti-server.git", "checkout_path": "repositories/tutti-server" }
   ],
   "log_sources": [
     { "name": "web-chrome", "kind": "web", "transport": "chrome-devtools-mcp", "environment": "local_chrome", "mcp_server": "chrome-devtools", "tool": "get_web_logs", "scope": "local_account_and_page" },
@@ -91,7 +92,9 @@
     { "name": "git", "command": "git", "required": true, "installer": null },
     { "name": "gh", "command": "gh", "required": false, "installer": null },
     { "name": "tutti-ops", "command": "tutti-ops", "required": true, "installer": { "type": "npm-global", "package": "@tutti-os/tutti-ops-cli" } },
-    { "name": "aws", "command": "aws", "required": false, "installer": { "type": "aws-official", "version": "2.34.11" } }
+    { "name": "aws", "command": "aws", "required": false, "installer": { "type": "aws-official", "version": "2.34.11" } },
+    { "name": "codex", "command": "codex", "required": false, "installer": null },
+    { "name": "mmdc", "command": "mmdc", "required": false, "installer": null }
   ],
   "mcp_servers": {},
   "aws_cli": { "profile": null, "region": "us-east-1" },

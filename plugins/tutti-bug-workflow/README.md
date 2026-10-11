@@ -1,12 +1,12 @@
 # tutti-bug-workflow
 
-版本：0.1.38。运行方式：Codex 本地会话。三个业务场景通过同一份 Bug 档案交接，公共初始化 Skill 准备配置与依赖。
+版本：0.1.39。运行方式：Codex 本地会话。三个业务场景以飞书 Bug 管理表中的同一条记录交接，不保留本地档案；公共初始化 Skill 准备配置与依赖。
 
 | 入口 | 工作内容 |
 |---|---|
-| `$tutti-bug-workflow:bug-investigate` | 上报后自行分析代码与日志，再反馈结论或必要的现场追问 |
-| `$tutti-bug-workflow:bug-solution` | 与 RD 协商方案，提供根本方案、兼容方案和设计图 |
-| `$tutti-bug-workflow:bug-execute` | 执行批准方案，在指定环境验证并记录证据 |
+| `$tutti-bug-workflow:bug-investigate` | QA 提 Bug：登记并带全现场日志与上下文，不分析根因 |
+| `$tutti-bug-workflow:bug-solution` | RD 根因与方案（定时）：每小时按跟进人逐条分析根因、生成流程图与架构图 PNG、起草方案和验收，记录 RD 批准 |
+| `$tutti-bug-workflow:bug-execute` | 修复与部署（定时）：每小时按跟进人修复已批准的 Bug，提 PR 到 main，部署 PPE（server 泳道 → 前端预览 → Computer canary），验证，进度写回 bug 单 |
 | `$tutti-bug-workflow:bug-setup` | 按场景准备工具，主动补齐认证与权限并复查接入 |
 
 ## 首次使用
@@ -34,21 +34,19 @@ python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py setup-aws-cli --inst
 
 上述安装完成后立即进入授权。tutti-ops 使用 Token：运行 `python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py configure-tutti-token`，隐藏输入后校验并保存，后续自动复用；飞书和 AWS 沿用各自认证流程。
 
-默认数据目录为 `~/.local/share/bug-workbench`，可用 `--data-dir` 或环境变量 `BUG_WORKBENCH_DATA` 覆盖。配置、Bug 档案与安装的工具保存在数据目录，独立于插件源码和安装缓存。
+默认数据目录为 `~/.local/share/bug-workbench`，可用 `--data-dir` 或环境变量 `BUG_WORKBENCH_DATA` 覆盖。配置、代码缓存与安装的工具保存在数据目录，独立于插件源码和安装缓存。
 
 数据目录的 `config.json` 已默认绑定指定的飞书 Bug 表、真实字段、三个视图，以及 tutti 和 tutti-server 的远端 main。补充 Web/目标 computer 的日志来源与验证环境后开始对应场景；已有配置不会被初始化覆盖。每个场景读取同一份配置，实际参数见 [配置说明](skills/bug-setup/references/configuration.md)。
 
-## 固定的飞书工作台
+## 飞书 Bug 管理表
 
-使用同一张「Bug 列表」的「流程状态」单选字段区分三个阶段：
+三个场景共用 [Bug 管理表（视图「新框架（一期）」）](https://ccn53rwonxso.feishu.cn/base/CEHMbNF8Zavq5wsAO3ecrpQ6nPc?table=tblieImZwMnvZ8My&view=vewoD2kiPo)，每个场景只写自己负责的字段，「状态」由人工流转。「方案状态」串起后两个场景：空／未处理／已驳回 → 定时分析 → 待评审 → RD 选已批准或已驳回（写驳回意见，重新分析）→ 定时修复 → 修复中 → 已部署待验收／修复失败。字段与职责见 [字段与职责](skills/bug-setup/references/report-fields.md)。
 
-| 状态与视图 | 工作内容 |
+| 场景 | 写入的字段 |
 |---|---|
-| [bug单](https://ccn53rwonxso.feishu.cn/base/RYLPb6dGma0e6Wsb8v6c4HhBntg?table=tblceDIio9QmR8ou&view=vewOTNRVFB) | QA 提交、补充上下文、根因分析；空状态的旧记录也显示在这里 |
-| [待 review 方案](https://ccn53rwonxso.feishu.cn/base/RYLPb6dGma0e6Wsb8v6c4HhBntg?table=tblceDIio9QmR8ou&view=vewVkuJ7Ue) | 方案已回填，RD 讨论和批准；修复执行及未通过的验证继续留在这里 |
-| [已自动修复并验证，待验收](https://ccn53rwonxso.feishu.cn/base/RYLPb6dGma0e6Wsb8v6c4HhBntg?table=tblceDIio9QmR8ou&view=vewaFbwWDG) | 已核对修复版本、完成验证并回填证据，等待 QA/RD 人工验收 |
-
-报告按 [独立字段](skills/bug-investigate/references/report-fields.md) 回填：结论、根因、排查验证、基线、代码路径、方案、验收、修复后验证、沟通和待核实项分别保存。根因字段只写简洁因果链；旧记录按明确授权迁移。状态切换规则见 [工作流与交接](skills/bug-setup/references/workflow.md)。视图配置已经生效；自动触发需另接后续流程服务。
+| bug-investigate | Bug 描述、所属端、优先级、业务模块、提交人、指派人、记录时间、环境与版本、页面链接、问题上下文、截图／视频／日志 |
+| bug-solution | 分析根因、根因图（PNG）、修复方式、验收标准；方案状态置「待评审」 |
+| bug-execute | 方案状态（修复中／已部署待验收／修复失败）、修复进度、关联 PR、验证结果、修复后证据附件 |
 
 ### QA 提 Bug（`bug-investigate`）
 
@@ -59,16 +57,35 @@ python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py setup-aws-cli --inst
 3. 并行：Computer 召回（`collect_computer.py`，后台）与 Server 日志（`collect_server.py`，subagent，从 Web 日志提取 request id 查 AWS CloudWatch 并识别生产／PPE）。
 4. 上传截图、视频与全部日志，写入环境与版本、页面链接、问题上下文；全部完成后上传本次会话。
 
+### 根因与方案（`bug-solution`）
+
+定时分析，流程见 [SKILL.md](skills/bug-solution/SKILL.md) 与 [定时任务](skills/bug-solution/references/schedule.md)：
+
+1. 对 agent 说「给张三开 bug 根因定时分析，只看 P1 以上」，`schedule.py install` 为该跟进人装一个本机 launchd 任务，每小时一轮。
+2. 每轮 `scan.py`：列出该跟进人「未解决」且方案状态为空／未处理／已驳回的 Bug，同步全局代码检出到最新 main，全部处理。
+3. 每条 Bug 一个 `codex exec` 会话（本机运行，不进 sandbox），运行目录里备好 `context.md`（记录全部字段，被驳回时含驳回意见和上一版）、附件和代码 SHA；会话写「分析根因」「修复方式」「验收标准」，渲染流程图、架构图 PNG 上传「根因图」，最后把方案状态置「待评审」。写入带守卫，RD 已评审的不覆盖。
+4. RD 在飞书评审：选「已批准」进入 bug-execute，选「已驳回」并写驳回意见，下一轮重新分析。
+
+### 修复与部署（`bug-execute`）
+
+定时修复，流程见 [SKILL.md](skills/bug-execute/SKILL.md)、[定时任务](skills/bug-execute/references/schedule.md) 与 [PPE 部署](skills/bug-execute/references/deploy.md)：
+
+1. 对 agent 说「给张三开定时修复」，`schedule.py install` 为该跟进人装一个本机 launchd 任务，每小时一轮。
+2. 每轮 `scan.py`：遗留的「修复中」标为修复失败；方案状态为「已批准」的 Bug 逐条置「修复中」，各起一个 `codex exec` 会话（本机运行，不进 sandbox）。
+3. 会话：从最新 main 切 `codex/bug-<record_id>`（重试时接着原分支）→ 修复、测试 → 推送、提 PR 到 main → 部署 PPE：先 tutti-server `deploy-lane`（泳道 `bug-<record_id>`，关闭连接器授权），再 tutti `platform-web-preview`（指向该泳道），涉及 Computer 时在分支上发 `Computer Canary` → 按验收标准在预览链接上验证 → 写验证结果，方案状态置「已部署待验收」；任何一步失败置「修复失败」。每一步写进「修复进度」。
+4. 泳道不自动销毁，需要时让 agent 用 `deploy.py destroy-lane` 销毁。
+
 ## 已提供的能力
 
 - 四个可发现的 Skills；其中三个是业务场景。
-- 共享工作流规则，以及根因、方案、验收与验证模板。
+- 根因、方案、验收与验证模板。
 - 幂等初始化、环境检查、私有目录下的固定版本 npm CLI 安装。
 - setup 复用已有 tutti-ops，缺少时按 `npm install -g @tutti-os/tutti-ops-cli` 全局安装，记录实际版本和入口；根据已安装命令的帮助与 schema 读取 Computer。
 - setup 准备 AWS CLI v2，复用已有安装，缺少时通过 AWS 官方安装器补齐；完整 Setup 接续身份检查和缺口处理，完成必要的本人操作后复查实际访问。
-- 固定 bare 代码缓存、增量同步、更新锁及每轮 main 的持久化快照。
+- bare 代码缓存增量同步、全局分析检出、修复 worktree 的创建／推送／解除，均加文件锁。
+- 按跟进人安装的本机定时根因分析（launchd + codex exec），Mermaid 图渲染 PNG。
 - 从实际配置生成便携 MCP 配置与旧版 Codex 兼容配置。
-- 执行前检查报告版本、仓库版本、批准引用和报告内容摘要的一致性。
+- 执行前确认方案状态为「已批准」且根因、方案、验收齐全。
 
 AWS CLI 使用专用官方安装器，新安装固定版本，核对安装脚本摘要和最终版本，详见 [AWS CLI 安装](skills/bug-setup/references/aws-cli.md)。tutti-ops 使用用户指定的全局 npm 安装方式，要求 Node.js >=20 和 npm，详见 [tutti-ops 安装与认证](skills/bug-setup/references/tutti-ops-computer-logs.md)。其他 CLI 先填写可信 npm 包名与精确版本，再显式调用 `install-cli`；通用私有 npm 安装器不运行包的安装脚本，其他原生工具按实际安装方法适配。
 
@@ -80,11 +97,11 @@ Web 日志由 QA 在出问题的浏览器里自行导出：Tutti「设置 → �
 
 ## 当前接入范围
 
-飞书表格、字段和三个视图已绑定，并在本机通过 user 身份读取验证。两仓库 URL 与 main 分支已配置。Web 日志使用 QA 导出的诊断包，见 [Web 日志](skills/bug-investigate/references/web-logs.md)。本地 computer 日志读取用户指定的明确文件路径；远端 computer 固定复用 Tutti 的日志召回流程，可使用 tutti-ops CLI 或实际 MCP 执行，见 [Computer 日志获取](skills/bug-investigate/references/computer-logs.md)。当前 Mac 已保存核实的三个本地主日志及 Codex 临时诊断路径，并记录轮转日志、VM 崩溃报告与导出漏收注意事项；其他机器需确认实际路径。本机 tutti-ops 已安装并完成离线能力核对，远端认证与真实日志采集尚待验证；其他使用者的宿主能力、远端环境／权限及验证地址仍需分别核对。Skills 可复用当前 Codex 会话的本地工具与已连接 MCP；当前包没有自带 MCP server、飞书连接器或常驻调度服务。共享此包携带表格和仓库地址，不授予收件人访问权限，也不携带本机检出路径或凭证。
+飞书 Bug 管理表及字段已绑定，并在本机通过 user 身份读取验证。两仓库 URL 与 main 分支已配置。Web 日志使用 QA 导出的诊断包，见 [Web 日志](skills/bug-investigate/references/web-logs.md)。本地 computer 日志读取用户指定的明确文件路径；远端 computer 固定复用 Tutti 的日志召回流程，可使用 tutti-ops CLI 或实际 MCP 执行，见 [Computer 日志获取](skills/bug-investigate/references/computer-logs.md)。当前 Mac 已保存核实的三个本地主日志及 Codex 临时诊断路径，并记录轮转日志、VM 崩溃报告与导出漏收注意事项；其他机器需确认实际路径。本机 tutti-ops 已安装并完成离线能力核对，远端认证与真实日志采集尚待验证；其他使用者的宿主能力、远端环境／权限及验证地址仍需分别核对。Skills 可复用当前 Codex 会话的本地工具与已连接 MCP；当前包没有自带 MCP server、飞书连接器或常驻调度服务。共享此包携带表格和仓库地址，不授予收件人访问权限，也不携带本机检出路径或凭证。
 
-飞书事件触发、重试、事件去重、跨设备调度与可信 RD 审批属于后续流程服务，契约见 [工作流与交接](skills/bug-setup/references/workflow.md)。本版 `check-execution` 只检查本地档案一致性；RD 身份与批准来源仍需通过实际飞书记录或直接用户消息核实。
+飞书事件触发、重试、事件去重、跨设备调度与可信 RD 审批属于后续流程服务，契约见 [工作流](skills/bug-setup/references/workflow.md)。本版 `check-approval` 以方案状态为准，谁批准的以飞书修改记录为准。
 
-本地执行仍可能把选取的代码、日志片段和工具输出提交给模型。共享源码和分发包不包含真实业务档案或凭证。
+本地执行仍可能把选取的代码、日志片段和工具输出提交给模型。共享源码和分发包不包含真实业务数据或凭证。
 
 服务端日志判断必需或建议补／可辅助后，在本轮立即调用实际Tutti CLI或已确认AWS来源的AWS CLI，先保存易失证据，追加上传同一条Bug并回读；不会停在建议或等待QA追问。成功访问记录不能用HTTP失败归因空结果代替。详见 [服务端日志](skills/bug-investigate/references/server-logs.md)。
 

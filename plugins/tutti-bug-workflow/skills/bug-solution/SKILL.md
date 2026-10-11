@@ -1,45 +1,82 @@
 ---
 name: bug-solution
-description: 根据已确认的 Bug 根因和代码设计修复方案，提供流程图与架构图，并与 RD 对话修订方案和验收标准；用于方案设计与批准阶段。
+description: RD 的根因与方案（定时）：按跟进人每小时扫描飞书 Bug 管理表中未解决、方案状态为空／未处理／已驳回的 Bug，每条 Bug 一个会话，结合 bug 单上下文、现场日志和最新代码分析根因，生成流程图与架构图 PNG，写修复方式和验收标准，再把方案状态置为待评审；也用于开启、查看、停止定时分析。
 ---
 
-# 方案协商
+# 根因与方案
 
-你负责 RD 对接，把根因转为可执行、可验收的方案，并让 RD 能清楚评估选择与代价。
+你面向 RD，把 `$tutti-bug-workflow:bug-investigate` 登记的 Bug 推进到「RD 已批准的方案」。修改业务代码属于 `$tutti-bug-workflow:bug-execute`。
 
-工具准备按 [场景工具 Setup](references/tool-setup.md) 使用 `solution` 清单，复用公共工具和固定代码基线；图先提供 Mermaid 源码，要求图片/PDF 时再准备实际渲染器。
+**无状态。** 飞书 Bug 管理表里的记录是唯一事实来源，不建本地档案。脚本路径相对本 Skill 目录（`skills/bug-solution/`），都输出一段 JSON。工具安装与认证由 `$tutti-bug-workflow:bug-setup` 负责。
 
-## 开始
+**不改状态。** 「状态」「修复版本」「指派人」「驳回意见」由人工维护；「方案状态」只由本 Skill 从空／未处理／已驳回改成「待评审」，「已批准」「已驳回」由 RD 在飞书里选。本 Skill 只写下表字段，经 `scripts/feishu.py`，写后回读核对。字段细节见 [字段规则](references/fields.md)。
 
-读取 [工作流与交接](references/workflow.md)，加载最新根因、证据、QA 材料和固定代码版本。阅读实际相关实现，确认报告与代码一致。根因尚未确认或新证据推翻根因时，把明确的疑点交回 `$tutti-bug-workflow:bug-investigate`。
-
-## 设计与讨论
-
-1. 给出根本解决方案和兼容方案。比较覆盖范围、架构影响、兼容性、改动成本、回归风险和回滚方式；若两者最终相同，解释原因。
-2. 针对选项说明需要修改的模块、接口或状态处理，保留用户已明确的约束。生成相关工作流程图和架构设计图，优先采用可维护的 Mermaid 源码，标出当前问题点及方案改变的位置。
-3. 与 RD 对话确认选择。把每次反馈映射到方案内容和验收标准，保留来源引用；实质变化增加方案版本。需要新增根因证据时回到分析场景，不把猜测当成方案依据。
-4. 编写验收方案：修复前如何复现、修复后期望、执行环境与版本读取方式、正向/边界/回归用例、证据要求和通过标准。方案与验收一起提交 RD 决策。
-
-使用 [方案模板](assets/plan.md) 和 [验收模板](assets/acceptance.md)。方案写入 `plan.md`，验收写入 `acceptance.md`，同步版本后进入 `waiting_rd_approval`。
-
-## 独立字段回填规则（必须执行）
-
-使用 `feishu.field_map` 定位字段，方案和验收不得追加进「根因分析」。
-
-| 内容 | 飞书字段 | field_map 键 |
+| 字段 | 内容 | 模板 |
 |---|---|---|
-| 根本方案、兼容方案、取舍、范围、方案版本和批准状态 | 修复方案 | `solution_report` |
-| 复现条件、期望行为、验收断言、边界与必要回归 | 验收标准 | `acceptance_report` |
-| RD 反馈、选择与批准原文的真实来源 | QA/RD沟通 | `dialogue` |
-| 待决策项、方案限制、技术阻塞与恢复条件 | 待核实与阻塞 | `open_items` |
-| 经评估的方案基线及必要代码位置 | 代码基线、相关代码 | `code_baselines`、`code_references` |
+| 分析根因 | 结论、时间线、因果链、证据、代码位置、影响范围、待确认 | [root-cause.md](assets/root-cause.md) |
+| 根因图 | 流程图、架构图 PNG | [diagrams.md](assets/diagrams.md) |
+| 修复方式 | 根本方案与兼容方案、取舍、推荐方案、修改范围 | [plan.md](assets/plan.md) |
+| 方案状态 | 全部写完后置为「待评审」 | — |
+| 验收标准 | 环境、修复前复现、验收用例、回归、通过标准 | [acceptance.md](assets/acceptance.md) |
 
-写入前读取最新字段，保留人工内容、分析结论、根因、排查验证和修复后验证。共享字段只追加或更新本场景条目，不覆盖其他场景记录。完整方案和验收文件保存到本地档案，各字段写对应摘要；附件按 [集中附件规则](references/registration-logs.md#日志文件与附件数量) 提交，不逐轮附报告。未经批准的方案明确注明待批准。字段缺失或写入失败时记录回填缺口，不能将内容退回汇总到根因字段。旧报告迁移与字段契约见 [报告字段](references/report-fields.md)。
+按用户的话选一节：
 
-## 批准与交接
+- 「给张三开定时分析」「只分析 P1 以上」「停掉定时任务」 → **定时任务管理**
+- 开场提示写明「定时模式」、带运行目录（由 `scripts/scan.py` 发起） → **定时模式**
 
-向 RD 明确展示将执行的方案版本、范围和验收标准。真实批准记录绑定根因、方案、验收与仓库基线；按工作流契约保存报告摘要和批准来源。没有真实批准时保持等待状态。
+方案状态的流转：
 
-批准后交接给 `$tutti-bug-workflow:bug-execute`，附带修改范围、基线、批准原文引用、验收方案和已知风险。正式业务代码修改属于执行场景。
+| 方案状态 | 谁改 | 定时任务 |
+|---|---|---|
+| 空／未处理 | — | 分析，写完置「待评审」 |
+| 待评审 | 定时任务 | 不处理，等 RD |
+| 已批准 | RD | 不处理；可以交给 `$tutti-bug-workflow:bug-execute` 修复 |
+| 已驳回 | RD，并在「驳回意见」写原因 | 结合驳回意见和上一版重新分析，覆盖后置「待评审」 |
 
-按 [独立字段契约](references/report-fields.md) 将方案写入「修复方案」、验收写入「验收标准」，成功后再将飞书阶段改为「待 review 方案」。保留根因、排查验证、修复后验证和人工内容；RD 沟通与决定追加到「QA/RD沟通」并保留真实来源，未决项写入「待核实与阻塞」。阶段选项不能替代真实批准，也不表示已经自动修复。
+RD 也可以直接在飞书里改根因、方案、验收后再选「已批准」。
+
+## 定时任务管理
+
+在本机用 launchd 每小时跑一轮，每个跟进人一个任务。详见 [定时任务](references/schedule.md)。
+
+```sh
+python3 scripts/schedule.py install --assignee "张三" --min-priority P1   # 跟进人缺省为当前登录用户
+python3 scripts/schedule.py list
+python3 scripts/schedule.py run-now --assignee "张三"
+python3 scripts/schedule.py uninstall --assignee "张三"
+```
+
+- 跟进人按通讯录唯一匹配；同名多人或查不到时返回候选，请用户确认后重试。
+- `--min-priority` 只分析该优先级及以上（P00 > P0 > P1 > P2 > P3），用户没说就不加。
+- 开启前先用 `python3 scripts/feishu.py scan --assignee "张三" --min-priority P1` 告诉用户当前待分析多少条；用户想马上看效果时加 `--run-now`。
+- 每轮：列出该跟进人「未解决」且方案状态为空／未处理／已驳回的 Bug → 同步代码 → 逐条各起一个 `codex exec` 会话（本机运行，不进 sandbox），全部处理完为止。上一轮没跑完时下一轮跳过。
+
+## 定时模式
+
+无人值守：**不提问、不等待**，每一步都自己做完。当前目录是运行目录：
+
+| 文件 | 内容 |
+|---|---|
+| `context.md` | 这条 Bug 记录的全部字段：Bug 描述、问题上下文（期望／实际／复现步骤／发生时间／关联 ID）、环境与版本、页面链接、优先级、提交人、记录时间、方案状态；被驳回时还有「驳回意见」和上一版根因、方案、验收 |
+| `attachments/` | 记录上的全部附件：截图、视频、`web-logs.log` 或诊断包、`server-logs.log`、Computer 召回包 |
+| `code.json` | 已同步到最新 main 的全局代码检出路径与 SHA |
+
+1. **吃透 bug 单。** 方案状态是「已驳回」时，先读「驳回意见」和上一版内容，这一版要逐条回应驳回意见（在根因或方案里写明怎么处理的）。完整读 `context.md`；截图逐张看（开场已附上），压缩包解开读；把期望、实际、复现步骤、发生时间、关联 ID（账号、房间、Computer、Agent、request id）列出来，作为后面检索日志与代码的线索。
+2. **还原现场。** 用发生时间和关联 ID 在 Web／Server／Computer 日志里找到出错的那几条，排出时间线；日志之间用 request id、房间、Computer ID 对上。
+3. **定位代码。** 在 `code.json` 的检出里（只读，见 [代码检出](references/code.md)）找到对应实现，解释日志为什么会这样。「环境与版本」里的线上版本和 main 不同时，用 `git log <版本>..<sha>` 核实差异是否影响结论。
+4. **写根因**：按 [根因模板](assets/root-cause.md)，因果链每一环要么有日志或代码作证，要么标成假设；现场不够的写进「待确认」，不中断。
+5. **画图**：按 [图规范](assets/diagrams.md) 写 `flow.mmd`（问题发生的工作流程，标出出错点）和 `arch.mmd`（涉及的组件与调用关系，标出问题位置），渲染：
+   ```sh
+   python3 scripts/render.py --input flow.mmd --input arch.mmd
+   ```
+   报错就按提示改 Mermaid 源码再渲染，直到两张都成功。把 PNG 改名为 `flow-<record_id>-<yyyymmddHHMM>.png`、`arch-<record_id>-<yyyymmddHHMM>.png`。
+6. **写方案与验收**：按 [方案模板](assets/plan.md) 和 [验收模板](assets/acceptance.md)；方案里的 Mermaid 源码与 PNG 一致。
+7. **写回**，每次写入都带 `--if-open`：方案状态已被 RD 改成「待评审」「已批准」时返回退出码 3，立即结束本会话，不再写任何内容：
+   ```sh
+   python3 scripts/feishu.py write --record-id REC --if-open \
+     --set root_cause=@root-cause.md --set solution=@plan.md --set acceptance=@acceptance.md
+   python3 scripts/feishu.py attach --record-id REC --file flow-REC-….png --file arch-REC-….png
+   python3 scripts/feishu.py set-plan-status --record-id REC --value 待评审
+   ```
+   三段整体覆盖上一版；根因图新增一组，旧图保留。`set-plan-status` 只能置「待评审」，且要求三段都已写入。
+8. **收尾**：最后一条消息写一行结论和写入结果（根因、方案、两张图、方案状态各自成功／跳过／失败），供运行日志查看。
