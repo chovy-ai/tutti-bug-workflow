@@ -1,20 +1,14 @@
 # 提 Bug 结束后的会话上传
 
-本页是 `bug-investigate` 的收尾步骤：整体排查结束、确认没问题后，把当前会话上传到 Tutti 管理端 Session 日志服务，供后续优化。会话日志与 Web、Computer、Server 现场日志用途不同，不作为飞书附件。
+本页是 `bug-investigate` 的收尾步骤：登记与现场采集全部完成后，把当前会话上传到 Tutti 管理端 Session 日志服务，供后续优化。会话日志与 Web、Computer、Server 现场日志用途不同，不作为飞书附件。
 
 tutti-ops 的会话上传能力与权限由 bug-setup 准备；上传前用 `tutti-ops diagnostics +upload-session-log --help` 确认命令存在，缺失时记为维护侧阻塞。
 
 ## 触发条件
 
-| 当前情况 | 是否上传 |
-|---|---|
-| 根因已确认，飞书字段回填并回读成功 | 上传 |
-| 已排查到底仍无法确定、不再等待 QA 补充，字段回填成功 | 上传，结论如实写「原因未确认」 |
-| 用户明确结束本次排查 | 上传，最终回复如实说明未完成项 |
-| 仍在分析或采集、等 QA 补充、遇到维护侧阻塞、回填失败 | 不上传；一轮回复结束、收到补充材料都不算排查结束 |
-| 本会话已上传过 | 不再上传 |
+整条 Bug 的登记与现场采集全部完成后上传一次：记录已建、字段已写、三类现场都有了结果（包括等待中的 Computer 召回已结束），只剩需要用户补充的项也算完成。仍在采集或等待召回时不上传；用户明确结束本次登记时也上传。
 
-**无状态去重**：tutti-ops 不提供查询已上传会话的命令，也不按内容去重，所以「本会话是否已上传、uploadId 是什么」只记在会话上下文中，同一会话只上传一次。上传失败不改变已完成的排查结果，最终回复如实说明。本任务授权已包含这一收尾操作，无需另向用户确认；用户明确要求不上传时遵循。
+**无状态去重**：tutti-ops 不提供查询已上传会话的命令，也不按内容去重，所以「本会话是否已上传、uploadId 是什么」只记在会话上下文中，同一会话只上传一次。上传失败不影响已完成的登记，最终回复如实说明。本任务授权已包含这一收尾操作，无需另向用户确认；用户明确要求不上传时遵循。
 
 ## 2. 绑定当前 provider 与本会话
 
@@ -47,7 +41,7 @@ tutti-ops --admin-url https://admin.tutti.sh --mode write diagnostics +upload-se
 
 dry-run 零网络，不读取文件或验证权限。实际工作流为私有文件副本 → 创建上传记录 → 签名 PUT → complete 确认。仅在退出码成功、`ok=true`、`meta.complete=true`，且 `data.upload` 中 uploadId、provider、fileName、sizeBytes 匹配快照、`status=uploaded` 时记录上传成功。只有创建记录或 PUT 成功不算完成。签名 URL、管理 Token/Cookie 不进入回执或飞书；对象传输由 CLI 隔离认证。
 
-把 uploadId 与结果记在会话上下文中；`uploaded`、`partial`、`unknown`、`blocked` 分别如实说明，不影响根因确认程度。
+把 uploadId 与结果记在会话上下文中；`uploaded`、`partial`、`unknown`、`blocked` 分别如实说明。
 
 ## 5. 部分上传与恢复
 

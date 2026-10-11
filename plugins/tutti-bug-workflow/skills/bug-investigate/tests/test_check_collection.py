@@ -22,10 +22,11 @@ class CheckCollectionTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.base = Path(temporary.name)
         self.data = self.base / "data"
-        self.env = {**os.environ, "LARK_CLI": str(FAKE), "FAKE_LARK_STATE": str(self.base / "lark.json")}
+        self.env = {**os.environ, "LARK_CLI": str(FAKE), "FAKE_LARK_STATE": str(self.base / "lark.json"),
+                    "FAKE_LARK_USERS": json.dumps([{"open_id": "ou_me", "localized_name": "me"}])}
         self.data.mkdir()
         shutil.copyfile(EXAMPLE_CONFIG, self.data / "config.json")
-        self.call(FEISHU, "create", "--title", "T", "--description", "D")
+        self.call(FEISHU, "create", "--title", "T")
 
     def call(self, script, *arguments, expected=0):
         prefix = [arguments[0]] if script != CHECK else []

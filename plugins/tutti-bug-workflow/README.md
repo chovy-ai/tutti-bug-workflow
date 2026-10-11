@@ -52,22 +52,12 @@ python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py setup-aws-cli --inst
 
 ### QA 提 Bug（`bug-investigate`）
 
-无状态：流程状态只在 Agent 会话上下文中，飞书记录是唯一事实来源；日志、召回包、代码工作区都是会话临时文件。流程见 [SKILL.md](skills/bug-investigate/SKILL.md)：
+不做根因分析，只把当时的现场带全，写进飞书 Bug 管理表（视图「新框架（一期）」）。无状态：流程状态只在会话上下文中，飞书记录是唯一事实来源。流程见 [SKILL.md](skills/bug-investigate/SKILL.md)：
 
-1. 接收 QA 上报，`scripts/feishu.py create` 建单或找回同名记录。
-2. 上传 QA 导出的 Web 诊断包（Tutti「设置 → 诊断 → 导出日志」，原样上传），采集 Computer 日志（从诊断包 `manifest.computers[]` 或 QA 提供的设备定位 → `scripts/collect_computer.py` 本机读取或远端召回）；`feishu.py attach` 上传，`scripts/check_collection.py` 汇报现状。采不到就记原因继续。
-3. 读两个最新 main 的代码，按 [业务逻辑、日志与复现路径](skills/bug-investigate/references/root-cause-analysis.md) 推演因果链；Server 日志由 Agent 按 [服务端日志](skills/bug-investigate/references/server-logs.md) 判断是否查询。
-4. 根因确认后 `feishu.py write` 分字段回填；只有自己无法解决的卡点（缺 Web 诊断包、需选设备等）才一次性问 QA，并说明获取方式。
-5. 排查结束后上传本次会话一次，见 [会话上传](skills/bug-investigate/references/session-upload.md)。
-代码固定缓存到数据目录的 `repositories/tutti.git`、`repositories/tutti-server.git`。首次初始化可复用现有仓库的已提交对象，后续只获取 main 的增量；每条 Bug 使用共享对象的独立 worktree。详见 [代码缓存](skills/bug-investigate/references/repository-cache.md)。
-
-创建一份档案：
-
-```sh
-python3 PLUGIN_SOURCE/skills/bug-solution/scripts/dossier.py new-bug --bug-id BUG-001
-```
-
-然后分别使用三个场景。可以在独立会话中提供同一个 Bug ID 和数据目录；插件本身不会自动创建三个会话。
+1. 接收上报，判断所属端、优先级、业务模块，`feishu.py create` 建单，`assign` 写跟进人。
+2. Web 日志：本机 Chrome WebMCP 读页面日志（`merge_web_logs.py` 合并），不可用时用 QA 导出的诊断包。
+3. 并行：Computer 召回（`collect_computer.py`，后台）与 Server 日志（`collect_server.py`，subagent，从 Web 日志提取 request id 查 AWS CloudWatch 并识别生产／PPE）。
+4. 上传截图、视频与全部日志，写入环境与版本、页面链接、问题上下文；全部完成后上传本次会话。
 
 ## 已提供的能力
 

@@ -1,21 +1,35 @@
-# 服务端日志
+# Server 日志
 
-Server 日志量大，由 Agent 根据分析需要决定查不查、查什么。链路涉及控制面请求、权限、成员关系、持久化或状态投影，且现有 Web／Computer 日志和代码不能区分候选原因时再查。不查时在「排查验证」里写一句依据。
+每次提 Bug 都拉 tutti-server 日志。固定的是来源（AWS CloudWatch 的 tutti-server 日志），不固定的是拉哪些——按这次的 request id 去找。
 
-## 选择入口
+## 日志在哪里
 
-1. **Tutti CLI（默认 `tutti-ops`）**：先用 `--help` 与 `tutti-ops schema <operation>` 确认命令、只读性质、时间格式、筛选和分页。用户所说的 `tutti-cli` 若是另一个实际入口，读取它的契约后使用，不猜命令。
-2. **注意日志类别**：`tutti-ops diagnostics http query/events` 只是 HTTP **失败**归因入口，`HTTP_STATUS_CLASS_ALL` 表示 4xx/5xx，不含成功请求。要验证某次 join／写入是否成功时，失败查询为空不能排除该操作，需要换能看到成功访问记录的入口。
-3. **AWS CLI**：已核实相关日志存放在 AWS，且 Tutti 入口缺少所需类别、上下文或历史覆盖时，按 [AWS CLI](aws-cli.md) 查询原始日志。复用已有 profile、区域和身份，不用其他账号或环境绕过权限。
-4. 认证过期或缺少权限属于维护侧问题，写进「待核实与阻塞」，不让 QA 去找日志。
+- 日志组：`/aws/containerinsights/nexight-ojo-us-east-1/application`，区域 `us-east-1`，复用本机 AWS CLI 已有的身份（由 bug-setup 准备）。
+- 容器 `tutti-server`；Kubernetes namespace 区分环境：`tutti` 是生产，`lane-ppe-*` 是 PPE，其他 `lane-*` 是预览环境。
+- 访问日志是 logfmt，`log_type=api_access`，包含成功和失败的请求：`request_id`、`route`、`method`、`path`、`status_code`、`latency_ms`、`error_message`、`task_id`、`service.version`。**不含用户 ID**，所以不能按用户查，只能按这次请求的 `request_id` 找。
 
-## 查询范围
+## request id 从哪来
 
-- 时间窗默认用本次的 `question_time` 往前 10 分钟；可信的发生时间或 Web 事件可以用来缩小或扩展，写明用途。
-- 先确认服务、环境、账号／区域、日志组，再用房间、会话、request/trace、route 和时间限定。按实际可用字段查询：快速成功访问记录可能只有 route 模板、状态、耗时和 request/trace，叠加不存在的字段会造成假空结果；同 route 的其他用户请求不能当作现场。
-- 按实际契约翻页到结束，CloudWatch Insights 轮询到终态；达到上限时分片或标为 `partial`，记录查询起止、实际首末时间、条数和截断。
-- HTTP 2xx 只证明该请求成功返回，不证明每条写入都有审计；代码推断与现场事实分开表述。
+格式 `20261010T094855Z-<uuid>`，服务端在响应头 `x-request-id` 里返回：
 
-## 保存与上传
+- Web 日志：`collect_server.py --web-logs` 直接从 `web-logs.log` 或 QA 导出的诊断包 zip（`logs.jsonl` 的 `requestId`）里提取；
+- 也可以用 `--request-id` 直接传；
+- 没有 request id 时，用路径里的业务 ID 兜底：`--path-contains <房间 ID>`、`<Computer ID>`。
 
-多次查询结果按 [日志文件与附件数量](registration-logs.md#日志文件与附件数量) 合并为一个 `server-logs.log`（首行 metadata：入口、参数、实际覆盖、截断与限制），用 `feishu.py attach` 上传到同一条 Bug。查询原始 JSON 和失败回执不上传。分析发现写「排查验证」，未确认项或权限问题写「待核实与阻塞」。
+## 怎么拉
+
+```sh
+python3 scripts/collect_server.py --question-time <question_time> \
+  --web-logs <web-logs.log 或诊断包 zip> [--request-id <id> ...] [--path-contains <ID> ...] \
+  [--before-minutes 10] [--after-minutes 10] --output-dir $TMP/server
+```
+
+脚本按 20 个一批用 CloudWatch Insights 查询，轮询到完成，按时间排序去重，写出 `server-logs.log`（首行 metadata：时间窗、日志组、namespace、环境、命中的 request id 数、是否截断）。
+
+- `status: captured`：取到日志；`namespaces`／`environments` 写进「环境与版本」，`service.version` 写进版本信息。
+- `status: empty`：时间窗内没有匹配，常见原因是 request id 来自别的时间或页面已刷新；放宽 `--before-minutes`／`--after-minutes` 或换用 `--path-contains` 再试一次。
+- `status: blocked`：AWS 认证或权限问题，写进回复交给维护方，不让用户找日志。
+
+## 上传
+
+`server-logs.log` 原样上传到「截图、视频、日志」。查询原始结果不上传。

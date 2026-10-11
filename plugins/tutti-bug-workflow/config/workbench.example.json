@@ -42,6 +42,34 @@
       "empty_status_stage": "bug"
     }
   },
+  "bug_report": {
+    "base_url": "https://ccn53rwonxso.feishu.cn/base/CEHMbNF8Zavq5wsAO3ecrpQ6nPc?table=tblieImZwMnvZ8My&view=vewoD2kiPo",
+    "base_token": "CEHMbNF8Zavq5wsAO3ecrpQ6nPc",
+    "table_id": "tblieImZwMnvZ8My",
+    "table_name": "Bug 管理",
+    "view_id": "vewoD2kiPo",
+    "view_name": "新框架（一期）",
+    "identity": "user",
+    "timezone": "Asia/Shanghai",
+    "field_map": {
+      "title": "fldWPXvPdp",
+      "attachments": "fld9gRMfIo",
+      "reporter": "fldqzaTpIW",
+      "assignee": "fldhK5l7ki",
+      "status": "flde3A945T",
+      "platform": "fldOM70Xsj",
+      "priority": "fldssWEn1b",
+      "issue_type": "fldAaKSJu5",
+      "module": "fldIpeAABN",
+      "record_time": "fldeyo0hFE",
+      "env_version": "fld766hlvY",
+      "page_url": "fldb3gv4M0",
+      "context": "fldqyueosk"
+    },
+    "defaults": { "status": "未解决", "issue_type": "bug" },
+    "platform_choices": ["新框架一期-Mac", "新框架一期-Windows", "新框架一期-Web"],
+    "excluded_priorities": ["P2"]
+  },
   "repositories": [
     { "name": "tutti", "url": "https://github.com/tutti-lab/tutti.git", "base_branch": "main", "cache_path": "repositories/tutti.git" },
     { "name": "tutti-server", "url": "https://github.com/tutti-lab/tutti-server.git", "base_branch": "main", "cache_path": "repositories/tutti-server.git" }

@@ -1,131 +1,120 @@
 ---
 name: bug-investigate
-description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下这个问题」等都算）：每次调用都走完全程——飞书登记、采集 Web 日志（本机 WebMCP 优先，否则用 QA 导出的诊断包）与 Computer 日志、按需查询 Server 日志、读代码分析到根因并回填飞书；没有只登记的模式，只有遇到自己无法解决的卡点才停下向 QA 提问。
+description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下这个问题」等都算）：每次调用都走完全程——在飞书 Bug 管理表登记，固定采集当时的现场日志（Web 页面日志、tutti-server 日志、Computer 日志），把上下文和附件填进表格；不做根因分析，只有遇到自己无法解决的卡点才向用户提问。
 ---
 
 # QA 提 Bug
 
-你负责把 QA 的一次上报处理到根因分析完成：登记、取证、分析、回填。走到根因是为了确认必要的现场信息都已拿到；不在中途为汇报进度回复 QA。
+你负责把一次上报变成一条**上下文完整**的 Bug 记录，交给 RD 排查：登记、采集当时的全部现场、上传、填字段。**不分析根因，不读代码**；时间花在把现场带全上。
 
-**一旦调用就走完全程。** 「记个 bug」「帮我提个 bug」「登记一下」与「帮我查一下」完全等价，都执行第 1–6 步；不存在「只登记」「只补附件」的模式。建单成功只是第 1 步，不能在此回复「已登记」后结束。只有遇到第 5 步所说的、自己无法解决的卡点，才停下来向 QA 提问。
+**一旦调用就走完全程。** 「记个 bug」「帮我提个 bug」「登记一下」都执行第 1–5 步，没有「只登记」的模式。建单只是第 2 步，不能回复「已登记」就结束。
 
 **连续执行，一次做完。**
 
-- 每一步做完立刻开始下一步。中途不输出阶段总结，不问「要不要继续」「要不要采集日志」「要不要开始分析」，不等用户确认。
-- 耗时操作在本轮内等它完成：远端召回最长约 25 分钟、代码同步、测试与复现都等结果出来再往下走，不因为耗时就把控制权交还给用户。
-- 某一项卡住时，记下原因，跳过它继续其他能做的步骤；所有步骤都做完或都卡住了，才写最终回复。
-- 写最终回复前逐项自查，任何一项没有结果且不是卡点，就回去把它做完：
+- 每一步做完立刻开始下一步，中途不输出阶段总结，不问「要不要继续」「要不要采集日志」。
+- 耗时操作在本轮内等它完成：Computer 远端召回最长约 25 分钟，期间并行做其他步骤，不把控制权交还给用户。
+- 某一项卡住时记下原因，继续其他能做的；全部做完或全部卡住才写最终回复。
 
-  | 自查项 | 必须有的结果 |
-  |---|---|
-  | 飞书记录 | `record_id` 已建或已找回 |
-  | Web 日志 | `captured`／`partial`，或 `pending` 并写明缺什么 |
-  | Computer 日志 | `captured`／`partial`／`blocked`，或 `pending` 并写明缺什么 |
-  | 附件 | 已上传，`check_collection` 显示 `attached: true` |
-  | 代码 | 两个仓库已同步并读过相关代码 |
-  | 根因 | 已确认；或已排查到底仍无法确定，写明已排除的、仍成立的候选和无法推进的原因；回复里没有留给别人做的「下一步」 |
-  | 飞书字段 | 结论、根因、排查验证、代码基线、相关代码已写入并回读 |
-  | 会话上传 | 根因确认时已上传一次 |
+**尽量并行。** Web 日志先采（它给出 request id 和 Computer 线索），随后三件事同时进行：Computer 召回用后台进程跑，Server 日志交给 subagent 查，主 agent 上传附件、填字段。宿主不支持 subagent 时，Server 也用后台进程跑。
 
-**无状态。** 本 Skill 与脚本都不在本地保存流程状态。`record_id`、提问时间、采集结果、已问过 QA 的问题都记在本次会话上下文中；对外唯一的事实来源是飞书记录本身。日志、召回包、代码工作区都是本次会话的临时文件，放在会话开始时创建的临时目录（下称 `$TMP`）里，用完即可丢弃。QA 补充信息后再次调用本 Skill 时，从飞书记录读取已有内容继续。
+**不脱敏。** 现场日志原样采集、原样上传。
 
-**独立。** 本 Skill 不依赖也不交接给方案、修复场景；只写下文列出的飞书字段。
+**无状态。** `record_id`、`question_time`、采集结果都记在本次会话上下文中；日志、截图等是放在会话临时目录（下称 `$TMP`）里的临时文件。对外唯一的事实来源是飞书记录。脚本路径相对本 Skill 目录（`skills/bug-investigate/`），都输出一段 JSON。工具安装与认证由 `$tutti-bug-workflow:bug-setup` 负责，已有权限内的读取、召回、上传与回填属于本任务授权，无需逐项再问。
 
-脚本路径相对本 Skill 目录（`skills/bug-investigate/`），均输出一段 JSON。飞书、tutti-ops 的认证与安装缺口由维护方处理（`$tutti-bug-workflow:bug-setup`），不让 QA 处理。已有权限内的日志读取、召回、附件上传与字段回填属于本任务授权，无需逐项再问。
+写最终回复前逐项自查，任何一项没有结果且不是卡点，就回去做完：
 
-## 1. 接收与建单
-
-1. 从 QA 消息整理：标题、期望与实际表现、复现步骤与频率、环境、发生时间与时区、截图／录屏（实际查看）、WebMCP 连接链接、QA 附带的 Web 诊断包（`tutti-web-diagnostics-*.zip`）。QA 原话、你已验证的事实、待验证的推断分开记。
-2. 固定 `question_time`：触发本次上报的消息时间（含时区的 ISO 8601）；拿不到时用你收到消息的时间并注明近似。本次排查内所有采集窗口都用它。
-3. 建单或找回：
-   ```sh
-   python3 scripts/feishu.py create --title "标题" --description @$TMP/description.md
-   ```
-   已有同名记录时返回该记录（`action: existing`），不会重复建单。QA 已给出记录链接时直接使用其中的 `record_id`。新记录的流程状态自动为「bug单」。
-
-建单后不回复 QA，直接进入第 2 步。
-
-## 2. 固定采集 Web 与 Computer 日志
-
-两类日志每次都采集，不判断是否需要。采不到就记下原因继续，不为此停下。
-
-**Web**（详见 [Web 日志](references/web-logs.md)），按顺序取第一个可用的：
-
-1. **本机 WebMCP**：QA 给了连接链接、页面开在本机 Chrome 时，用 `chrome-devtools` 的 `list_pages` → `list_webmcp_tools` 匹配页面，`execute_webmcp_tool` 分页读 `get_web_logs`，再用 `scripts/merge_web_logs.py` 合并成 `$TMP/web/web-logs.log`。不刷新、不跳转 QA 的页面。
-2. **QA 导出的诊断包**：QA 发来的 zip 原样上传，再解包到 `$TMP/web/` 阅读；包已附在飞书记录上时用 `python3 scripts/feishu.py download --record-id REC --name <文件名> --output-dir $TMP/web` 取到本地，不重复上传。
-3. 都没有：记为 `{"status": "pending", "reason": "no_export"}`，留到第 5 步请 QA 导出。
-
-**Computer**（详见 [Computer 定位](references/computer-target.md)）：
-
-1. 定位故障设备：优先用 Web 日志里故障时间附近记录关联的 Computer（WebMCP 日志记录或诊断包 `manifest.computers[]`／`computerRefs`）；WebMCP 可用时还可调用页面的 `list_my_computers`／`list_room_agents` 列出候选；都没有时用 QA 提供的设备名称或 ID，经 `tutti-ops computer devices list --name-query` 查到 `computerId`。
-2. 只有一个候选：
-   ```sh
-   python3 scripts/collect_computer.py --computer-id ID --incident-at <question_time> --output-dir $TMP/computer
-   ```
-   脚本自动判断本机／远端，远端优先复用已有召回，否则新建并等待完成、下载、校验、解包。
-3. 多个候选，或没有任何线索：记为 `{"status": "pending", "reason": "device_choice", "candidates": [...]}`，留到第 5 步请 QA 选择或提供设备名称／ID。
-
-**上传与现状**：
-
-```sh
-python3 scripts/feishu.py attach --record-id REC --file <web-logs.log 或 Web 诊断包> --file <召回包>
-python3 scripts/check_collection.py --record-id REC --web @$TMP/web.json --computer @$TMP/computer.json
-```
-
-只上传日志原件或汇总日志，见 [附件规则](references/registration-logs.md#日志文件与附件数量)；过程文件不上传。`check_collection` 只返回现状（各来源状态、文件是否已在飞书上），据此把采集摘要追加到「相关日志」：
-
-```sh
-python3 scripts/feishu.py write --record-id REC --append "logs=@$TMP/logs-summary.md"
-```
-
-## 3. 分析
-
-1. **代码基线**：`python3 scripts/sync_code.py` 同步 `tutti`、`tutti-server` 最新 main，用返回的 `cache_path` 与 SHA 在 `$TMP/worktrees/` 下建 detached worktree（`git -C CACHE worktree add --detach $TMP/worktrees/tutti SHA`），读取适用的 `AGENTS.md`。用完 `git worktree remove`。见 [固定代码缓存](references/repository-cache.md)。
-2. **因果链**：从复现入口读代码与测试，按 [业务逻辑、日志与复现路径](references/root-cause-analysis.md) 建立 `触发条件 → 首个错误状态 → 后续消费／恢复 → QA 可见现象`，列出候选原因及证实／排除条件，对照已采集的 Web、Computer 日志。
-3. **Server 日志由你判断**：链路涉及服务端请求、权限、成员、持久化或投影，且现有证据不能区分候选时，按 [服务端日志](references/server-logs.md) 自行决定查询范围与条件，结果汇总为 `$TMP/server-logs.log` 并 `attach`。不涉及或已有证据足够时不查，在排查验证里写一句依据。
-4. **验证**：用测试、断点或最小复现验证主复现路径，再检查同一错误状态的其他可达路径，区分「已复现／仅推演／已排除／受阻」。
-
-## 4. 排查到底，判断根因
-
-**排查到底。** 分析中想到的「下一步应该核对 X」「如果发现 Y 再查 Z」，只要你自己能做——读代码、对比接口返回与页面显示、查 Server 日志、写最小复现、跑测试、只读查看页面——就现在做，用结果推进，不写进回复留给别人。条件式的「如果……再查」立刻去查，用结果决定下一步。
-
-满足 [根因完成条件](references/root-cause-analysis.md#5-确认根因的完成条件) 才算确认：触发条件与首个错误状态已定位，因果链由现场日志或实际复现支持并能关联本条 Bug 的现场，竞争假设与反例已处理。
-
-**排查到底仍无法确定时，反馈但不阻塞。** 自己能做的验证都做完、仍有无法区分的候选时，结论写「原因未确认」，并写清：
-
-- 已经排除了什么、依据是什么；
-- 仍成立的候选，各自的证据和还缺的那一项观察；
-- 为什么无法再推进：缺只有 QA 能提供的现场信息、缺权限、现场已无法复现等。
-
-然后照常完成第 5、6 步：回填全部字段、上传附件、按需向 QA 提问。「原因未确认」是如实的结论，不是停下的理由。
-
-回复里不出现你自己能做却没做的事，例如「下一步应核对……」「建议再查……」「如有需要我可以……」；出现了就说明还没排查到底，回去做完。
-
-## 5. 回填与停下
-
-回填前用 `feishu.py read --record-id REC` 读最新内容；QA 在此期间补充了信息就先纳入分析。按 [字段契约](references/report-fields.md) 分字段写，根因字段只写两到四句因果链：
-
-```sh
-python3 scripts/feishu.py write --record-id REC \
-  --set analysis_conclusion=@$TMP/conclusion.md --set analysis_report=@$TMP/root-cause.md \
-  --set investigation_evidence=@$TMP/evidence.md --set code_baselines=@$TMP/baselines.md \
-  --set code_references=@$TMP/code-refs.md --append open_items=@$TMP/open-items.md
-```
-
-可写字段：`--set` 覆盖 `analysis_conclusion`、`analysis_report`、`investigation_evidence`、`code_baselines`、`code_references`、`suspected_modules`、`ui_only`；`--append` 追加 `logs`、`dialogue`、`open_items`（保留人工内容）。脚本写后回读核对。
-
-**只有遇到自己无法解决的卡点才停下。** 先把不依赖卡点的工作做完；确实推进不下去时，一次列出所有需要 QA 提供的东西，每项说明为什么需要、怎么获取，追加到「QA/RD沟通」并回复 QA。见 [QA 反馈](references/qa-dialogue.md)。常见的获取方式：
-
-| 缺什么 | 怎么请 QA 提供 |
+| 自查项 | 必须有的结果 |
 |---|---|
-| Web 诊断包 | 在出问题的那个浏览器、同一账号下打开 Tutti「设置 → 诊断」，「导出范围」选能覆盖问题发生时间的一档（例如最近 1 小时），点「导出日志」，把下载的 zip 发过来 |
-| 故障设备 | 从列出的候选（名称、平台、版本）里选当时用的那台；列不出候选时直接提供设备名称或 Computer ID |
-| 现场事实 | 只问 QA 能观察到、且会改变下一项验证的事实，例如操作顺序、是否稳定复现 |
+| 飞书记录 | `record_id`；Bug 描述、状态、问题类型、提交人、记录时间已填；所属端、优先级已判断，业务模块已选或确无合适项 |
+| 跟进人 | 已写入「指派人」；或已在回复中请用户指定 |
+| Web 日志 | `web-logs.log` 或 QA 导出包已上传；或写明缺什么、怎么提供 |
+| Server 日志 | `captured`／`empty`／`blocked`（附原因） |
+| Computer 日志 | 召回已完成并上传；或写明受阻原因、待用户确认的设备 |
+| 附件 | QA 的截图／视频与全部日志都在「截图、视频、日志」，`check_collection` 显示 `attached: true` |
+| 上下文字段 | 环境与版本、页面链接、问题上下文已写入并回读 |
+| 会话上传 | 全部完成后已上传一次 |
 
-工具、权限、认证问题不问 QA，写进「待核实与阻塞」交给维护方。QA 回复后再次调用本 Skill，读取同一记录继续。
+## 1. 接收
 
-## 6. 结束并上传会话
+1. 从用户消息整理：期望与实际表现、复现步骤与频率、发生时间与时区、操作账号、截图／视频（实际查看）、WebMCP 连接链接、QA 附带的 Web 诊断包、跟进人姓名、用到的设备。用户原话与你的推断分开记。
+2. 固定 `question_time`：触发本次上报的消息时间（含时区的 ISO 8601）；拿不到时用收到消息的时间并注明近似。
+3. 判断三个分类字段（不问用户）：
+   - **所属端**：`新框架一期-Mac`／`新框架一期-Windows`／`新框架一期-Web`，按问题出现的位置判断。
+   - **优先级**：`P00`／`P0`／`P1`／`P2`／`P3`，阻断核心流程或数据丢失为 P0 及以上，主要功能异常但有绕过方式为 P1，体验或局部问题为 P2／P3，拿不准取 P1。P2 的记录不在「新框架（一期）」视图里，脚本会提示，照实填写。
+   - **业务模块**：`python3 scripts/feishu.py options --field module` 取选项，选最贴近的；没有合适的就不填。
 
-排查结束且字段回填成功后，按 [会话上传](references/session-upload.md) 上传本次会话一次。排查结束指：根因已确认；或已排查到底仍无法确定、且不再等待 QA 补充；或用户明确结束本次排查。同一会话只上传一次，是否已上传记在会话上下文中。上传失败不影响已完成的排查结果，如实告知。
+## 2. 建单
 
-最终回复 QA：结论（已确认，区分代码复现与现场确认；或原因未确认及已排除与仍成立的候选）、飞书记录链接；需要 QA 提供的内容逐项写明怎么获取。不写「下一步应……」这类你自己能做的事。
+```sh
+python3 scripts/feishu.py create --title "房间：顶部名称与左侧选中房间名称不一致" --record-time <question_time> \
+  --set platform=新框架一期-Web --set priority=P1 --set module=房间/群聊
+python3 scripts/feishu.py assign --record-id REC --name "张三"     # 用户没指定跟进人时省略 --name
+```
+
+「Bug 描述」写精简一行「类别：现象」。同名记录已存在时返回它，不重复建单。新记录自动填状态「未解决」、问题类型「bug」、提交人（lark-cli 当前用户）和记录时间。跟进人同名多人、查不到或没指定时不写入，返回候选或常联系的人，留到第 5 步请用户指定。
+
+## 3. 采集现场
+
+### 3.1 Web 日志（主 agent，先做）
+
+详见 [Web 日志](references/web-logs.md)。用户给了 WebMCP 连接链接、页面开在本机 Chrome 时，用 `chrome-devtools` MCP：
+
+1. `list_pages` + `list_webmcp_tools` 按链接里的页面与 Account 匹配页面，记下页面 URL（「页面链接」）。
+2. `execute_webmcp_tool` 分页读 `get_web_logs`，每页存一个文件，用 `scripts/merge_web_logs.py` 合并成 `$TMP/web/web-logs.log`。
+3. `execute_webmcp_tool` 调 `list_my_computers`（房间相关时加 `list_room_agents`），用于定位 Computer。
+
+不刷新、不跳转页面。WebMCP 不可用、用户在另一台机器上或页面已刷新时，用 QA 导出的诊断包；两者都没有时记为 `pending`，第 5 步请用户导出。
+
+### 3.2 Computer 日志（后台进程）
+
+按 [Computer 定位](references/computer-target.md) 确定设备：优先 Web 日志里故障时间附近记录关联的 Computer，其次页面的 `list_my_computers`，再其次用户说的设备名。确定后立刻放到后台跑，不等它：
+
+```sh
+python3 scripts/collect_computer.py --computer-id ID --incident-at <question_time> --output-dir $TMP/computer > $TMP/computer.json &
+```
+
+有多个候选或没有线索时记为 `pending`，第 5 步请用户确认设备，确认后再跑。
+
+### 3.3 Server 日志（subagent）
+
+拿到 Web 日志后交给一个 subagent（给它下面的命令和输出路径，只让它回传结果 JSON）；不支持 subagent 时用后台进程：
+
+```sh
+python3 scripts/collect_server.py --question-time <question_time> \
+  --web-logs <web-logs.log 或诊断包 zip> [--path-contains <房间或 Computer ID>] \
+  --output-dir $TMP/server
+```
+
+结果里的 `namespaces`／`environments` 告诉你环境：`tutti` 是生产，`lane-ppe-*` 是 PPE。详见 [Server 日志](references/server-logs.md)。
+
+## 4. 上传与填字段
+
+1. 上传附件（同名同大小的不重复传）：
+   ```sh
+   python3 scripts/feishu.py attach --record-id REC --file <QA 的截图／视频> --file <web-logs.log 或诊断包> \
+     --file $TMP/server/server-logs.log
+   ```
+2. 按 [字段规则](references/report-fields.md) 写三个上下文字段：
+   ```sh
+   python3 scripts/feishu.py write --record-id REC --set page_url=<页面链接> \
+     --set env_version=@$TMP/env-version.md --set context=@$TMP/context.md
+   ```
+   - **环境与版本**：环境（生产／PPE／本地开发）与标识（页面域名、Server namespace 如 `lane-ppe-cloud-0928`），Web、tutti-server、Computer 版本与浏览器。
+   - **页面链接**：出问题页面的完整 URL。
+   - **问题上下文**：期望、实际、复现步骤、频率、发生时间（精确到分钟，含时区）、操作账号；关联 ID：账号、房间、页面会话、Computer、Agent、关键 request id、召回任务 ID。
+3. `python3 scripts/check_collection.py --record-id REC --web @$TMP/web.json --computer @$TMP/computer.json` 核对附件。
+
+## 5. 收尾
+
+1. 等 Computer 召回完成（读 `$TMP/computer.json`），上传召回包，把召回任务 ID 补进「问题上下文」，再跑一次 `check_collection`。
+2. 需要用户提供的东西一次列出，每项说明怎么获取：
+
+   | 缺什么 | 怎么请用户提供 |
+   |---|---|
+   | Web 现场 | 在出问题的 Tutti 页面打开「设置 → 诊断」，点「复制 WebMCP 连接链接」发过来并保持页面不刷新；或在同一浏览器「导出日志」（范围覆盖问题发生时间），把 zip 发过来 |
+   | 故障设备 | 从列出的候选（名称、平台、版本）里选当时用的那台；或直接提供设备名称／Computer ID |
+   | 跟进人 | 「这条 Bug 由谁跟进？直接回复名字即可」，可附上常联系的人；同名多人时列出姓名与部门请用户选 |
+
+   工具、权限、认证问题不问用户，写在回复里交给维护方。用户补充后再次调用本 Skill，读取同一记录继续。
+3. 按开头的自查表逐项确认；全部完成后按 [会话上传](references/session-upload.md) 上传本次会话一次。
+4. 最终回复：飞书记录链接、环境、已采集的现场与附件、缺失项及需要用户提供的内容。
