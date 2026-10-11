@@ -6,7 +6,7 @@
 |---|---|
 | `$tutti-bug-workflow:bug-investigate` | QA 提 Bug：登记并带全现场日志与上下文，不分析根因 |
 | `$tutti-bug-workflow:bug-solution` | RD 根因与方案（定时）：每小时按跟进人逐条分析根因、生成流程图与架构图 PNG、起草方案和验收，记录 RD 批准 |
-| `$tutti-bug-workflow:bug-execute` | 校验批准，从最新 main 切 worktree 修复、推送、提 PR，验证并回填 |
+| `$tutti-bug-workflow:bug-execute` | 修复与部署（定时）：每小时按跟进人修复已批准的 Bug，提 PR 到 main，部署 PPE（server 泳道 → 前端预览 → Computer canary），验证，进度写回 bug 单 |
 | `$tutti-bug-workflow:bug-setup` | 按场景准备工具，主动补齐认证与权限并复查接入 |
 
 ## 首次使用
@@ -40,13 +40,13 @@ python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py setup-aws-cli --inst
 
 ## 飞书 Bug 管理表
 
-三个场景共用 [Bug 管理表（视图「新框架（一期）」）](https://ccn53rwonxso.feishu.cn/base/CEHMbNF8Zavq5wsAO3ecrpQ6nPc?table=tblieImZwMnvZ8My&view=vewoD2kiPo)，每个场景只写自己负责的字段，「状态」由人工流转。「方案状态」串起后两个场景：空／未处理／已驳回 → 定时分析 → 待评审 → RD 选已批准（进入修复）或已驳回（写驳回意见，重新分析）。字段与职责见 [字段与职责](skills/bug-setup/references/report-fields.md)。
+三个场景共用 [Bug 管理表（视图「新框架（一期）」）](https://ccn53rwonxso.feishu.cn/base/CEHMbNF8Zavq5wsAO3ecrpQ6nPc?table=tblieImZwMnvZ8My&view=vewoD2kiPo)，每个场景只写自己负责的字段，「状态」由人工流转。「方案状态」串起后两个场景：空／未处理／已驳回 → 定时分析 → 待评审 → RD 选已批准或已驳回（写驳回意见，重新分析）→ 定时修复 → 修复中 → 已部署待验收／修复失败。字段与职责见 [字段与职责](skills/bug-setup/references/report-fields.md)。
 
 | 场景 | 写入的字段 |
 |---|---|
 | bug-investigate | Bug 描述、所属端、优先级、业务模块、提交人、指派人、记录时间、环境与版本、页面链接、问题上下文、截图／视频／日志 |
 | bug-solution | 分析根因、根因图（PNG）、修复方式、验收标准；方案状态置「待评审」 |
-| bug-execute | 关联 PR、验证结果、修复后证据附件 |
+| bug-execute | 方案状态（修复中／已部署待验收／修复失败）、修复进度、关联 PR、验证结果、修复后证据附件 |
 
 ### QA 提 Bug（`bug-investigate`）
 
@@ -66,14 +66,14 @@ python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py setup-aws-cli --inst
 3. 每条 Bug 一个 `codex exec` 会话（本机运行，不进 sandbox），运行目录里备好 `context.md`（记录全部字段，被驳回时含驳回意见和上一版）、附件和代码 SHA；会话写「分析根因」「修复方式」「验收标准」，渲染流程图、架构图 PNG 上传「根因图」，最后把方案状态置「待评审」。写入带守卫，RD 已评审的不覆盖。
 4. RD 在飞书评审：选「已批准」进入 bug-execute，选「已驳回」并写驳回意见，下一轮重新分析。
 
-### 修复与验证（`bug-execute`）
+### 修复与部署（`bug-execute`）
 
-流程见 [SKILL.md](skills/bug-execute/SKILL.md)：
+定时修复，流程见 [SKILL.md](skills/bug-execute/SKILL.md)、[定时任务](skills/bug-execute/references/schedule.md) 与 [PPE 部署](skills/bug-execute/references/deploy.md)：
 
-1. `feishu.py check-approval` 确认方案状态为「已批准」。
-2. `repos.py start` 从远端最新 main 切出 worktree 与 `codex/<摘要>` 分支，修复、测试、提交。
-3. `repos.py finish` 推送分支并解除 worktree，`gh pr create` 提 PR，`feishu.py add-pr` 回填。
-4. 在部署了修复的环境按验收标准验证，截图 `attach`，结果写「验证结果」。
+1. 对 agent 说「给张三开定时修复」，`schedule.py install` 为该跟进人装一个本机 launchd 任务，每小时一轮。
+2. 每轮 `scan.py`：遗留的「修复中」标为修复失败；方案状态为「已批准」的 Bug 逐条置「修复中」，各起一个 `codex exec` 会话（本机运行，不进 sandbox）。
+3. 会话：从最新 main 切 `codex/bug-<record_id>`（重试时接着原分支）→ 修复、测试 → 推送、提 PR 到 main → 部署 PPE：先 tutti-server `deploy-lane`（泳道 `bug-<record_id>`，关闭连接器授权），再 tutti `platform-web-preview`（指向该泳道），涉及 Computer 时在分支上发 `Computer Canary` → 按验收标准在预览链接上验证 → 写验证结果，方案状态置「已部署待验收」；任何一步失败置「修复失败」。每一步写进「修复进度」。
+4. 泳道不自动销毁，需要时让 agent 用 `deploy.py destroy-lane` 销毁。
 
 ## 已提供的能力
 

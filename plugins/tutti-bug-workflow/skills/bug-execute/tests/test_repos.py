@@ -61,6 +61,7 @@ class ReposTests(unittest.TestCase):
     def test_start_commit_finish_pushes_and_removes_the_worktree(self):
         started, path = self.start()
         self.assertEqual((started["base_sha"], git(path, "rev-parse", "HEAD")), (self.main, self.main))
+        self.assertFalse(started["resumed"])
         self.assertEqual(path, self.data / "worktrees/tutti/codex-room-name")
         self.assertIn("nothing to push", self.run_script("finish", "--path", str(path), expected=2)["error"])
         (path / "file.txt").write_text("fixed")
@@ -73,8 +74,8 @@ class ReposTests(unittest.TestCase):
         self.assertFalse(path.exists())
         cache = self.data / "repositories/tutti.git"
         self.assertEqual(git(cache, "for-each-ref", "refs/heads/codex/room-name"), "")
-        self.assertIn("already exists on origin",
-                      self.run_script("start", "--repo", "tutti", "--branch", "codex/room-name", expected=2)["error"])
+        resumed, again = self.start()  # a retry continues the pushed branch
+        self.assertEqual((resumed["resumed"], git(again, "rev-parse", "HEAD")), (True, head))
 
     def test_remove_refuses_unpushed_work_unless_discarded(self):
         _, path = self.start()

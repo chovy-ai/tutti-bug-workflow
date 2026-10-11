@@ -1,4 +1,4 @@
-"""Approval check, verification and PR write-back against a fake lark-cli."""
+"""Approval check, fix-stage transitions, progress, scan and write-back against a fake lark-cli."""
 
 import json
 import os
@@ -27,7 +27,8 @@ class ExecuteFeishuTests(unittest.TestCase):
         shutil.copyfile(EXAMPLE_CONFIG, self.data / "config.json")
         self.state = self.base / "lark.json"
         self.save(self.approved())
-        self.env = {**os.environ, "LARK_CLI": str(FAKE), "FAKE_LARK_STATE": str(self.state)}
+        self.env = {**os.environ, "LARK_CLI": str(FAKE), "FAKE_LARK_STATE": str(self.state),
+                    "FAKE_LARK_USERS": json.dumps([{"open_id": "ou_me", "localized_name": "韦超"}])}
 
     @staticmethod
     def approved(**changes):
@@ -55,7 +56,7 @@ class ExecuteFeishuTests(unittest.TestCase):
         self.assertEqual((state["plan_status"], state["solution"]), ("已批准", PLAN))
 
     def test_plan_status_other_than_approved_or_empty_fields_fail(self):
-        for status in ("待评审", "已驳回", None):
+        for status in ("待评审", "已驳回", "已部署待验收", None):
             self.save(self.approved(plan_status=status))
             state = self.feishu("check-approval", expected=1)
             self.assertIn("已批准", state["problems"][0])
@@ -80,6 +81,43 @@ class ExecuteFeishuTests(unittest.TestCase):
         self.assertEqual(len(self.feishu("attach", "--file", str(shot))["uploaded"]), 1)
         again = self.feishu("attach", "--file", str(shot))
         self.assertEqual((again["uploaded"], again["already_attached"]), ([], ["after-fix.png"]))
+
+
+    def test_fix_stages_move_only_forward_and_log_progress(self):
+        self.assertEqual(self.feishu("set-plan-status", "--value", "修复中")["previous"], "已批准")
+        self.assertTrue(self.feishu("set-plan-status", "--value", "修复中", expected=3)["skipped"])
+        self.feishu("progress", "--message", "PR https://github.com/tutti-lab/tutti/pull/9")
+        done = self.feishu("set-plan-status", "--value", "已部署待验收", "--note", "预览 https://tutti.sh/x")
+        self.assertEqual(done["plan_status"], "已部署待验收")
+        lines = self.cell("fix_progress").splitlines()
+        self.assertEqual(len(lines), 3)
+        self.assertRegex(lines[0], r"^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}\] 方案状态 已批准 → 修复中$")
+        self.assertIn("pull/9", lines[1])
+        self.assertTrue(lines[2].endswith("修复中 → 已部署待验收：预览 https://tutti.sh/x"))
+        self.assertIn("Fixing only sets", self.feishu("set-plan-status", "--value", "待评审", expected=2)["error"])
+        self.assertTrue(self.feishu("set-plan-status", "--value", "修复失败", expected=3)["skipped"])
+
+    def test_claim_needs_complete_approved_plan(self):
+        self.save(self.approved(acceptance=""))
+        self.assertIn("验收标准为空", self.feishu("set-plan-status", "--value", "修复中", expected=2)["error"])
+
+    def test_scan_and_context_for_a_fix_session(self):
+        base = {FIELDS["status"]: ["未解决"], FIELDS["assignee"]: [{"id": "ou_me", "name": "韦超"}],
+                FIELDS["record_time"]: "2026-10-10T00:00:00.000+08:00"}
+        records = {"rec1": {**self.approved(), **base, FIELDS["title"]: "授权弹窗", FIELDS["priority"]: ["P1"],
+                            FIELDS["diagrams"]: [{"file_token": "d1", "name": "flow-rec1.png", "size": 6}],
+                            FIELDS["attachments"]: [{"file_token": "a1", "name": "web-logs.log", "size": 4}]},
+                   "rec2": {**self.approved(plan_status="待评审"), **base, FIELDS["title"]: "待评审"},
+                   "rec3": {**self.approved(), **base, FIELDS["title"]: "P3 的", FIELDS["priority"]: ["P3"]}}
+        self.state.write_text(json.dumps({"records": records, "next": 9, "calls": []}))
+        scan = subprocess.run([sys.executable, str(FEISHU), "scan", "--data-dir", str(self.data), "--min-priority", "P1"],
+                              capture_output=True, text=True, env=self.env, timeout=30, check=True)
+        self.assertEqual([r["record_id"] for r in json.loads(scan.stdout)["records"]], ["rec1"])
+        result = self.feishu("context", "--output-dir", str(self.base / "run"))
+        text = (self.base / "run/context.md").read_text()
+        for expected in ("## 分析根因", ROOT_CAUSE, "## 验收标准", ACCEPTANCE, "diagrams/flow-rec1.png"):
+            self.assertIn(expected, text)
+        self.assertEqual((len(result["attachments"]), len(result["diagrams"])), (1, 1))
 
 
 if __name__ == "__main__":

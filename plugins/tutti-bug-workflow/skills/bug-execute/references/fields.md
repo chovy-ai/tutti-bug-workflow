@@ -6,14 +6,27 @@ Bug 管理表（base `CEHMbNF8Zavq5wsAO3ecrpQ6nPc`，表「Bug 管理」，视�
 
 | 配置键 | 飞书字段 | 怎么写 |
 |---|---|---|
-| `verification` | 验证结果 | `feishu.py write --set verification=@file`，按 [验证模板](../assets/verification.md)；整体替换，重验时在原内容上更新 |
+| `plan_status` | 方案状态 | `feishu.py set-plan-status --value 修复中／已部署待验收／修复失败 [--note]`，同时追加一行修复进度 |
+| `fix_progress` | 修复进度 | `feishu.py progress --message`，只追加，每行 `[yyyy-mm-dd HH:MM] 内容` |
 | `pull_requests` | 关联 PR | `feishu.py add-pr --url`，每行一个链接，已有的不重复追加 |
-| `attachments` | 截图、视频、日志 | `feishu.py attach --file`，修复后截图等证据；同名同大小不重复上传，不删已有附件 |
+| `verification` | 验证结果 | `feishu.py write --set verification=@file`，按 [验证模板](../assets/verification.md)，整体替换 |
+| `attachments` | 截图、视频、日志 | `feishu.py attach --file`，修复后截图等证据；同名同大小不重复上传 |
+
+## 方案状态的流转
+
+| 从 | 到 | 谁 |
+|---|---|---|
+| 已批准 | 修复中 | 定时任务认领（要求根因、方案、验收都非空） |
+| 修复中 | 已部署待验收 | 会话：PR 已提、PPE 已部署、验收通过 |
+| 修复中／已批准 | 修复失败 | 会话或定时任务：任何一步失败、会话超时或中断 |
+| 修复失败 | 已批准 | RD 处理后手动改回，下一轮重试 |
+
+`set-plan-status` 拒绝其他变化（返回退出码 3 或报错）。「待评审」「已驳回」属于 `$tutti-bug-workflow:bug-solution` 和 RD。
 
 ## 只读的字段
 
-分析根因、根因图、修复方式、验收标准由 `$tutti-bug-workflow:bug-solution` 写；方案状态（已批准／已驳回）、状态、修复版本、指派人由人工维护。本 Skill 不改它们。
+分析根因、根因图、修复方式、验收标准由 bug-solution 写；状态、修复版本、指派人由人工维护。
 
-## 批准校验
+## 扫描条件
 
-`check-approval` 读取方案状态、分析根因、修复方式、验收标准，要求方案状态为「已批准」（`bug_report.plan_status.approved`）且三段都非空；不满足即不通过（退出码 1），返回 `problems`。批准由 RD 在飞书里选择，表格的修改记录可查谁改的。
+`feishu.py scan [--assignee 姓名] [--min-priority P1]`：指派人包含跟进人、状态为「未解决」、方案状态为「已批准」；有 `--min-priority` 时只保留该优先级及以上。按优先级、记录时间排序。

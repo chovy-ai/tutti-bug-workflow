@@ -268,10 +268,10 @@
     {
       "id": "github-delivery",
       "label": "提交与 PR 交付",
-      "required_in": [],
-      "conditional_in": [
+      "required_in": [
         "execute"
       ],
+      "conditional_in": [],
       "commands": [
         "gh"
       ],
@@ -286,16 +286,15 @@
     {
       "id": "deployment",
       "label": "修复版本部署或预览交付",
-      "required_in": [],
-      "conditional_in": [
+      "required_in": [
         "execute"
       ],
+      "conditional_in": [],
       "commands": [],
       "configuration": "environment-specific",
       "requirements": [
-        "实际部署工具/流水线与目标环境权限",
-        "已授权的交付方式",
-        "部署完成状态与实际修复 SHA 的核对入口"
+        "gh 对 tutti-lab/tutti、tutti-lab/tutti-server 触发 workflow 的权限",
+        "deploy-lane / platform-web-preview / computer-artifacts-release 工作流可用"
       ],
       "install_operation": null
     }

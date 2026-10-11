@@ -15,6 +15,8 @@ if args[0] == "contact":
         return args[args.index(name) + 1] if name in args else None
     if flag("--user-ids") == "me":
         found = [users[0]]
+    elif flag("--user-ids"):
+        found = [u for u in users if u["open_id"] == flag("--user-ids")]
     elif flag("--query"):
         found = [u for u in users if flag("--query") in u["localized_name"]]
     else:
@@ -73,8 +75,22 @@ if shortcut == "+record-get":
     ids = [item for item in values("--field-id") if record.get(item) not in (None, "", [])]
     reply({"record_id_list": [record_id], "field_id_list": ids, "data": [[record[item] for item in ids]]})
 if shortcut == "+record-list":
-    field, _, expected = json.loads(value("--filter-json"))["conditions"][0]
-    reply({"record_id_list": [rid for rid, rec in records.items() if rec.get(field) == expected]})
+    def hit(record, condition):
+        field, operator, expected = condition
+        cell = record.get(field)
+        if operator == "==":
+            return cell == expected
+        items = cell if isinstance(cell, list) else [cell]
+        names = {item.get("id") if isinstance(item, dict) else item for item in items}
+        return bool(names & set(expected))
+    conditions = json.loads(value("--filter-json"))["conditions"]
+    matched = [rid for rid, rec in records.items() if all(hit(rec, c) for c in conditions)]
+    offset, limit = int(value("--offset") or 0), int(value("--limit") or 100)
+    page = matched[offset:offset + limit]
+    fields = values("--field-id")
+    reply({"record_id_list": page, "field_id_list": fields,
+           "data": [[records[rid].get(f) for f in fields] for rid in page],
+           "has_more": offset + limit < len(matched)})
 if shortcut == "+record-upload-attachment":
     record = records[value("--record-id")]
     cell = record.setdefault(value("--field-id"), [])

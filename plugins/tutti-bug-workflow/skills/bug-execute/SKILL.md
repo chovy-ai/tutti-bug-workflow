@@ -1,68 +1,102 @@
 ---
 name: bug-execute
-description: 执行 RD 已批准的 Bug 修复方案：确认飞书 Bug 管理表记录的方案状态为「已批准」，从远端最新 main 切出 worktree 修复，跑检查、推送分支并提 PR 后解除 worktree，按验收标准验证，把验证结果和 PR 回填到同一条记录。
+description: 修复已批准的 Bug（定时）：按跟进人每小时扫描飞书 Bug 管理表中方案状态为「已批准」的 Bug，每条 Bug 一个会话，从最新 main 切分支修复、提 PR 到 main，部署 PPE（先 server 泳道、再前端预览，涉及 Computer 发分支 canary），按验收标准验证，进度和结果全部写回 bug 单；也用于开启、查看、停止定时修复，以及手动销毁某条 Bug 的 PPE 泳道。
 ---
 
-# 修复与验证
+# 修复与部署
 
-你负责把 `$tutti-bug-workflow:bug-solution` 中 RD 已批准的方案落成代码，并证明修复后的行为符合验收标准。
+你负责把 `$tutti-bug-workflow:bug-solution` 产出、RD 已批准的方案落成代码，部署到 PPE 并验证。
 
-**无状态。** 飞书 Bug 管理表里的记录是唯一事实来源，不建本地档案。`record_id` 记在会话上下文里；截图、测试输出等放在会话临时目录（下称 `$TMP`）。脚本路径相对本 Skill 目录（`skills/bug-execute/`），都输出一段 JSON。工具安装与认证由 `$tutti-bug-workflow:bug-setup` 负责。
+**无状态。** 飞书 Bug 管理表里的记录是唯一事实来源，不建本地档案。脚本路径相对本 Skill 目录（`skills/bug-execute/`），都输出一段 JSON。工具安装与认证由 `$tutti-bug-workflow:bug-setup` 负责。
 
-**不改状态。** 「状态」「方案状态」「修复版本」由人工操作。本 Skill 只写「验证结果」「关联 PR」，并把证据上传到「截图、视频、日志」；分析根因、修复方式、验收标准只读。字段细节见 [字段规则](references/fields.md)。
+**进度都在 bug 单上。** 字段细节见 [字段规则](references/fields.md)。
 
-## 1. 校验批准
+| 字段 | 本 Skill 怎么写 |
+|---|---|
+| 方案状态 | 已批准 → 修复中（定时任务认领）→ 已部署待验收／修复失败；`set-plan-status` 只允许这几步 |
+| 修复进度 | 每一步追加一行带时间的记录：分支、PR、泳道与部署 run、预览链接、canary 版本、失败原因 |
+| 关联 PR | `add-pr`，每行一个 |
+| 验证结果 | 按 [验证模板](assets/verification.md) 写 |
+| 截图、视频、日志 | 修复后截图等验证证据 |
 
-```sh
-python3 scripts/feishu.py check-approval --record-id REC
-```
+分析根因、修复方式、验收标准、状态只读；「状态」由人工流转。
 
-- 通过（`approved: true`）：方案状态为「已批准」，返回根因、方案和验收标准，后面以这份内容为准。
-- 不通过（方案状态不是「已批准」或字段为空）就停下，把 `problems` 告诉用户：等 RD 在飞书里评审后选「已批准」；不在未批准的方案上改代码。
+按用户的话选一节：
 
-## 2. 切出 worktree
+- 「给张三开定时修复」「只修 P1 以上」「停掉定时修复」「销毁这条 bug 的泳道」 → **定时任务管理**
+- 开场提示写明「定时模式」、带运行目录（由 `scripts/scan.py` 发起） → **定时模式**
 
-每个要改的仓库各切一个，分支名 `codex/<bug-摘要>`（小写英文和连字符）：
+## 定时任务管理
 
-```sh
-python3 scripts/repos.py start --repo tutti --branch codex/room-name-sync
-```
-
-脚本先 fetch 远端 main，再在数据目录的 `worktrees/<仓库>/<分支>` 下从最新 main 建 worktree 和新分支，返回 `worktree` 路径和 `base_sha`。分支已存在（本地或远端）时报错，换个名字。所有改动都在这个 worktree 里做。详见 [修复工作区](references/code.md)。
-
-## 3. 修复
-
-1. 读 worktree 里的 AGENTS.md、开发说明和相关实现，核对方案里的代码位置在最新 main 上仍成立。main 已有变化导致方案不适用时停下，回到 bug-solution。
-2. 按批准的范围修改，保持现有架构与风格；需要超出范围的改动先和 RD 确认（实质变化需要重新批准）。
-3. 补或改测试，跑与改动相关的测试、类型检查、lint。失败就修，修不好如实记录。
-4. 提交，提交信息说明修了什么、对应哪条 Bug。
-
-## 4. 推送、提 PR、解除 worktree
+本机 launchd 每小时跑一轮，每个跟进人一个任务。详见 [定时任务](references/schedule.md)。
 
 ```sh
-python3 scripts/repos.py finish --path <worktree>
-gh pr create --repo tutti-lab/tutti --base main --head codex/room-name-sync --title "fix: …" --body "…"
-python3 scripts/feishu.py add-pr --record-id REC --url <PR 链接>
+python3 scripts/feishu.py scan --assignee "张三" --min-priority P1        # 先告诉用户有几条已批准待修
+python3 scripts/schedule.py install --assignee "张三" --min-priority P1   # 跟进人缺省为当前登录用户
+python3 scripts/schedule.py list
+python3 scripts/schedule.py run-now --assignee "张三"
+python3 scripts/schedule.py uninstall --assignee "张三"
 ```
 
-- `finish` 要求工作区干净且有新提交，推送分支并核对远端已指向本地 HEAD，然后删除 worktree 和本地分支，返回 `pushed_sha`。推送失败时 worktree 保留，修好再跑。
-- PR 描述写：Bug 记录链接、根因一句话、改动、测试结果、验收方式。
-- 放弃修复时用 `python3 scripts/repos.py remove --path <worktree>`；有未推送的提交需加 `--discard` 才会丢弃。
+- 跟进人按通讯录唯一匹配；同名多人或查不到时返回候选，请用户确认。`--min-priority` 用户没说就不加。
+- 每轮：上一轮遗留的「修复中」标为修复失败 → 列出「已批准」的 Bug → 逐条置「修复中」并各起一个 `codex exec` 会话（本机运行，不进 sandbox），全部处理完为止。
+- 修复失败的 Bug，RD 看过「修复进度」处理后把方案状态改回「已批准」，下一轮会在原分支上继续。
 
-## 5. 验证
-
-按「验收标准」逐条执行，浏览器验收复用当前可用的 Playwright、浏览器 MCP 或宿主浏览器工具。环境与版本核对见 [验证环境](references/validation.md)。
-
-- 先确认验证环境部署的版本包含 `pushed_sha`；确认不了记为 `blocked`，不能拿未部署修复的环境的结果当作通过。
-- 每条用例记录：步骤、断言、实际结果、`passed`／`failed`／`not_run`／`blocked`、证据（截图、日志、测试输出）。
-- 截图等证据上传：`python3 scripts/feishu.py attach --record-id REC --file $TMP/after-fix-1.png`。
-
-## 6. 回填与回复
-
-按 [验证模板](assets/verification.md) 写「验证结果」：
+泳道不自动销毁。用户要求销毁某条 Bug 的泳道时：
 
 ```sh
-python3 scripts/feishu.py write --record-id REC --set verification=@$TMP/verification.md
+python3 scripts/deploy.py lane-name --record-id REC
+python3 scripts/deploy.py destroy-lane --lane bug-rec…
+python3 scripts/feishu.py progress --record-id REC --message "已销毁 PPE 泳道 bug-rec…：<run 链接>"
 ```
 
-失败或阻塞也要写，写清原因和下一步。回复：飞书记录链接、PR、改动摘要、验证结果、未覆盖的风险；状态由人工流转，不在回复里声称已验收。
+## 定时模式
+
+无人值守：**不提问、不等待**。当前目录是运行目录：
+
+| 文件 | 内容 |
+|---|---|
+| `context.md` | 已批准的分析根因、修复方式、验收标准，以及问题上下文、环境与版本、页面链接、已有的关联 PR、修复进度 |
+| `attachments/`、`diagrams/` | 现场附件；根因流程图与架构图 |
+| `fix.json` | 本条 Bug 固定的分支名 `codex/bug-<record_id>` 和泳道名 `bug-<record_id>` |
+
+**每完成一步立刻写进度**：`python3 scripts/feishu.py progress --record-id REC --message "…"`。**任何一步失败**：写清卡在哪一步、错误信息和链接，然后
+
+```sh
+python3 scripts/feishu.py set-plan-status --record-id REC --value 修复失败 --note "<哪一步、原因>"
+```
+
+结束会话，不再继续后面的步骤。
+
+1. **读懂方案。** 读 `context.md`、根因图；修复进度里有上一次的记录时，从失败的那一步接着做。确认修复要动哪些仓库（tutti、tutti-server）。
+2. **切分支。** 每个要改的仓库：
+   ```sh
+   python3 scripts/repos.py start --repo tutti --branch codex/bug-<record_id>
+   ```
+   返回 `resumed: true` 表示接着上一次的分支；`behind_main` 大于 0 时先 `git rebase origin/main`（冲突解决不了就判失败）。详见 [修复工作区](references/code.md)。
+3. **修复。** 读 worktree 里的 AGENTS.md 和开发说明，按方案范围修改，保持现有架构与风格；补测试，跑相关测试、类型检查、lint，直到通过。方案在最新 main 上已不成立、或修复必须超出方案范围时判失败，写明原因交还 RD。
+4. **提交、推送、提 PR。**
+   ```sh
+   git -C <worktree> add -A && git -C <worktree> commit -m "fix: <摘要>（bug <record_id>）"
+   python3 scripts/repos.py finish --path <worktree>
+   gh pr create -R tutti-lab/<repo> --base main --head codex/bug-<record_id> --title "fix: …" --body "…"
+   python3 scripts/feishu.py add-pr --record-id REC --url <PR 链接>
+   ```
+   分支已有打开的 PR（`gh pr view -R … codex/bug-<record_id>`）就复用，不重复创建。PR 描述写 bug 记录链接、根因一句话、改动、测试结果、PPE 部署信息（部署后用 `gh pr comment` 补上）。
+5. **部署 PPE**，顺序固定，详见 [PPE 部署](references/deploy.md)：
+   - 改了 tutti-server：`python3 scripts/deploy.py server --branch codex/bug-<record_id> --lane <fix.json 的泳道>`，等它成功。
+   - 改了前端（或改了 server，前端需要对接这个泳道）：`python3 scripts/deploy.py web --branch <tutti 分支> --server-lane <泳道>`。只改了 server 时，用 `main` 作为前端分支部署预览并指向泳道。
+   - 改了 Computer（desktopd、runtime 等）：`python3 scripts/deploy.py computer --branch codex/bug-<record_id>`，记下 canary 版本。
+   - 每次部署后把 run 链接、泳道、预览链接、canary 版本写进修复进度。
+   - 泳道部署时关闭了连接器授权。修复依赖连接器授权才能验证（授权、连接器相关的 Bug）时，PR 照提、部署照做，然后判失败，说明「新泳道 bug-… 需要人工预配 connector task-platform binding 后重试」。
+6. **验证。** 打开预览链接（Server 改动通过 `server_lane` 生效），按「验收标准」逐条用浏览器验证，截图存为 `after-fix-<用例编号>.png` 并上传：
+   ```sh
+   python3 scripts/feishu.py attach --record-id REC --file after-fix-1.png
+   ```
+   Computer 的修复写明 canary 版本，能在 canary Computer 上验证的就验证，不能的记 `not_run` 并写原因。任何必需用例失败即判失败。
+7. **回填与收尾。**
+   ```sh
+   python3 scripts/feishu.py write --record-id REC --set verification=@verification.md
+   python3 scripts/feishu.py set-plan-status --record-id REC --value 已部署待验收 --note "预览 <链接>，泳道 <泳道>"
+   ```
+   最后一条消息写一行结论（PR、部署、验证、方案状态），供运行日志查看。

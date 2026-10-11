@@ -2,7 +2,8 @@
 """Per-fix worktrees cut from the latest remote main, pushed, then detached.
 
 `start` fetches main into the repository's bare cache (`cache_path`) and adds a
-worktree on a new branch at `worktrees/<repo>/<branch>` in the data directory.
+worktree on a new branch at `worktrees/<repo>/<branch>` in the data directory; when the
+branch already exists on origin (a retried fix) it continues from that branch instead.
 `finish` requires a clean tree with new commits, pushes the branch to origin,
 checks the remote now points at the local HEAD, then removes the worktree and the
 local branch. `remove` detaches a worktree without pushing (failed or abandoned
@@ -140,15 +141,21 @@ def start(args, root, repos):
     if git(repo["cache"], "for-each-ref", f"refs/heads/{args.branch}"):
         raise ValueError(f"Branch {args.branch} already exists in the cache; finish or remove its "
                          "worktree first, or pick another name.")
-    if git(repo["cache"], "ls-remote", "--heads", "origin", args.branch):
-        raise ValueError(f"Branch {args.branch} already exists on origin; pick another name.")
     path = worktree_path(root, repo, args.branch)
     if path.exists():
         raise ValueError(f"{path} already exists.")
     path.parent.mkdir(parents=True, exist_ok=True)
-    git(repo["cache"], "worktree", "add", "--no-track", "-b", args.branch, str(path), sha)
-    return {"repository": repo["name"], "branch": args.branch, "worktree": str(path),
-            "base_branch": repo["branch"], "base_sha": sha}
+    resumed = bool(git(repo["cache"], "ls-remote", "--heads", "origin", args.branch))
+    start_point = sha
+    if resumed:
+        # A retried fix continues the branch (and its PR) from the previous attempt.
+        remote_ref = f"refs/remotes/origin/{args.branch}"
+        git(repo["cache"], "fetch", "--no-tags", "origin", f"+refs/heads/{args.branch}:{remote_ref}")
+        start_point = git(repo["cache"], "rev-parse", "--verify", f"{remote_ref}^{{commit}}")
+    git(repo["cache"], "worktree", "add", "--no-track", "-b", args.branch, str(path), start_point)
+    return {"repository": repo["name"], "branch": args.branch, "worktree": str(path), "resumed": resumed,
+            "head": start_point, "base_branch": repo["branch"], "base_sha": sha,
+            "behind_main": int(git(path, "rev-list", "--count", f"HEAD..{reference}")) if resumed else 0}
 
 
 def finish(args, root, repos):

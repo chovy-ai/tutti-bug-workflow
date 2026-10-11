@@ -30,9 +30,11 @@
       "pull_requests": "fldeUIY2k9",
       "diagrams": "fldlTE3qwJ",
       "plan_status": "fld8Dz9R5w",
-      "rejection": "fldB6Bg8uL"
+      "rejection": "fldB6Bg8uL",
+      "fix_progress": "fldicn3CQW"
     },
-    "plan_status": { "open": ["未处理", "已驳回"], "review": "待评审", "approved": "已批准", "rejected": "已驳回" },
+    "plan_status": { "open": ["未处理", "已驳回"], "review": "待评审", "approved": "已批准", "rejected": "已驳回",
+                     "fixing": "修复中", "deployed": "已部署待验收", "fix_failed": "修复失败" },
     "defaults": { "status": "未解决", "issue_type": "bug" },
     "platform_choices": ["新框架一期-Mac", "新框架一期-Windows", "新框架一期-Web"],
     "excluded_priorities": ["P2"]
@@ -42,6 +44,32 @@
     "timeout_minutes": 45,
     "keep_days": 7,
     "codex_command": "codex"
+  },
+  "execute_schedule": {
+    "interval_seconds": 3600,
+    "timeout_minutes": 180,
+    "keep_days": 7,
+    "codex_command": "codex"
+  },
+  "deploy": {
+    "branch_prefix": "codex/bug-",
+    "server": {
+      "repository": "tutti-lab/tutti-server",
+      "workflow": "deploy-lane.yml",
+      "lane_prefix": "bug-",
+      "inputs": { "connector_authorization_enabled": "false" },
+      "destroy_workflow": "destroy-lane.yml"
+    },
+    "web": {
+      "repository": "tutti-lab/tutti",
+      "workflow": "platform-web-preview.yml",
+      "dispatch_ref": "main",
+      "preview_url": "https://tutti.sh/platform/?webBranch={branch}"
+    },
+    "computer": {
+      "repository": "tutti-lab/tutti",
+      "workflow": "computer-artifacts-release.yml"
+    }
   },
   "repositories": [
     { "name": "tutti", "url": "https://github.com/tutti-lab/tutti.git", "base_branch": "main", "cache_path": "repositories/tutti.git", "checkout_path": "repositories/tutti" },

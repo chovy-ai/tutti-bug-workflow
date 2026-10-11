@@ -8,7 +8,7 @@
 |---|---|---|
 | `investigate`：QA 提 Bug，记录现场 | 本地文件/搜索/终端/图片查看、飞书记录/附件、提 Bug 结束后的 session 上传 | Web 日志、Computer 目录、本地或远端 Computer 日志、Server/Tutti CLI 与 AWS 日志；必要的测试或浏览器复现 |
 | `solution`：RD 根因与方案（定时） | 共享的本地/飞书能力、Git 与全局代码检出、mmdc 渲染 PNG、codex CLI 与 launchd 定时任务 | 需要补现场时交回提 Bug 场景 |
-| `execute`：修复与验证 | 共享的本地/飞书/Git 能力、批准核对、项目测试/类型检查/lint、浏览器验收与证据保存 | GitHub/PR 交付工具、部署工具，以及排查或验证需要的日志来源 |
+| `execute`：修复与部署（定时） | 共享的本地/飞书/Git 能力、gh（推送、PR、触发部署工作流）、codex CLI 与 launchd、项目测试/类型检查/lint、浏览器验收与证据保存 | 排查或验证需要的日志来源 |
 
 根因分析使用跟随最新 main 的全局检出，修复每次从远端最新 main 切 worktree。RD 所需图可以先交付 Mermaid 源码，专用图服务或图片渲染工具属于条件项。
 
