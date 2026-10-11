@@ -13,8 +13,8 @@
 | `status` | 状态 | 单选 | 建单时「未解决」 |
 | `issue_type` | 问题类型 | 单选 | 建单时「bug」 |
 | `platform` | 所属端 | 单选 | Agent 判断：`新框架一期-Mac`／`新框架一期-Windows`／`新框架一期-Web` |
-| `priority` | 优先级 | 单选 | Agent 按影响面判断；P2 不进「新框架（一期）」视图 |
-| `module` | 业务模块 | 单选 | Agent 从现有选项中选；没有合适的就不填 |
+| `priority` | 优先级 | 单选 | QA 给了就照填；否则按定义判断：P0 严重阻塞，P1 明显 Bug，P2 非核心 Bug；拿不准问 QA。P00／P3 只在 QA 明确说时用；P2 不进「新框架（一期）」视图 |
+| `module` | 业务模块 | 单选 | 只能从 `feishu.py options --field module` 返回的现有模块中选一个，不自创；对不上时问 QA。配置 `bug_report.retired_options.module` 里是历史上被随手加的非正式选项，列表里不显示，写入时拒绝 |
 | `record_time` | 记录时间 | 日期 | 提问时间，按 Asia/Shanghai |
 | `env_version` | 环境与版本 | 文本 | 见下 |
 | `page_url` | 页面链接 | 超链接 | 出问题页面的完整 URL |

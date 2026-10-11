@@ -8,6 +8,7 @@ Bug 管理表（base `CEHMbNF8Zavq5wsAO3ecrpQ6nPc`，表「Bug 管理」，视�
 |---|---|---|
 | `plan_status` | 方案状态 | `feishu.py set-plan-status --value 修复中／已部署待验收／修复失败 [--note]`，同时追加一行修复进度 |
 | `fix_progress` | 修复进度 | `feishu.py progress --message`，只追加，每行 `[yyyy-mm-dd HH:MM] 内容` |
+| `environment` | 访问环境 | `deploy.py … --record-id REC` 部署成功后自动写；手动补写用 `feishu.py environment --service web／server／websocket／computer --value …`。每端一行 `前端预览：<链接>（…）`、`Server 泳道：…`、`WebSocket 泳道：…`、`Computer canary：<版本>`，重新部署替换该端那一行，其他行保留；为空时 `set-plan-status 已部署待验收` 报错 |
 | `pull_requests` | 关联 PR | `feishu.py add-pr --url`，每行一个链接，已有的不重复追加 |
 | `verification` | 验证结果 | `feishu.py write --set verification=@file`，按 [验证模板](../assets/verification.md)，整体替换 |
 | `fix_screenshots` | 修复截图（附件） | `feishu.py attach --file`（默认这一列），只收 PNG／JPEG，文件名 `fix-<record_id>-<用例编号>-<yyyymmddHHMM>.png`（修复前对照用 `before-`）；同名同大小不重复上传 |
@@ -18,7 +19,7 @@ Bug 管理表（base `CEHMbNF8Zavq5wsAO3ecrpQ6nPc`，表「Bug 管理」，视�
 | 从 | 到 | 谁 |
 |---|---|---|
 | 已批准 | 修复中 | 定时任务认领（要求根因、方案、验收都非空） |
-| 修复中 | 已部署待验收 | 会话：PR 已提、PPE 已部署、验收通过 |
+| 修复中 | 已部署待验收 | 会话：PR 已提、PPE 已部署（访问环境非空）、验收通过 |
 | 修复中／已批准 | 修复失败 | 会话或定时任务：任何一步失败、会话超时或中断 |
 | 修复失败 | 已批准 | RD 处理后手动改回，下一轮重试 |
 

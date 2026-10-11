@@ -9,6 +9,9 @@ the only source of truth, and every step of a fix shows up on it:
   transitions; 待评审/已驳回 stay RD's and bug-solution's business.
 - 修复进度 gets one timestamped line per step (branch, PR, lane, preview link, canary
   version, failures) through `progress`, which only appends.
+- 访问环境 holds one line per deployed side (前端预览 link, Server/WebSocket lane, Computer
+  canary version), replaced in place on redeploy. `deploy.py --record-id` fills it after
+  each successful deploy; 已部署待验收 is refused while it is empty.
 - 验证结果, 关联 PR and the after-fix screenshots in 修复截图 are written at the end.
 
 分析根因, 修复方式, 验收标准 and 状态 are never written.
@@ -34,11 +37,15 @@ UPLOADABLE = {"fix_screenshots", "attachments"}
 IMAGE_HEADERS = (b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff")
 SCREENSHOT_NAME = re.compile(r"(fix|before)-rec[A-Za-z0-9]+-\d+[a-z]?-\d{12}\.(png|jpe?g)\Z")
 PRIORITIES = ("P00", "P0", "P1", "P2", "P3")  # highest first
+# 访问环境 lines, in display order.
+ENVIRONMENT = {"web": "前端预览", "server": "Server 泳道", "websocket": "WebSocket 泳道",
+               "computer": "Computer canary"}
 # Record fields written into context.md for a fix session, in order.
 CONTEXT_FIELDS = (("title", "Bug 描述"), ("priority", "优先级"), ("platform", "所属端"), ("module", "业务模块"),
                   ("plan_status", "方案状态"), ("root_cause", "分析根因"), ("solution", "修复方式"),
                   ("acceptance", "验收标准"), ("context", "问题上下文"), ("env_version", "环境与版本"),
-                  ("page_url", "页面链接"), ("pull_requests", "关联 PR"), ("fix_progress", "修复进度"),
+                  ("page_url", "页面链接"), ("pull_requests", "关联 PR"), ("environment", "访问环境"),
+                  ("fix_progress", "修复进度"),
                   ("verification", "验证结果"), ("assignee", "指派人"), ("record_time", "记录时间"))
 
 
@@ -228,6 +235,22 @@ def append_progress(client, record_id, message):
     return line
 
 
+def set_environment(client, record_id, service, text):
+    """Replace this side's line in 访问环境, keeping the others in display order."""
+    label = ENVIRONMENT[service]
+    lines = {}
+    for line in as_text(client.read(record_id, ["environment"])["environment"]).splitlines():
+        name, separator, _ = line.partition("：")
+        if line.strip():
+            lines[name if separator and name in ENVIRONMENT.values() else line] = line
+    lines[label] = f"{label}：{' '.join(text.split())}"
+    order = list(ENVIRONMENT.values())
+    value = "\n".join(line for _, line in sorted(lines.items(), key=lambda item: (
+        order.index(item[0]) if item[0] in order else len(order))))
+    write_and_verify(client, record_id, {"environment": value})
+    return value
+
+
 def approval_state(client, record_id):
     values = {key: as_text(value).strip()
               for key, value in client.read(record_id, [*APPROVED, "plan_status"]).items()}
@@ -260,6 +283,10 @@ def set_plan_status(args, client):
         problems = approval_state(client, args.record_id)["problems"]
         if problems:
             raise ValueError(f"Not ready to fix: {problems}")
+    if args.value == client.plan_status["deployed"] and not as_text(
+            client.read(args.record_id, ["environment"])["environment"]).strip():
+        raise ValueError("访问环境为空：先用 deploy.py --record-id 部署（或 feishu.py environment）回填预览链接、泳道、"
+                         "canary 版本，再置已部署待验收。")
     client.upsert({client.field_id("plan_status"): args.value}, args.record_id)
     if plan_status(client, args.record_id) != args.value:
         raise LarkError("方案状态 read-back differs; another edit may have raced, re-run.")
@@ -272,6 +299,11 @@ def set_plan_status(args, client):
 
 def progress(args, client):
     wb.emit({"record_id": args.record_id, "appended": append_progress(client, args.record_id, args.message)})
+
+
+def environment(args, client):
+    value = set_environment(client, args.record_id, args.service, args.value)
+    wb.emit({"record_id": args.record_id, "environment": value.splitlines(), "verified": True})
 
 
 def read(args, client):
@@ -418,7 +450,7 @@ def context(args, client):
 def parser():
     result = argparse.ArgumentParser(description=__doc__)
     commands = result.add_subparsers(dest="operation", required=True)
-    names = ("check-approval", "set-plan-status", "progress", "read", "download", "write", "add-pr", "attach",
+    names = ("check-approval", "set-plan-status", "progress", "environment", "read", "download", "write", "add-pr", "attach",
              "scan", "context")
     for name in names:
         command = commands.add_parser(name)
@@ -431,6 +463,9 @@ def parser():
             command.add_argument("--note", help="一并写进修复进度的说明，如失败原因。")
         if name == "progress":
             command.add_argument("--message", required=True)
+        if name == "environment":
+            command.add_argument("--service", required=True, choices=sorted(ENVIRONMENT))
+            command.add_argument("--value", required=True, help="链接、泳道或 canary 版本，以及补充说明。")
         if name == "read":
             command.add_argument("--field", action="append", help="field_map key; repeatable.")
         if name == "download":
@@ -458,6 +493,7 @@ def main():
         root = wb.data_root(args)
         client = Feishu(wb.load_config(args, root))
         status = {"check-approval": check_approval, "set-plan-status": set_plan_status, "progress": progress,
+                  "environment": environment,
                   "read": read, "download": download, "write": write, "add-pr": add_pr, "attach": attach,
                   "scan": scan, "context": context}[args.operation](args, client)
     except (ValueError, OSError, subprocess.TimeoutExpired) as error:

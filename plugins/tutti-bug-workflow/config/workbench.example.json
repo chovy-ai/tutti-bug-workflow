@@ -32,13 +32,18 @@
       "plan_status": "fld8Dz9R5w",
       "rejection": "fldB6Bg8uL",
       "fix_progress": "fldicn3CQW",
-      "fix_screenshots": "fldKqWaiE0"
+      "fix_screenshots": "fldKqWaiE0",
+      "environment": "fldhDBEwJJ"
     },
     "plan_status": { "open": ["未处理", "已驳回"], "review": "待评审", "approved": "已批准", "rejected": "已驳回",
                      "fixing": "修复中", "deployed": "已部署待验收", "fix_failed": "修复失败" },
     "defaults": { "status": "未解决", "issue_type": "bug" },
     "platform_choices": ["新框架一期-Mac", "新框架一期-Windows", "新框架一期-Web"],
-    "excluded_priorities": ["P2"]
+    "excluded_priorities": ["P2"],
+    "retired_options": {
+      "module": ["UI/导航", "Computer/安装与连接", "Agent执行链路", "UI/资产与图片生成", "Agent管理/归属与共享",
+                 "Connector/插件", "账号认证/会话", "房间/群聊", "Connector/共享权限"]
+    }
   },
   "solution_schedule": {
     "interval_seconds": 3600,

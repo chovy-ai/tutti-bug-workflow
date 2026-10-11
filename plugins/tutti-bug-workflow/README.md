@@ -1,6 +1,6 @@
 # tutti-bug-workflow
 
-版本：0.1.42。运行方式：Codex 本地会话。三个业务场景以飞书 Bug 管理表中的同一条记录交接，不保留本地档案；公共初始化 Skill 准备配置与依赖。
+版本：0.1.43。运行方式：Codex 本地会话。三个业务场景以飞书 Bug 管理表中的同一条记录交接，不保留本地档案；公共初始化 Skill 准备配置与依赖。
 
 | 入口 | 工作内容 |
 |---|---|
@@ -46,7 +46,7 @@ python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py setup-aws-cli --inst
 |---|---|
 | bug-investigate | Bug 描述、所属端、优先级、业务模块、提交人、指派人、记录时间、环境与版本、页面链接、问题上下文、截图／视频／日志 |
 | bug-solution | 分析根因、根因图（PNG）、修复方式、验收标准；方案状态置「待评审」 |
-| bug-execute | 方案状态（修复中／已部署待验收／修复失败）、修复进度、关联 PR、验证结果、修复截图 |
+| bug-execute | 方案状态（修复中／已部署待验收／修复失败）、修复进度、访问环境、关联 PR、验证结果、修复截图 |
 
 ### QA 提 Bug（`bug-investigate`）
 
@@ -72,7 +72,7 @@ python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py setup-aws-cli --inst
 
 1. 对 agent 说「给张三开定时修复」，`schedule.py install` 为该跟进人装一个本机 launchd 任务，每小时一轮。
 2. 每轮 `scan.py`：遗留的「修复中」标为修复失败；方案状态为「已批准」的 Bug 逐条置「修复中」，各起一个 `codex exec` 会话（本机运行，不进 sandbox）。
-3. 会话：从最新 main 切 `codex/bug-<record_id>`（重试时接着原分支）→ 修复、测试 → 推送、提 PR 到 main → 部署 PPE：先 tutti-server `deploy-lane`（泳道 `ppe-bug-<record_id>`，关闭连接器授权），涉及 ws 时 tsh-websocket `deploy-lane`（同一泳道；新泳道需人工先建 ws 基础设施），再 tutti `platform-web-preview`（指向该泳道），涉及 Computer 时在分支上发 `Computer Canary` → 用本机 Chrome（chrome-devtools MCP）打开预览链接按验收标准自验证，涉及 UI 的每条用例截图上传到「修复截图」 → 写验证结果，方案状态置「已部署待验收」；任何一步失败置「修复失败」。每一步写进「修复进度」。
+3. 会话：从最新 main 切 `codex/bug-<record_id>`（重试时接着原分支）→ 修复、测试 → 推送、提 PR 到 main → 部署 PPE：先 tutti-server `deploy-lane`（泳道 `ppe-bug-<record_id>`，关闭连接器授权），涉及 ws 时 tsh-websocket `deploy-lane`（同一泳道；新泳道需人工先建 ws 基础设施），再 tutti `platform-web-preview`（指向该泳道），涉及 Computer 时在分支上发 `Computer Canary`，每次部署成功把预览链接、泳道、canary 版本回填到「访问环境」 → 用本机 Chrome（chrome-devtools MCP）打开预览链接按验收标准自验证，涉及 UI 的每条用例截图上传到「修复截图」 → 写验证结果，方案状态置「已部署待验收」；任何一步失败置「修复失败」。每一步写进「修复进度」。
 4. 泳道不自动销毁，需要时让 agent 用 `deploy.py destroy-lane` 销毁。
 
 ## 已提供的能力
