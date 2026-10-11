@@ -91,15 +91,16 @@
   "log_sources": [
     { "name": "web-chrome", "kind": "web", "transport": "chrome-devtools-mcp", "environment": "local_chrome", "mcp_server": "chrome-devtools", "tool": "get_web_logs", "scope": "local_account_and_page" },
     { "name": "web-export", "kind": "web", "transport": "user-export", "environment": "qa_browser", "scope": "exported_archive", "source": "Tutti 设置 → 诊断 → 导出日志" },
-    { "name": "computer-local", "kind": "computer", "transport": "files", "environment": "execution_host", "paths": [], "scope": "execution_host_only" },
+    { "name": "computer-local", "kind": "computer", "transport": "files", "environment": "execution_host", "paths": ["~/.tutti-amp/computer/logs/companion.log", "~/.tutti-amp/computer/logs/desktopd.log", "~/.tutti-amp/computer/logs/runtime-host.log", "${TMPDIR}/tutti-codex-appserver-startup.jsonl"], "scope": "execution_host_only" },
     { "name": "computer-remote", "kind": "computer", "transport": "mcp", "acquisition": "tutti-runtime-log-recall", "environment": null, "mcp_server": null, "tool": null, "scope": "reported_computer" }
   ],
   "validation": {
-    "environment": null,
-    "url": null,
-    "revision_source": null,
-    "browser_tool": null
+    "environment": "ppe-lane",
+    "url": "https://tutti.sh/platform/",
+    "revision_source": "deploy.py 返回的工作流 run headSha",
+    "browser_tool": "chrome-devtools"
   },
+  "tutti_ops": { "admin_url": "https://admin.tutti.sh" },
   "cli_dependencies": [
     { "name": "lark-cli", "command": "lark-cli", "required": true, "installer": null },
     { "name": "git", "command": "git", "required": true, "installer": null },

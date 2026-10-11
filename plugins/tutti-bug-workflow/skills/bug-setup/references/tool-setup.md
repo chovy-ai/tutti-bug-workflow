@@ -1,6 +1,6 @@
 # 按场景组织工具 Setup
 
-用于选择工具、规划安装或复用、记录授权与验证缺口。场景及工具选择的可执行目录在 `config/tool-profiles.json`；`scripts/tool_setup.py` 读取已有配置并输出准备清单，不安装、不认证、不联网，也不初始化数据目录。
+用于选择工具、规划安装或复用、记录授权与验证缺口。场景及工具选择的可执行目录在 `config/tool-profiles.json`；`scripts/tool_setup.py` 读取已有配置并输出准备清单，不安装、不认证、不联网，也不初始化数据目录。日常准备用 `scripts/prepare.py`：按场景实际检查、自动安装能装的工具并给出需要本人操作的引导，见 [Setup Skill](../SKILL.md)。
 
 ## 场景边界
 

@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "scenes": {
-    "investigate": "QA 上报与根因分析",
-    "solution": "RD 方案协商",
-    "execute": "修复与验证"
+    "investigate": "QA 提 Bug",
+    "solution": "定时分析根因与方案",
+    "execute": "定时修复与部署"
   },
   "tools": [
     {
