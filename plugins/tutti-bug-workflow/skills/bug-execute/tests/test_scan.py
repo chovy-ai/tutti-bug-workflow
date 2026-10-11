@@ -81,6 +81,21 @@ class ScanTests(unittest.TestCase):
         self.assertEqual(self.record("recD4")[FIELDS["plan_status"]], "待评审")
         self.assertEqual(self.scan()["pending"], 0)
 
+    def test_deployed_sides_always_end_up_in_access_environment(self):
+        self.env.update({"FAKE_CODEX_DEPLOY": "recA1,recB2", "FAKE_CODEX_ANALYSE": "", "GH": str(ROOT / "tests/fixtures-gh.py"),
+                         "FAKE_GH_LOG": str(self.base / "gh.json"), "FAKE_ENVIRONMENT_FIELD": FIELDS["environment"]})
+        report = self.scan("--record-id", "recA1")
+        # deploy.py took the record from the session environment and wrote 访问环境 itself.
+        self.assertEqual(self.record("recA1")[FIELDS["environment"]], "https://tutti.sh/platform/?webBranch=codex/bug-reca1")
+        self.assertEqual((report["results"][0]["backfilled"], report["results"][0]["status"]), (False, "failed"))
+        # The session wiped the column: the round fills it back from deploys.jsonl, even on 修复失败.
+        self.env["FAKE_CODEX_CLEAR_ENVIRONMENT"] = "1"
+        report = self.scan("--record-id", "recB2")
+        self.assertEqual(self.record("recB2")[FIELDS["environment"]], "https://tutti.sh/platform/?webBranch=codex/bug-recb2")
+        self.assertTrue(report["results"][0]["backfilled"])
+        self.assertEqual(self.record("recB2")[FIELDS["plan_status"]], "修复失败")
+        self.assertIn("定时任务补填访问环境", self.record("recB2")[FIELDS["fix_progress"]])
+
     def test_dry_run_claims_nothing_and_a_running_round_is_skipped(self):
         report = self.scan("--dry-run")
         self.assertEqual(report["summary"]["prepared"], 2)

@@ -23,7 +23,7 @@
 | `plan_status` | 方案状态 | 单选 | bug-solution 置「待评审」；RD 选「已批准」「已驳回」；bug-execute 置「修复中」「已部署待验收」「修复失败」 |
 | `fix_progress` | 修复进度 | 文本 | bug-execute 每一步追加一行 |
 | `fix_screenshots` | 修复截图 | 附件 | bug-execute 部署 PPE 后自验证的截图（涉及 UI 必有） |
-| `environment` | 访问环境 | 文本 | bug-execute 部署成功后回填：前端预览链接、Server／WebSocket 泳道、Computer canary 版本，每端一行 |
+| `environment` | 访问环境 | 文本（链接样式） | bug-execute 部署成功后回填一个可点击的体验链接：前端预览；只改 Computer 时为 canary 发布页 |
 | `rejection` | 驳回意见 | 文本 | RD 驳回时填写 |
 
 「验收标准」「验证结果」「根因图」「方案状态」「驳回意见」「修复进度」「修复截图」「访问环境」是为修复流程新增的列。修复版本、自定义 tag、反馈用户、父记录、备注等不映射，由人工维护。

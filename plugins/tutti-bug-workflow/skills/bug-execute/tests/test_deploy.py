@@ -80,9 +80,7 @@ class DeployTests(unittest.TestCase):
         self.deploy("computer", "--branch", "codex/bug-rec1", "--record-id", "rec1", expected=1, FAKE_GH_CONCLUSION="failure",
                     **lark)
         record = json.loads(state.read_text())["records"]["rec1"]
-        self.assertEqual(record[fields["environment"]].splitlines(), [
-            "前端预览：https://tutti.sh/platform/?webBranch=codex/bug-rec1（前端分支 codex/bug-rec1，Server 泳道 ppe-bug-rec1）",
-            "Server 泳道：ppe-bug-rec1（namespace lane-ppe-bug-rec1，分支 codex/bug-rec1）"])
+        self.assertEqual(record[fields["environment"]], "https://tutti.sh/platform/?webBranch=codex/bug-rec1")
         progress = record[fields["fix_progress"]].splitlines()
         self.assertEqual(len(progress), 3)
         self.assertIn("部署成功 Server 泳道：ppe-bug-rec1", progress[0])
