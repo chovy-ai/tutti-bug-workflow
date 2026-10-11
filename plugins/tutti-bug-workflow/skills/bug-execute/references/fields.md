@@ -8,11 +8,13 @@ Bug 管理表（base `CEHMbNF8Zavq5wsAO3ecrpQ6nPc`，表「Bug 管理」，视�
 |---|---|---|
 | `plan_status` | 方案状态 | `feishu.py set-plan-status --value 修复中／已部署待验收／修复失败 [--note]`，同时追加一行修复进度 |
 | `fix_progress` | 修复进度 | `feishu.py progress --message`，只追加，每行 `[yyyy-mm-dd HH:MM] 内容` |
-| `environment` | 访问环境 | `deploy.py … --record-id REC` 部署成功后自动写；手动补写用 `feishu.py environment --service web／server／websocket／computer --value …`。每端一行 `前端预览：<链接>（…）`、`Server 泳道：…`、`WebSocket 泳道：…`、`Computer canary：<版本>`，重新部署替换该端那一行，其他行保留；为空时 `set-plan-status 已部署待验收` 报错 |
+| `environment` | 访问环境（链接样式） | **一个裸 https 链接**，点开即可体验修复：前端预览 `https://tutti.sh/platform/?webBranch=<分支>`（指向本条泳道）；只改 Computer 时为 canary 发布 run 页面，且不会覆盖已有的前端预览。`deploy.py … --record-id REC` 部署成功后自动写；手动补写或换成更具体的页面用 `feishu.py environment --url <链接> [--service computer]`，非链接内容会被拒绝。泳道、canary 版本写在修复进度。为空时 `set-plan-status 已部署待验收` 报错 |
 | `pull_requests` | 关联 PR | `feishu.py add-pr --url`，每行一个链接，已有的不重复追加 |
 | `verification` | 验证结果 | `feishu.py write --set verification=@file`，按 [验证模板](../assets/verification.md)，整体替换 |
 | `fix_screenshots` | 修复截图（附件） | `feishu.py attach --file`（默认这一列），只收 PNG／JPEG，文件名 `fix-<record_id>-<用例编号>-<yyyymmddHHMM>.png`（修复前对照用 `before-`）；同名同大小不重复上传 |
 | `attachments` | 截图、视频、日志 | `feishu.py attach --field attachments --file`，只放截图以外的补充证据（如测试输出、日志）；QA 的现场附件不删 |
+
+**部署后体验环境必须在 bug 单上**：任何一端部署成功后，不论最终是「已部署待验收」还是「修复失败」，「访问环境」都要有可点击的体验链接。三层保证：`deploy.py` 部署成功即写（定时会话里不带 `--record-id` 也会从环境变量取记录）；`set-plan-status 已部署待验收` 在访问环境为空时拒绝，置「修复失败」时返回 `warning`；会话结束后定时任务按运行目录的 `deploys.jsonl` 核对，访问环境为空就补上链接并记进修复进度。
 
 ## 方案状态的流转
 

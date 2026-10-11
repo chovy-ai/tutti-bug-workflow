@@ -9,9 +9,10 @@ the only source of truth, and every step of a fix shows up on it:
   transitions; 待评审/已驳回 stay RD's and bug-solution's business.
 - 修复进度 gets one timestamped line per step (branch, PR, lane, preview link, canary
   version, failures) through `progress`, which only appends.
-- 访问环境 holds one line per deployed side (前端预览 link, Server/WebSocket lane, Computer
-  canary version), replaced in place on redeploy. `deploy.py --record-id` fills it after
-  each successful deploy; 已部署待验收 is refused while it is empty.
+- 访问环境 is one clickable link (a URL-style text cell) to try the fix: the front-end
+  preview, or the Computer canary run page when only Computer changed. `deploy.py
+  --record-id` fills it after a successful deploy; 已部署待验收 is refused while it is
+  empty. Lanes and canary versions go to 修复进度 and 验证结果.
 - 验证结果, 关联 PR and the after-fix screenshots in 修复截图 are written at the end.
 
 分析根因, 修复方式, 验收标准 and 状态 are never written.
@@ -37,9 +38,8 @@ UPLOADABLE = {"fix_screenshots", "attachments"}
 IMAGE_HEADERS = (b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff")
 SCREENSHOT_NAME = re.compile(r"(fix|before)-rec[A-Za-z0-9]+-\d+[a-z]?-\d{12}\.(png|jpe?g)\Z")
 PRIORITIES = ("P00", "P0", "P1", "P2", "P3")  # highest first
-# 访问环境 lines, in display order.
-ENVIRONMENT = {"web": "前端预览", "server": "Server 泳道", "websocket": "WebSocket 泳道",
-               "computer": "Computer canary"}
+# Deployable sides, as named in 修复进度.
+SIDES = {"web": "前端预览", "server": "Server 泳道", "websocket": "WebSocket 泳道", "computer": "Computer canary"}
 # Record fields written into context.md for a fix session, in order.
 CONTEXT_FIELDS = (("title", "Bug 描述"), ("priority", "优先级"), ("platform", "所属端"), ("module", "业务模块"),
                   ("plan_status", "方案状态"), ("root_cause", "分析根因"), ("solution", "修复方式"),
@@ -187,6 +187,16 @@ def as_text(value):
     return json.dumps(value, ensure_ascii=False)
 
 
+MARKDOWN_LINK = re.compile(r"\[[^\]]*\]\((\S+)\)\Z")
+
+
+def link_text(value):
+    """URL-style cells read back as a markdown link `[text](url)`; return the url."""
+    text = as_text(value).strip()
+    match = MARKDOWN_LINK.fullmatch(text)
+    return match.group(1) if match else text
+
+
 def text_value(raw):
     if raw.startswith("@"):
         return Path(raw[1:]).expanduser().read_text(encoding="utf-8")
@@ -196,7 +206,9 @@ def text_value(raw):
 def write_and_verify(client, record_id, values):
     client.upsert({client.field_id(key): value for key, value in values.items()}, record_id)
     actual = client.read(record_id, sorted(values))
-    mismatched = [key for key, value in values.items() if as_text(actual.get(key)).strip() != value.strip()]
+    read_back = {key: link_text(value) if key == "environment" else as_text(value).strip()
+                 for key, value in actual.items()}
+    mismatched = [key for key, value in values.items() if read_back.get(key) != value.strip()]
     if mismatched:
         raise LarkError(f"Read-back differs for {mismatched}; another edit may have raced, re-run.")
 
@@ -235,20 +247,22 @@ def append_progress(client, record_id, message):
     return line
 
 
-def set_environment(client, record_id, service, text):
-    """Replace this side's line in 访问环境, keeping the others in display order."""
-    label = ENVIRONMENT[service]
-    lines = {}
-    for line in as_text(client.read(record_id, ["environment"])["environment"]).splitlines():
-        name, separator, _ = line.partition("：")
-        if line.strip():
-            lines[name if separator and name in ENVIRONMENT.values() else line] = line
-    lines[label] = f"{label}：{' '.join(text.split())}"
-    order = list(ENVIRONMENT.values())
-    value = "\n".join(line for _, line in sorted(lines.items(), key=lambda item: (
-        order.index(item[0]) if item[0] in order else len(order))))
-    write_and_verify(client, record_id, {"environment": value})
-    return value
+def access_link(client, record_id):
+    return link_text(client.read(record_id, ["environment"])["environment"])
+
+
+def set_access(client, record_id, service, url):
+    """Point 访问环境 at the link to try the fix; returns (link now on the record, changed).
+
+    The front-end preview wins; a Computer canary run page is used only when there is no
+    preview, and never replaces one (or a deeper preview link a session wrote itself)."""
+    if not re.match(r"https://\S+\Z", url):
+        raise ValueError(f"访问环境只放一个可点击的 https 链接：{url!r}")
+    current = access_link(client, record_id)
+    if current == url or (service != "web" and current and "/actions/runs/" not in current):
+        return current, False
+    write_and_verify(client, record_id, {"environment": url})
+    return url, True
 
 
 def approval_state(client, record_id):
@@ -283,17 +297,21 @@ def set_plan_status(args, client):
         problems = approval_state(client, args.record_id)["problems"]
         if problems:
             raise ValueError(f"Not ready to fix: {problems}")
-    if args.value == client.plan_status["deployed"] and not as_text(
-            client.read(args.record_id, ["environment"])["environment"]).strip():
-        raise ValueError("访问环境为空：先用 deploy.py --record-id 部署（或 feishu.py environment）回填预览链接、泳道、"
-                         "canary 版本，再置已部署待验收。")
+    if args.value == client.plan_status["deployed"] and not access_link(client, args.record_id):
+        raise ValueError("访问环境为空：先用 deploy.py --record-id 部署（或 feishu.py environment --url）回填可点击的"
+                         "体验链接，再置已部署待验收。")
     client.upsert({client.field_id("plan_status"): args.value}, args.record_id)
     if plan_status(client, args.record_id) != args.value:
         raise LarkError("方案状态 read-back differs; another edit may have raced, re-run.")
     line = append_progress(client, args.record_id, f"方案状态 {before} → {args.value}"
                            + (f"：{args.note}" if args.note else ""))
-    wb.emit({"record_id": args.record_id, "plan_status": args.value, "previous": before, "progress": line,
-             "verified": True})
+    result = {"record_id": args.record_id, "plan_status": args.value, "previous": before, "progress": line,
+              "verified": True}
+    if args.value in (client.plan_status["deployed"], client.plan_status["fix_failed"]):
+        result["environment"] = access_link(client, args.record_id) or None
+        if not result["environment"]:
+            result["warning"] = "访问环境为空：已经部署成功的话，用 feishu.py environment --url 把体验链接补上。"
+    wb.emit(result)
     return 0
 
 
@@ -302,8 +320,8 @@ def progress(args, client):
 
 
 def environment(args, client):
-    value = set_environment(client, args.record_id, args.service, args.value)
-    wb.emit({"record_id": args.record_id, "environment": value.splitlines(), "verified": True})
+    link, changed = set_access(client, args.record_id, args.service, args.url)
+    wb.emit({"record_id": args.record_id, "environment": link, "changed": changed, "verified": True})
 
 
 def read(args, client):
@@ -464,8 +482,9 @@ def parser():
         if name == "progress":
             command.add_argument("--message", required=True)
         if name == "environment":
-            command.add_argument("--service", required=True, choices=sorted(ENVIRONMENT))
-            command.add_argument("--value", required=True, help="链接、泳道或 canary 版本，以及补充说明。")
+            command.add_argument("--url", required=True, help="一个可点击的体验链接。")
+            command.add_argument("--service", choices=("web", "computer"), default="web",
+                                 help="computer 的链接不会覆盖已有的前端预览。")
         if name == "read":
             command.add_argument("--field", action="append", help="field_map key; repeatable.")
         if name == "download":

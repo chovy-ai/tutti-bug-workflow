@@ -10,12 +10,18 @@ and fix.json (branch and lane names), and runs `codex exec` there with the
 scheduled-mode prompt: fix, PR to main, deploy to PPE (server lane, then web preview,
 then Computer canary), verify, write back. The session ends at 已部署待验收 or
 修复失败; a session that ends while still 修复中 is marked 修复失败 here.
+
+Whatever the verdict, a deployed fix must leave its PPE access on the bug: the session's
+deploys (logged by deploy.py to deploys.jsonl in the run directory) are checked after
+the session, and an empty 访问环境 gets the preview (or canary run) link.
 """
 
 import argparse
 from contextlib import contextmanager
 from datetime import datetime
 import fcntl
+import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -76,6 +82,7 @@ def prompt(record, assignee, run_dir, plan):
 
 按 Skill 的定时模式完成：修复 → 测试 → 推送并提 PR 到 main → 部署 PPE（server 泳道 → ws 泳道 → 前端预览 → Computer canary，按涉及的端；每次 deploy.py 都带 --record-id，把预览链接、泳道、canary 版本回填到「访问环境」）→ 用本机 Chrome 打开预览按验收标准自验证（涉及 UI 每条用例截图，上传到「修复截图」）→ 回填验证结果。
 每一步都用 feishu.py progress 写进「修复进度」。最后把方案状态设为「已部署待验收」，任何一步失败则设为「修复失败」并写明原因。
+只要有一端部署成功，不论最后是「已部署待验收」还是「修复失败」，bug 单的「访问环境」里都必须有一个点开就能体验的链接（前端预览；只改 Computer 时为 canary 发布页），结束前用 feishu.py read --field environment 确认；最后一条消息也写上这个链接。
 无人值守：不要提问、不要等待回复。
 """
 
@@ -90,8 +97,9 @@ def run_session(cfg, record, assignee, run_dir, plan, timeout):
     started = time.monotonic()
     with (run_dir / "session.log").open("w", encoding="utf-8") as log:
         try:
+            env = {**os.environ, "BUG_EXECUTE_RECORD_ID": record["record_id"], "BUG_EXECUTE_RUN_DIR": str(run_dir)}
             process = subprocess.run(command, input=prompt(record, assignee, run_dir, plan), stdout=log, cwd=run_dir,
-                                     stderr=subprocess.STDOUT, text=True, timeout=timeout, check=False)
+                                     stderr=subprocess.STDOUT, text=True, timeout=timeout, check=False, env=env)
             exit_code, timed_out = process.returncode, False
         except subprocess.TimeoutExpired:
             exit_code, timed_out = None, True
@@ -106,6 +114,27 @@ def mark_failed(client, record_id, note):
     client.upsert({client.field_id("plan_status"): failed}, record_id)
     feishu.append_progress(client, record_id, f"方案状态 {fixing} → {failed}：{note}")
     return True
+
+
+def backfill_environment(client, record_id, run_dir):
+    """A session that deployed must leave a link to try the fix in 访问环境: fill it if empty."""
+    log = run_dir / "deploys.jsonl"
+    links = {}
+    if log.is_file():
+        for line in log.read_text(encoding="utf-8").splitlines():
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if entry.get("ok") and entry.get("link"):
+                links[entry.get("service")] = entry["link"]
+    current = feishu.access_link(client, record_id)
+    link = links.get("web") or links.get("computer")
+    if current or not link:
+        return {"access_url": current or None, "backfilled": False}
+    feishu.set_access(client, record_id, "web" if links.get("web") else "computer", link)
+    feishu.append_progress(client, record_id, f"定时任务补填访问环境：{link}")
+    return {"access_url": link, "backfilled": True}
 
 
 def cleanup(runs, keep_days):
@@ -147,13 +176,14 @@ def fix(args, cfg, client, schedule, assignee, records, runs):
             feishu.prepare_context(client, record["record_id"], run_dir)
             wb.write_json(run_dir / "fix.json", plan)
             session = run_session(schedule, record, assignee, run_dir, plan, schedule["timeout_minutes"] * 60)
+            access = backfill_environment(client, record["record_id"], run_dir)
             final = feishu.plan_status(client, record["record_id"])
             if final == status["fixing"]:
                 reason = (f"会话超过 {schedule['timeout_minutes']} 分钟被结束" if session["timed_out"]
                           else f"会话结束（退出码 {session['exit_code']}）但没有更新方案状态")
                 mark_failed(client, record["record_id"], f"{reason}，详见 {run_dir}/session.log")
                 final = status["fix_failed"]
-            results.append({**outcome, **plan, **session, "plan_status": final,
+            results.append({**outcome, **plan, **session, **access, "plan_status": final,
                             "status": "deployed" if final == status["deployed"] else "failed"})
         except (ValueError, OSError, subprocess.TimeoutExpired) as error:
             try:

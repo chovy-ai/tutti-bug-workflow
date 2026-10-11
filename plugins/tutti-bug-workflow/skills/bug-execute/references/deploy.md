@@ -27,7 +27,7 @@
 | `deploy.py computer --branch B` | `tutti-lab/tutti` 的 `computer-artifacts-release.yml`，`--ref B` | run 链接、结论、canary 版本 `canary-<sha12>-<run_id>-<attempt>` |
 | `deploy.py destroy-lane --lane L [--service server\|websocket]` | 对应仓库的 `destroy-lane.yml`（默认 server） | 只接受 `ppe-bug-` 前缀的泳道；仅在用户要求时执行 |
 
-通用参数：`--record-id REC`（修复时必带：部署成功后把这一端的访问方式写进「访问环境」——前端预览链接、泳道、canary 版本，并把 run 链接追加到修复进度；失败也记一行进度）、`--timeout 分钟`（默认 90）、`--no-wait`（只触发）。失败时结果带 `failed_log_tail`（失败步骤日志的最后 60 行），写进修复进度前先看它判断原因。server 可加 `--input key=value` 覆盖工作流输入。仓库、工作流名、泳道前缀、默认输入、预览链接模板在 `config.json` 的 `deploy` 段。
+通用参数：`--record-id REC`（修复时必带：web 部署成功后把前端预览链接写进「访问环境」（只改 Computer 时写 canary 发布页），泳道、canary 版本和 run 链接追加到修复进度；失败也记一行进度）、`--timeout 分钟`（默认 90）、`--no-wait`（只触发）。失败时结果带 `failed_log_tail`（失败步骤日志的最后 60 行），写进修复进度前先看它判断原因。server 可加 `--input key=value` 覆盖工作流输入。仓库、工作流名、泳道前缀、默认输入、预览链接模板在 `config.json` 的 `deploy` 段。
 
 ## 判断改了哪一端
 

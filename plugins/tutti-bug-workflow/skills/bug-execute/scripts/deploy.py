@@ -19,9 +19,13 @@ Each command dispatches with `gh workflow run`, finds the run, waits with `gh ru
 and reports the run URL and conclusion, plus the tail of the failed steps' log when it
 fails. Order is the caller's job: server, websocket, web, then computer.
 
-With `--record-id REC` the outcome goes onto the bug record as well: a successful deploy
-replaces its side's line in 访问环境 (preview link, lane, canary version), and every
-deploy appends a 修复进度 line with the run link.
+With `--record-id REC` the outcome goes onto the bug record as well: a successful web
+deploy puts its preview link into 访问环境 (a Computer-only fix gets the canary run page
+there), and every deploy appends a 修复进度 line with the lane or canary version and the
+run link. Inside a scheduled fix session the
+record ID comes from BUG_EXECUTE_RECORD_ID when the flag is left out, and every deploy is
+also logged to BUG_EXECUTE_RUN_DIR/deploys.jsonl, from which the round re-fills
+访问环境 after the session.
 """
 
 import argparse
@@ -110,7 +114,12 @@ def dispatch_and_wait(repository, workflow, ref, fields, wait, timeout_minutes):
     return result
 
 
-def environment_line(service, args, result):
+def access_url(service, result):
+    """The clickable link to try a deployed side, if it has one."""
+    return {"web": result.get("preview_url"), "computer": result.get("url")}.get(service)
+
+
+def summary(service, args, result):
     if service == "web":
         backend = f"Server 泳道 {args.server_lane}" if args.server_lane else "线上 Server"
         return f"{result['preview_url']}（前端分支 {args.branch}，{backend}）"
@@ -119,16 +128,32 @@ def environment_line(service, args, result):
     return f"{args.lane}（namespace lane-{args.lane}，分支 {args.branch}）"
 
 
+def log_deploy(service, args, result):
+    """Append this deploy to the scheduled session's deploys.jsonl, if there is one."""
+    run_dir = os.environ.get("BUG_EXECUTE_RUN_DIR")
+    if not run_dir:
+        return
+    entry = {"service": service, "ok": result["ok"], "url": result.get("url"), "branch": args.branch,
+             "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    if result["ok"]:
+        entry["summary"] = summary(service, args, result)
+        entry["link"] = access_url(service, result)
+    with (Path(run_dir) / "deploys.jsonl").open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
 def record_outcome(cfg, service, args, result):
     """Write a deploy's outcome to the bug record; returns an error message or None."""
     import feishu  # only needed with --record-id
 
     try:
         client = feishu.Feishu(cfg)
-        name = feishu.ENVIRONMENT[service]
+        name = feishu.SIDES[service]
         if result["ok"]:
-            line = environment_line(service, args, result)
-            result["environment"] = feishu.set_environment(client, args.record_id, service, line).splitlines()
+            line = summary(service, args, result)
+            if access_url(service, result):
+                result["access_url"], _ = feishu.set_access(client, args.record_id, service,
+                                                            access_url(service, result))
             message = f"部署成功 {name}：{line}，run {result['url']}"
         elif args.no_wait:
             message = f"已触发部署 {name}：run {result['url']}"
@@ -226,6 +251,9 @@ def main():
             return 0
         result = {"server": server, "websocket": websocket, "web": web, "computer": computer,
                   "destroy-lane": destroy}[args.operation](args, cfg)
+        if args.operation in ("server", "websocket", "web", "computer"):
+            log_deploy(args.operation, args, result)
+            args.record_id = args.record_id or os.environ.get("BUG_EXECUTE_RECORD_ID")
         if getattr(args, "record_id", None):
             error = record_outcome(cfg, args.operation, args, result)
             if error:
