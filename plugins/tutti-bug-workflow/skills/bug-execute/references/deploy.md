@@ -32,7 +32,7 @@
 ## 判断改了哪一端
 
 - **server**：tutti-server 仓库有提交。
-- **websocket**：tsh-websocket 仓库有提交。
+- **websocket**：tsh-websocket 仓库有提交。ws 是很少改动的基础设施，只有已批准的方案明确要改 ws 时才会动它，绝大多数修复不涉及这一步。
 - **前端**：tutti 的 `apps/web`、以及 Web 依赖的 `packages/*` 有改动；或改了 server、需要从页面验证。只改 server 时前端分支用 `main`。
 - **Computer**：tutti 的 desktopd、runtime、Computer 相关 Go 包有改动（如 `cmd/`、`runtime/`、`gopackages/`）。拿不准时按涉及处理，多部署一次只是多花时间。
 
@@ -41,6 +41,8 @@
 每条 Bug 的泳道是新建的，没有预配 connector task-platform binding，所以部署时 `connector_authorization_enabled=false`。修复需要连接器授权才能验证时，部署后判「修复失败」，在修复进度写明需要人工预配 binding；预配完成后 RD 把方案状态改回「已批准」重试。
 
 ## WebSocket 基础设施
+
+只有改了 tsh-websocket 代码才部署 ws 泳道，没改就跳过。
 
 tsh-websocket 的泳道部署要读取该泳道的 WebSocket V2 部署契约（按泳道创建的 IAM 角色、API Stage、`https://ws.tutti.sh/<泳道>` 回调）。新泳道没有这些，要先运行 `deploy-websocket-v2-infrastructure.yml`（`environment_name=<泳道>`，需要审核的 IAM 变更），这一步不自动执行。ws 部署失败、`failed_log_tail` 里是部署契约或 IAM 角色相关错误时：PR 照提，其他端照常部署，然后判「修复失败」，修复进度写明「泳道 ppe-bug-… 需要人工先建 WebSocket V2 基础设施」；建好后 RD 把方案状态改回「已批准」重试。
 

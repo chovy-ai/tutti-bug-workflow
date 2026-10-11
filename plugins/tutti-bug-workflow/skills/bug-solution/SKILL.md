@@ -70,7 +70,7 @@ python3 scripts/schedule.py uninstall --assignee "张三"
    python3 scripts/render.py --input flow.mmd --input arch.mmd
    ```
    报错就按提示改 Mermaid 源码再渲染，直到两张都成功。把 PNG 改名为 `flow-<record_id>-<yyyymmddHHMM>.png`、`arch-<record_id>-<yyyymmddHHMM>.png`。
-6. **写方案与验收**：按 [方案模板](assets/plan.md) 和 [验收模板](assets/acceptance.md)；方案里的 Mermaid 源码与 PNG 一致。
+6. **写方案与验收**：按 [方案模板](assets/plan.md) 和 [验收模板](assets/acceptance.md)；tsh-websocket 是很少改动的基础设施，根因确实在 ws 时才把它列进修改范围（修复时会多一步 ws 泳道部署）；方案里的 Mermaid 源码与 PNG 一致。
 7. **写回**，每次写入都带 `--if-open`：方案状态已被 RD 改成「待评审」「已批准」时返回退出码 3，立即结束本会话，不再写任何内容：
    ```sh
    python3 scripts/feishu.py write --record-id REC --if-open \

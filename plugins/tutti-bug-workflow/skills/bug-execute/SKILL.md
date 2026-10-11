@@ -69,7 +69,7 @@ python3 scripts/feishu.py set-plan-status --record-id REC --value 修复失败 -
 
 结束会话，不再继续后面的步骤。
 
-1. **读懂方案。** 读 `context.md`、根因图；修复进度里有上一次的记录时，从失败的那一步接着做。确认修复要动哪些仓库：tutti（Web、Computer）、tutti-server（Server）、tsh-websocket（WebSocket）。
+1. **读懂方案。** 读 `context.md`、根因图；修复进度里有上一次的记录时，从失败的那一步接着做。确认修复要动哪些仓库：tutti（Web、Computer）、tutti-server（Server）、tsh-websocket（WebSocket，基础设施，方案没要求就不改）。
 2. **切分支。** 每个要改的仓库：
    ```sh
    python3 scripts/repos.py start --repo tutti --branch codex/bug-<record_id>
@@ -86,7 +86,7 @@ python3 scripts/feishu.py set-plan-status --record-id REC --value 修复失败 -
    分支已有打开的 PR（`gh pr view -R … codex/bug-<record_id>`）就复用，不重复创建。PR 描述写 bug 记录链接、根因一句话、改动、测试结果、PPE 部署信息（部署后用 `gh pr comment` 补上）。
 5. **部署 PPE**，顺序固定，详见 [PPE 部署](references/deploy.md)：
    - 改了 tutti-server：`python3 scripts/deploy.py server --branch codex/bug-<record_id> --lane <fix.json 的泳道>`，等它成功。
-   - 改了 tsh-websocket：`python3 scripts/deploy.py websocket --branch codex/bug-<record_id> --lane <同一个泳道>`。新泳道缺 WebSocket V2 基础设施会失败（看 `failed_log_tail` 和 `hint`）：其他端照常部署，最后判失败，写明需要人工先建 ws 基础设施。
+   - 改了 tsh-websocket（基础设施，很少改动；只在方案明确要求时修改，没改就跳过这一步）：`python3 scripts/deploy.py websocket --branch codex/bug-<record_id> --lane <同一个泳道>`。新泳道缺 WebSocket V2 基础设施会失败（看 `failed_log_tail` 和 `hint`）：其他端照常部署，最后判失败，写明需要人工先建 ws 基础设施。
    - 改了前端（或改了 server，前端需要对接这个泳道）：`python3 scripts/deploy.py web --branch <tutti 分支> --server-lane <泳道>`。只改了 server 时，用 `main` 作为前端分支部署预览并指向泳道。
    - 改了 Computer（desktopd、runtime 等）：`python3 scripts/deploy.py computer --branch codex/bug-<record_id>`，记下 canary 版本。
    - 每次部署后把 run 链接、泳道、预览链接、canary 版本写进修复进度。
