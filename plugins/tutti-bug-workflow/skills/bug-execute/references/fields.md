@@ -10,7 +10,8 @@ Bug 管理表（base `CEHMbNF8Zavq5wsAO3ecrpQ6nPc`，表「Bug 管理」，视�
 | `fix_progress` | 修复进度 | `feishu.py progress --message`，只追加，每行 `[yyyy-mm-dd HH:MM] 内容` |
 | `pull_requests` | 关联 PR | `feishu.py add-pr --url`，每行一个链接，已有的不重复追加 |
 | `verification` | 验证结果 | `feishu.py write --set verification=@file`，按 [验证模板](../assets/verification.md)，整体替换 |
-| `attachments` | 截图、视频、日志 | `feishu.py attach --file`，修复后截图等证据；同名同大小不重复上传 |
+| `fix_screenshots` | 修复截图（附件） | `feishu.py attach --file`（默认这一列），只收 PNG／JPEG，文件名 `fix-<record_id>-<用例编号>-<yyyymmddHHMM>.png`（修复前对照用 `before-`）；同名同大小不重复上传 |
+| `attachments` | 截图、视频、日志 | `feishu.py attach --field attachments --file`，只放截图以外的补充证据（如测试输出、日志）；QA 的现场附件不删 |
 
 ## 方案状态的流转
 

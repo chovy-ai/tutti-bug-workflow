@@ -17,7 +17,7 @@ description: 修复已批准的 Bug（定时）：按跟进人每小时扫描飞
 | 修复进度 | 每一步追加一行带时间的记录：分支、PR、泳道与部署 run、预览链接、canary 版本、失败原因 |
 | 关联 PR | `add-pr`，每行一个 |
 | 验证结果 | 按 [验证模板](assets/verification.md) 写 |
-| 截图、视频、日志 | 修复后截图等验证证据 |
+| 修复截图 | 部署 PPE 后自验证的截图，涉及 UI 的用例必须有 |
 
 分析根因、修复方式、验收标准、状态只读；「状态」由人工流转。
 
@@ -89,11 +89,14 @@ python3 scripts/feishu.py set-plan-status --record-id REC --value 修复失败 -
    - 改了 Computer（desktopd、runtime 等）：`python3 scripts/deploy.py computer --branch codex/bug-<record_id>`，记下 canary 版本。
    - 每次部署后把 run 链接、泳道、预览链接、canary 版本写进修复进度。
    - 泳道部署时关闭了连接器授权。修复依赖连接器授权才能验证（授权、连接器相关的 Bug）时，PR 照提、部署照做，然后判失败，说明「新泳道 bug-… 需要人工预配 connector task-platform binding 后重试」。
-6. **验证。** 打开预览链接（Server 改动通过 `server_lane` 生效），按「验收标准」逐条用浏览器验证，截图存为 `after-fix-<用例编号>.png` 并上传：
-   ```sh
-   python3 scripts/feishu.py attach --record-id REC --file after-fix-1.png
-   ```
-   Computer 的修复写明 canary 版本，能在 canary Computer 上验证的就验证，不能的记 `not_run` 并写原因。任何必需用例失败即判失败。
+6. **自验证。** 部署成功后自己按「验收标准」逐条验证，完整流程见 [部署后自验证](references/verify.md)：
+   - 用 `chrome-devtools` MCP 连接本机 Chrome（用它的 tutti.sh 登录态），`new_page` 打开预览链接，只操作自己开的标签页，结束后关掉。
+   - **涉及 UI 的改动，每条用例都要截图**：到断言状态时 `take_screenshot` 存为 `fix-<record_id>-<用例编号>-<yyyymmddHHMM>.png`，然后上传到「修复截图」：
+     ```sh
+     python3 scripts/feishu.py attach --record-id REC --file fix-REC-1-….png --file fix-REC-2-….png
+     ```
+   - Computer 的修复写明 canary 版本，能在 canary Computer 上验证的就验证，不能的记 `not_run` 并写原因。
+   - 任何必需用例失败，或涉及 UI 却没能截图（Chrome 不可用、未登录）→ 判失败。
 7. **回填与收尾。**
    ```sh
    python3 scripts/feishu.py write --record-id REC --set verification=@verification.md
