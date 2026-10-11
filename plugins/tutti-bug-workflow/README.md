@@ -1,12 +1,12 @@
 # tutti-bug-workflow
 
-版本：0.1.40。运行方式：Codex 本地会话。三个业务场景以飞书 Bug 管理表中的同一条记录交接，不保留本地档案；公共初始化 Skill 准备配置与依赖。
+版本：0.1.41。运行方式：Codex 本地会话。三个业务场景以飞书 Bug 管理表中的同一条记录交接，不保留本地档案；公共初始化 Skill 准备配置与依赖。
 
 | 入口 | 工作内容 |
 |---|---|
 | `$tutti-bug-workflow:bug-investigate` | QA 提 Bug：登记并带全现场日志与上下文，不分析根因 |
 | `$tutti-bug-workflow:bug-solution` | RD 根因与方案（定时）：每小时按跟进人逐条分析根因、生成流程图与架构图 PNG、起草方案和验收，记录 RD 批准 |
-| `$tutti-bug-workflow:bug-execute` | 修复与部署（定时）：每小时按跟进人修复已批准的 Bug，提 PR 到 main，部署 PPE（server 泳道 → 前端预览 → Computer canary），验证，进度写回 bug 单 |
+| `$tutti-bug-workflow:bug-execute` | 修复与部署（定时）：每小时按跟进人修复已批准的 Bug，提 PR 到 main，部署 PPE（server 泳道 → ws 泳道 → 前端预览 → Computer canary），验证，进度写回 bug 单 |
 | `$tutti-bug-workflow:bug-setup` | 按场景准备工具，主动补齐认证与权限并复查接入 |
 
 ## 首次使用
@@ -36,7 +36,7 @@ python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py setup-aws-cli --inst
 
 默认数据目录为 `~/.local/share/bug-workbench`，可用 `--data-dir` 或环境变量 `BUG_WORKBENCH_DATA` 覆盖。配置、代码缓存与安装的工具保存在数据目录，独立于插件源码和安装缓存。
 
-数据目录的 `config.json` 已默认绑定指定的飞书 Bug 表、真实字段、三个视图，以及 tutti 和 tutti-server 的远端 main。补充 Web/目标 computer 的日志来源与验证环境后开始对应场景；已有配置不会被初始化覆盖。每个场景读取同一份配置，实际参数见 [配置说明](skills/bug-setup/references/configuration.md)。
+数据目录的 `config.json` 已默认绑定飞书 Bug 管理表及其字段，以及 tutti（Web、Computer）、tutti-server（Server）、tsh-websocket（WebSocket）的远端 main。补充 Web/目标 computer 的日志来源与验证环境后开始对应场景；已有配置不会被初始化覆盖。每个场景读取同一份配置，实际参数见 [配置说明](skills/bug-setup/references/configuration.md)。
 
 ## 飞书 Bug 管理表
 
@@ -72,7 +72,7 @@ python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py setup-aws-cli --inst
 
 1. 对 agent 说「给张三开定时修复」，`schedule.py install` 为该跟进人装一个本机 launchd 任务，每小时一轮。
 2. 每轮 `scan.py`：遗留的「修复中」标为修复失败；方案状态为「已批准」的 Bug 逐条置「修复中」，各起一个 `codex exec` 会话（本机运行，不进 sandbox）。
-3. 会话：从最新 main 切 `codex/bug-<record_id>`（重试时接着原分支）→ 修复、测试 → 推送、提 PR 到 main → 部署 PPE：先 tutti-server `deploy-lane`（泳道 `bug-<record_id>`，关闭连接器授权），再 tutti `platform-web-preview`（指向该泳道），涉及 Computer 时在分支上发 `Computer Canary` → 用本机 Chrome（chrome-devtools MCP）打开预览链接按验收标准自验证，涉及 UI 的每条用例截图上传到「修复截图」 → 写验证结果，方案状态置「已部署待验收」；任何一步失败置「修复失败」。每一步写进「修复进度」。
+3. 会话：从最新 main 切 `codex/bug-<record_id>`（重试时接着原分支）→ 修复、测试 → 推送、提 PR 到 main → 部署 PPE：先 tutti-server `deploy-lane`（泳道 `ppe-bug-<record_id>`，关闭连接器授权），涉及 ws 时 tsh-websocket `deploy-lane`（同一泳道；新泳道需人工先建 ws 基础设施），再 tutti `platform-web-preview`（指向该泳道），涉及 Computer 时在分支上发 `Computer Canary` → 用本机 Chrome（chrome-devtools MCP）打开预览链接按验收标准自验证，涉及 UI 的每条用例截图上传到「修复截图」 → 写验证结果，方案状态置「已部署待验收」；任何一步失败置「修复失败」。每一步写进「修复进度」。
 4. 泳道不自动销毁，需要时让 agent 用 `deploy.py destroy-lane` 销毁。
 
 ## 已提供的能力
@@ -97,7 +97,7 @@ Web 日志由 QA 在出问题的浏览器里自行导出：Tutti「设置 → �
 
 ## 当前接入范围
 
-飞书 Bug 管理表及字段已绑定，并在本机通过 user 身份读取验证。两仓库 URL 与 main 分支已配置。Web 日志使用 QA 导出的诊断包，见 [Web 日志](skills/bug-investigate/references/web-logs.md)。本地 computer 日志读取用户指定的明确文件路径；远端 computer 固定复用 Tutti 的日志召回流程，可使用 tutti-ops CLI 或实际 MCP 执行，见 [Computer 日志获取](skills/bug-investigate/references/computer-logs.md)。当前 Mac 已保存核实的三个本地主日志及 Codex 临时诊断路径，并记录轮转日志、VM 崩溃报告与导出漏收注意事项；其他机器需确认实际路径。本机 tutti-ops 已安装并完成离线能力核对，远端认证与真实日志采集尚待验证；其他使用者的宿主能力、远端环境／权限及验证地址仍需分别核对。Skills 可复用当前 Codex 会话的本地工具与已连接 MCP；当前包没有自带 MCP server、飞书连接器或常驻调度服务。共享此包携带表格和仓库地址，不授予收件人访问权限，也不携带本机检出路径或凭证。
+飞书 Bug 管理表及字段已绑定，并在本机通过 user 身份读取验证。三个仓库（tutti、tutti-server、tsh-websocket）的 URL 与 main 分支已配置。Web 日志使用 QA 导出的诊断包，见 [Web 日志](skills/bug-investigate/references/web-logs.md)。本地 computer 日志读取用户指定的明确文件路径；远端 computer 固定复用 Tutti 的日志召回流程，可使用 tutti-ops CLI 或实际 MCP 执行，见 [Computer 日志获取](skills/bug-investigate/references/computer-logs.md)。当前 Mac 已保存核实的三个本地主日志及 Codex 临时诊断路径，并记录轮转日志、VM 崩溃报告与导出漏收注意事项；其他机器需确认实际路径。本机 tutti-ops 已安装并完成离线能力核对，远端认证与真实日志采集尚待验证；其他使用者的宿主能力、远端环境／权限及验证地址仍需分别核对。Skills 可复用当前 Codex 会话的本地工具与已连接 MCP；当前包没有自带 MCP server、飞书连接器或常驻调度服务。共享此包携带表格和仓库地址，不授予收件人访问权限，也不携带本机检出路径或凭证。
 
 飞书事件触发、重试、事件去重、跨设备调度与可信 RD 审批属于后续流程服务，契约见 [工作流](skills/bug-setup/references/workflow.md)。本版 `check-approval` 以方案状态为准，谁批准的以飞书修改记录为准。
 

@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
 """Deploy a fix branch to PPE through the repositories' GitHub workflows, and wait for it.
 
-- `lane-name --record-id REC`: the per-bug server lane name (`bug-<record id>`).
+- `lane-name --record-id REC`: the per-bug lane name (`ppe-bug-<record id>`), shared by
+  tutti-server and tsh-websocket (both deploy into namespace `lane-<lane>`).
 - `server --branch B --lane L`: tutti-server `deploy-lane.yml` on the branch, with the
   configured inputs (connector authorization off for fresh lanes).
+- `websocket --branch B --lane L`: tsh-websocket `deploy-lane.yml` on the branch. A fresh
+  lane needs its WebSocket V2 infrastructure first, which is a reviewed manual step: when
+  it is missing the run fails and the failure log says so.
 - `web --branch B [--server-lane L]`: tutti `platform-web-preview.yml`, dispatched from
   main for the branch, pointing at the server lane; returns the preview link.
 - `computer --branch B`: tutti `computer-artifacts-release.yml` (Computer Canary) on the
   branch; returns the canary version.
-- `destroy-lane --lane L`: tutti-server `destroy-lane.yml`, run only when asked.
+- `destroy-lane --lane L [--service server|websocket]`: the lane's `destroy-lane.yml`, run
+  only when asked.
 
 Each command dispatches with `gh workflow run`, finds the run, waits with `gh run watch`
-and reports the run URL and conclusion. Order is the caller's job: server, then web,
-then computer.
+and reports the run URL and conclusion, plus the tail of the failed steps' log when it
+fails. Order is the caller's job: server, websocket, web, then computer.
 """
 
 import argparse
@@ -28,7 +33,8 @@ import time
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import common as wb  # noqa: E402
 
-LANE = re.compile(r"[a-z]([a-z0-9-]{0,38}[a-z0-9])?\Z")
+LANE = re.compile(r"[a-z]([a-z0-9-]{0,38}[a-z0-9])?\Z")  # tutti-server
+WS_LANE = re.compile(r"ppe-[a-z0-9]+(-[a-z0-9]+)*\Z")  # tsh-websocket
 RUN_URL = re.compile(r"https://github\.com/[^\s]+/actions/runs/(\d+)")
 
 
@@ -49,8 +55,8 @@ def gh(*arguments, timeout=120):
 
 def lane_name(cfg, record_id):
     name = f"{deploy_config(cfg)['server']['lane_prefix']}{record_id}".lower()
-    if not LANE.fullmatch(name):
-        raise ValueError(f"Lane {name!r} does not match ^[a-z]([a-z0-9-]{{0,38}}[a-z0-9])?$.")
+    if not LANE.fullmatch(name) or not WS_LANE.fullmatch(name):
+        raise ValueError(f"Lane {name!r} must suit both tutti-server and tsh-websocket lane names.")
     return name
 
 
@@ -87,10 +93,17 @@ def dispatch_and_wait(repository, workflow, ref, fields, wait, timeout_minutes):
             pass
     view = json.loads(gh("run", "view", str(run_id), "-R", repository,
                          "--json", "status,conclusion,url,headSha,attempt,displayTitle"))
-    return {"repository": repository, "workflow": workflow, "ref": ref, "inputs": fields, "run_id": run_id,
-            "url": view.get("url"), "status": view.get("status"), "conclusion": view.get("conclusion"),
-            "head_sha": view.get("headSha"), "attempt": view.get("attempt") or 1,
-            "ok": view.get("status") == "completed" and view.get("conclusion") == "success"}
+    result = {"repository": repository, "workflow": workflow, "ref": ref, "inputs": fields, "run_id": run_id,
+              "url": view.get("url"), "status": view.get("status"), "conclusion": view.get("conclusion"),
+              "head_sha": view.get("headSha"), "attempt": view.get("attempt") or 1,
+              "ok": view.get("status") == "completed" and view.get("conclusion") == "success"}
+    if view.get("status") == "completed" and not result["ok"]:
+        try:
+            result["failed_log_tail"] = gh("run", "view", str(run_id), "-R", repository, "--log-failed",
+                                           timeout=300).splitlines()[-60:]
+        except (ValueError, subprocess.TimeoutExpired):
+            result["failed_log_tail"] = None
+    return result
 
 
 def server(args, cfg):
@@ -103,6 +116,19 @@ def server(args, cfg):
         fields[key] = value
     return dispatch_and_wait(section["repository"], section["workflow"], args.branch, fields, not args.no_wait,
                              args.timeout)
+
+
+def websocket(args, cfg):
+    section = deploy_config(cfg)["websocket"]
+    if not WS_LANE.fullmatch(args.lane):
+        raise ValueError(f"tsh-websocket lanes must look like ppe-…: {args.lane!r}.")
+    result = dispatch_and_wait(section["repository"], section["workflow"], args.branch, {"lane": args.lane},
+                               not args.no_wait, args.timeout)
+    if not result["ok"]:
+        result["hint"] = (f"新泳道需要先由人工运行 {section['infrastructure_workflow']}"
+                          f"（environment_name={args.lane}）建好 WebSocket V2 基础设施；"
+                          "失败日志里出现部署契约（deployment contract）或 IAM 角色相关错误即属此类。")
+    return result
 
 
 def web(args, cfg):
@@ -125,9 +151,11 @@ def computer(args, cfg):
 
 
 def destroy(args, cfg):
-    section = deploy_config(cfg)["server"]
-    if not LANE.fullmatch(args.lane) or not args.lane.startswith(section["lane_prefix"]):
-        raise ValueError(f"Only per-bug lanes ({section['lane_prefix']}*) can be destroyed here.")
+    config = deploy_config(cfg)
+    prefix = config["server"]["lane_prefix"]
+    if not LANE.fullmatch(args.lane) or not args.lane.startswith(prefix):
+        raise ValueError(f"Only per-bug lanes ({prefix}*) can be destroyed here.")
+    section = config[args.service]
     return dispatch_and_wait(section["repository"], section["destroy_workflow"], "main", {"lane": args.lane},
                              not args.no_wait, args.timeout)
 
@@ -135,17 +163,19 @@ def destroy(args, cfg):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="operation", required=True)
-    for name in ("lane-name", "server", "web", "computer", "destroy-lane"):
+    for name in ("lane-name", "server", "websocket", "web", "computer", "destroy-lane"):
         command = commands.add_parser(name)
         command.add_argument("--data-dir")
         command.add_argument("--config")
         if name == "lane-name":
             command.add_argument("--record-id", required=True)
             continue
-        if name in ("server", "web", "computer"):
+        if name in ("server", "websocket", "web", "computer"):
             command.add_argument("--branch", required=True)
-        if name in ("server", "destroy-lane"):
+        if name in ("server", "websocket", "destroy-lane"):
             command.add_argument("--lane", required=True)
+        if name == "destroy-lane":
+            command.add_argument("--service", choices=("server", "websocket"), default="server")
         if name == "server":
             command.add_argument("--input", action="append", help="Extra workflow input key=value.")
         if name == "web":
@@ -159,7 +189,8 @@ def main():
         if args.operation == "lane-name":
             wb.emit({"ok": True, "lane": lane_name(cfg, args.record_id)})
             return 0
-        result = {"server": server, "web": web, "computer": computer, "destroy-lane": destroy}[args.operation](args, cfg)
+        result = {"server": server, "websocket": websocket, "web": web, "computer": computer,
+                  "destroy-lane": destroy}[args.operation](args, cfg)
         wb.emit(result)
         return 0 if result["ok"] or args.no_wait else 1
     except (ValueError, OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as error:

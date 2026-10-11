@@ -4,7 +4,7 @@
 
 ## 位置
 
-数据目录（默认 `~/.local/share/bug-workbench`）下每个仓库两份：
+数据目录（默认 `~/.local/share/bug-workbench`）下配置的每个仓库——tutti（Web、Computer）、tutti-server（Server）、tsh-websocket（WebSocket）——各两份：
 
 | 配置项 | 默认路径 | 用途 |
 |---|---|---|

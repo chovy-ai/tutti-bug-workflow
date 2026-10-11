@@ -13,7 +13,7 @@ description: RD 的根因与方案（定时）：按跟进人每小时扫描飞�
 
 | 字段 | 内容 | 模板 |
 |---|---|---|
-| 分析根因 | 结论、时间线、因果链、证据、代码位置、影响范围、待确认 | [root-cause.md](assets/root-cause.md) |
+| 分析根因 | 开头三段：根因（两三句大白话）、复现路径、预期工作流程（标出实际偏离的一步）；之后是时间线、证据、代码位置、影响范围、待确认 | [root-cause.md](assets/root-cause.md) |
 | 根因图 | 流程图、架构图 PNG | [diagrams.md](assets/diagrams.md) |
 | 修复方式 | 根本方案与兼容方案、取舍、推荐方案、修改范围 | [plan.md](assets/plan.md) |
 | 方案状态 | 全部写完后置为「待评审」 | — |
@@ -64,13 +64,17 @@ python3 scripts/schedule.py uninstall --assignee "张三"
 1. **吃透 bug 单。** 方案状态是「已驳回」时，先读「驳回意见」和上一版内容，这一版要逐条回应驳回意见（在根因或方案里写明怎么处理的）。完整读 `context.md`；截图逐张看（开场已附上），压缩包解开读；把期望、实际、复现步骤、发生时间、关联 ID（账号、房间、Computer、Agent、request id）列出来，作为后面检索日志与代码的线索。
 2. **还原现场。** 用发生时间和关联 ID 在 Web／Server／Computer 日志里找到出错的那几条，排出时间线；日志之间用 request id、房间、Computer ID 对上。
 3. **定位代码。** 在 `code.json` 的检出里（只读，见 [代码检出](references/code.md)）找到对应实现，解释日志为什么会这样。「环境与版本」里的线上版本和 main 不同时，用 `git log <版本>..<sha>` 核实差异是否影响结论。
-4. **写根因**：按 [根因模板](assets/root-cause.md)，因果链每一环要么有日志或代码作证，要么标成假设；现场不够的写进「待确认」，不中断。
-5. **画图**：按 [图规范](assets/diagrams.md) 写 `flow.mmd`（问题发生的工作流程，标出出错点）和 `arch.mmd`（涉及的组件与调用关系，标出问题位置），渲染：
+4. **写根因**：按 [根因模板](assets/root-cause.md)，开头固定三段，RD 只看这三段就能明白：
+   - **根因**：两三句大白话、150 字以内，说清哪个环节在什么条件下做错了什么、导致用户看到什么；不堆术语、不贴 request id。
+   - **复现路径**：前置条件和操作步骤，到出现问题的那一步。
+   - **预期工作流程**：正常应该怎么走（每一步是哪一端做什么），并指出实际在哪一步偏离。
+   之后才是细节：时间线、证据、代码位置、影响范围、待确认。细节里因果链每一环要么有日志或代码作证，要么标成假设；现场不够的写进「待确认」，不中断。最新 main 已修复的，根因照写，并在第一段末尾注明「最新 main 已由 <PR/提交> 修复」。
+5. **画图**：按 [图规范](assets/diagrams.md) 写 `flow.mmd`（和「预期工作流程」一致，标出实际偏离的出错点）和 `arch.mmd`（涉及的组件与调用关系，标出问题位置），渲染：
    ```sh
    python3 scripts/render.py --input flow.mmd --input arch.mmd
    ```
    报错就按提示改 Mermaid 源码再渲染，直到两张都成功。把 PNG 改名为 `flow-<record_id>-<yyyymmddHHMM>.png`、`arch-<record_id>-<yyyymmddHHMM>.png`。
-6. **写方案与验收**：按 [方案模板](assets/plan.md) 和 [验收模板](assets/acceptance.md)；方案里的 Mermaid 源码与 PNG 一致。
+6. **写方案与验收**：按 [方案模板](assets/plan.md) 和 [验收模板](assets/acceptance.md)；tsh-websocket 是很少改动的基础设施，根因确实在 ws 时才把它列进修改范围（修复时会多一步 ws 泳道部署）；方案里的 Mermaid 源码与 PNG 一致。
 7. **写回**，每次写入都带 `--if-open`：方案状态已被 RD 改成「待评审」「已批准」时返回退出码 3，立即结束本会话，不再写任何内容：
    ```sh
    python3 scripts/feishu.py write --record-id REC --if-open \

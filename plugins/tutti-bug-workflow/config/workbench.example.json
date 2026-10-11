@@ -57,9 +57,15 @@
     "server": {
       "repository": "tutti-lab/tutti-server",
       "workflow": "deploy-lane.yml",
-      "lane_prefix": "bug-",
+      "lane_prefix": "ppe-bug-",
       "inputs": { "connector_authorization_enabled": "false" },
       "destroy_workflow": "destroy-lane.yml"
+    },
+    "websocket": {
+      "repository": "tutti-lab/tsh-websocket",
+      "workflow": "deploy-lane.yml",
+      "destroy_workflow": "destroy-lane.yml",
+      "infrastructure_workflow": "deploy-websocket-v2-infrastructure.yml"
     },
     "web": {
       "repository": "tutti-lab/tutti",
@@ -74,7 +80,8 @@
   },
   "repositories": [
     { "name": "tutti", "url": "https://github.com/tutti-lab/tutti.git", "base_branch": "main", "cache_path": "repositories/tutti.git", "checkout_path": "repositories/tutti" },
-    { "name": "tutti-server", "url": "https://github.com/tutti-lab/tutti-server.git", "base_branch": "main", "cache_path": "repositories/tutti-server.git", "checkout_path": "repositories/tutti-server" }
+    { "name": "tutti-server", "url": "https://github.com/tutti-lab/tutti-server.git", "base_branch": "main", "cache_path": "repositories/tutti-server.git", "checkout_path": "repositories/tutti-server" },
+    { "name": "tsh-websocket", "url": "https://github.com/tutti-lab/tsh-websocket.git", "base_branch": "main", "cache_path": "repositories/tsh-websocket.git", "checkout_path": "repositories/tsh-websocket" }
   ],
   "log_sources": [
     { "name": "web-chrome", "kind": "web", "transport": "chrome-devtools-mcp", "environment": "local_chrome", "mcp_server": "chrome-devtools", "tool": "get_web_logs", "scope": "local_account_and_page" },
