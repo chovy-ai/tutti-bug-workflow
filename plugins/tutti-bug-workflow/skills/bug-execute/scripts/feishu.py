@@ -9,7 +9,7 @@ the only source of truth, and every step of a fix shows up on it:
   transitions; 待评审/已驳回 stay RD's and bug-solution's business.
 - 修复进度 gets one timestamped line per step (branch, PR, lane, preview link, canary
   version, failures) through `progress`, which only appends.
-- 验证结果, 关联 PR and evidence attachments are written at the end.
+- 验证结果, 关联 PR and the after-fix screenshots in 修复截图 are written at the end.
 
 分析根因, 修复方式, 验收标准 and 状态 are never written.
 """
@@ -19,6 +19,7 @@ from datetime import datetime
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 from zoneinfo import ZoneInfo
@@ -28,8 +29,10 @@ import common as wb  # noqa: E402
 
 APPROVED = ("root_cause", "solution", "acceptance")
 WRITABLE = ("verification",)
-DOWNLOADABLE = {"attachments", "diagrams"}
-UPLOADABLE = {"attachments"}
+DOWNLOADABLE = {"attachments", "diagrams", "fix_screenshots"}
+UPLOADABLE = {"fix_screenshots", "attachments"}
+IMAGE_HEADERS = (b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff")
+SCREENSHOT_NAME = re.compile(r"(fix|before)-rec[A-Za-z0-9]+-\d+[a-z]?-\d{12}\.(png|jpe?g)\Z")
 PRIORITIES = ("P00", "P0", "P1", "P2", "P3")  # highest first
 # Record fields written into context.md for a fix session, in order.
 CONTEXT_FIELDS = (("title", "Bug 描述"), ("priority", "优先级"), ("platform", "所属端"), ("module", "业务模块"),
@@ -285,6 +288,12 @@ def attach(args, client):
         file = Path(raw).expanduser().resolve()
         if not file.is_file():
             raise ValueError(f"Not a file: {file}")
+        if args.field == "fix_screenshots":
+            if not file.read_bytes()[:8].startswith(IMAGE_HEADERS):
+                raise ValueError(f"修复截图 only takes PNG or JPEG images: {file.name}")
+            if not SCREENSHOT_NAME.fullmatch(file.name):
+                raise ValueError(f"Name screenshots fix-<record_id>-<用例编号>-<yyyymmddHHMM>.png "
+                                 f"(or before-…): {file.name}")
         files.append((file, file.stat().st_size))
     if len({file.name for file, _ in files}) != len(files):
         raise ValueError("Files uploaded together need distinct names for read-back matching.")
@@ -416,7 +425,7 @@ def parser():
             command.add_argument("--name", help="One attachment; default all of them.")
             command.add_argument("--output-dir", required=True)
         if name == "attach":
-            command.add_argument("--field", default="attachments", choices=sorted(UPLOADABLE))
+            command.add_argument("--field", default="fix_screenshots", choices=sorted(UPLOADABLE))
             command.add_argument("--file", action="append", required=True)
         if name == "write":
             command.add_argument("--set", action="append", help=f"key=text or key=@file; keys {list(WRITABLE)}.")

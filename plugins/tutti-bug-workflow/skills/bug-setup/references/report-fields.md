@@ -7,7 +7,7 @@
 | field_map 键 | 飞书字段 | 类型 | 谁写 |
 |---|---|---|---|
 | `title` | Bug 描述 | 文本 | bug-investigate |
-| `attachments` | 截图、视频、日志 | 附件 | bug-investigate（现场）；bug-execute（修复后证据） |
+| `attachments` | 截图、视频、日志 | 附件 | bug-investigate（现场）；bug-execute 只补截图以外的证据 |
 | `reporter` | 提交人 | 人员 | bug-investigate |
 | `assignee` | 指派人 | 人员 | bug-investigate；之后人工维护 |
 | `status` | 状态 | 单选 | 建单时 bug-investigate 填「未解决」，之后只由人工流转 |
@@ -22,9 +22,10 @@
 | `pull_requests` | 关联 PR | 文本 | bug-execute |
 | `plan_status` | 方案状态 | 单选 | bug-solution 置「待评审」；RD 选「已批准」「已驳回」；bug-execute 置「修复中」「已部署待验收」「修复失败」 |
 | `fix_progress` | 修复进度 | 文本 | bug-execute 每一步追加一行 |
+| `fix_screenshots` | 修复截图 | 附件 | bug-execute 部署 PPE 后自验证的截图（涉及 UI 必有） |
 | `rejection` | 驳回意见 | 文本 | RD 驳回时填写 |
 
-「验收标准」「验证结果」「根因图」「方案状态」「驳回意见」「修复进度」是为修复流程新增的列。修复版本、自定义 tag、反馈用户、父记录、备注等不映射，由人工维护。
+「验收标准」「验证结果」「根因图」「方案状态」「驳回意见」「修复进度」「修复截图」是为修复流程新增的列。修复版本、自定义 tag、反馈用户、父记录、备注等不映射，由人工维护。
 
 ## 规则
 

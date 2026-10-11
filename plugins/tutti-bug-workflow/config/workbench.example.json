@@ -31,7 +31,8 @@
       "diagrams": "fldlTE3qwJ",
       "plan_status": "fld8Dz9R5w",
       "rejection": "fldB6Bg8uL",
-      "fix_progress": "fldicn3CQW"
+      "fix_progress": "fldicn3CQW",
+      "fix_screenshots": "fldKqWaiE0"
     },
     "plan_status": { "open": ["未处理", "已驳回"], "review": "待评审", "approved": "已批准", "rejected": "已驳回",
                      "fixing": "修复中", "deployed": "已部署待验收", "fix_failed": "修复失败" },

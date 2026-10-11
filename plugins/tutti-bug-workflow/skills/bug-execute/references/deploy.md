@@ -12,7 +12,7 @@
 改了 Computer ─────────► computer：computer-artifacts-release.yml（Computer Canary）在分支上发布
 ```
 
-前一步失败就不做后一步。
+前一步失败就不做后一步。全部部署成功后进入 [部署后自验证](verify.md)。
 
 ## 命令
 

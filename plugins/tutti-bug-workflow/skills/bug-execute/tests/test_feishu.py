@@ -75,13 +75,28 @@ class ExecuteFeishuTests(unittest.TestCase):
         self.assertEqual(len(self.cell("pull_requests").splitlines()), 2)
         self.assertEqual(self.cell("solution"), PLAN)
 
-    def test_attach_skips_files_already_on_the_record(self):
-        shot = self.base / "after-fix.png"
-        shot.write_bytes(b"png")
+    def test_fix_screenshots_go_to_their_own_column_once(self):
+        shot = self.base / "fix-rec1-1-202610101830.png"
+        shot.write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 8)
         self.assertEqual(len(self.feishu("attach", "--file", str(shot))["uploaded"]), 1)
+        self.assertEqual(self.cell("fix_screenshots")[0]["name"], shot.name)
+        self.assertIsNone(self.cell("attachments"))
+        second = self.base / "fix-rec1-1b-202610101831.jpg"
+        second.write_bytes(b"\xff\xd8\xff\xe0" + b"0" * 8)
+        self.assertEqual(len(self.feishu("attach", "--file", str(second))["uploaded"]), 1)
         again = self.feishu("attach", "--file", str(shot))
-        self.assertEqual((again["uploaded"], again["already_attached"]), ([], ["after-fix.png"]))
+        self.assertEqual((again["uploaded"], again["already_attached"]), ([], [shot.name]))
 
+    def test_fix_screenshots_must_be_named_images(self):
+        badly_named = self.base / "after-fix.png"
+        badly_named.write_bytes(b"\x89PNG\r\n\x1a\n")
+        self.assertIn("fix-<record_id>", self.feishu("attach", "--file", str(badly_named), expected=2)["error"])
+        not_image = self.base / "fix-rec1-2-202610101830.png"
+        not_image.write_text("log text")
+        self.assertIn("PNG or JPEG", self.feishu("attach", "--file", str(not_image), expected=2)["error"])
+        log = self.base / "deploy.log"
+        log.write_text("ok")
+        self.assertEqual(len(self.feishu("attach", "--field", "attachments", "--file", str(log))["uploaded"]), 1)
 
     def test_fix_stages_move_only_forward_and_log_progress(self):
         self.assertEqual(self.feishu("set-plan-status", "--value", "修复中")["previous"], "已批准")
