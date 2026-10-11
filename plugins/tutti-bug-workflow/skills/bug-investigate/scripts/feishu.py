@@ -52,6 +52,8 @@ class Feishu:
         self.defaults = table.get("defaults") or {}
         self.platforms = table.get("platform_choices") or []
         self.excluded_priorities = table.get("excluded_priorities") or []
+        # Options added ad hoc (not real modules): hidden and rejected, kept on old records.
+        self.retired = table.get("retired_options") or {}
         if not self.base or not self.table or "title" not in self.fields:
             raise ValueError("Config needs bug_report.base_token, table_id and field_map.title.")
         command = os.environ.get("LARK_CLI")
@@ -120,7 +122,9 @@ class Feishu:
             field = data.get("field", data)
             prop = field.get("property") or field.get("options") or {}
             items = prop.get("options") if isinstance(prop, dict) else prop
-            self._options[key] = [item.get("name") for item in items or [] if item.get("name")]
+            retired = set(self.retired.get(key) or [])
+            self._options[key] = [item.get("name") for item in items or []
+                                  if item.get("name") and item.get("name") not in retired]
         return self._options[key]
 
     def read(self, record_id, keys):

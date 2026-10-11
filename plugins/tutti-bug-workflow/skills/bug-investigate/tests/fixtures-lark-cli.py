@@ -50,7 +50,7 @@ OPTIONS = {
     "fldOM70Xsj": ["个人版-桌面端", "新框架一期-Mac", "新框架一期-Windows", "新框架一期-Web"],
     "fldssWEn1b": ["P00", "P0", "P1", "P2", "P3"],
     "fldAaKSJu5": ["bug", "反馈/建议"],
-    "fldIpeAABN": ["房间/群聊", "Agent GUI", "Computer"],
+    "fldIpeAABN": ["房间-群聊", "房间/群聊", "Agent GUI", "Computer"],
 }
 if shortcut == "+field-get":
     reply({"field": {"property": {"options": [{"name": n} for n in OPTIONS[value("--field-id")]]}}})

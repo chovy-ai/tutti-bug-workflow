@@ -15,6 +15,7 @@ description: 修复已批准的 Bug（定时）：按跟进人每小时扫描飞
 |---|---|
 | 方案状态 | 已批准 → 修复中（定时任务认领）→ 已部署待验收／修复失败；`set-plan-status` 只允许这几步 |
 | 修复进度 | 每一步追加一行带时间的记录：分支、PR、泳道与部署 run、预览链接、canary 版本、失败原因 |
+| 访问环境 | 每端一行：前端预览链接、Server／WebSocket 泳道、Computer canary 版本；`deploy.py --record-id` 部署成功后自动回填，为空时不能置「已部署待验收」 |
 | 关联 PR | `add-pr`，每行一个 |
 | 验证结果 | 按 [验证模板](assets/verification.md) 写 |
 | 修复截图 | 部署 PPE 后自验证的截图，涉及 UI 的用例必须有 |
@@ -84,12 +85,12 @@ python3 scripts/feishu.py set-plan-status --record-id REC --value 修复失败 -
    python3 scripts/feishu.py add-pr --record-id REC --url <PR 链接>
    ```
    分支已有打开的 PR（`gh pr view -R … codex/bug-<record_id>`）就复用，不重复创建。PR 描述写 bug 记录链接、根因一句话、改动、测试结果、PPE 部署信息（部署后用 `gh pr comment` 补上）。
-5. **部署 PPE**，顺序固定，详见 [PPE 部署](references/deploy.md)：
-   - 改了 tutti-server：`python3 scripts/deploy.py server --branch codex/bug-<record_id> --lane <fix.json 的泳道>`，等它成功。
-   - 改了 tsh-websocket（基础设施，很少改动；只在方案明确要求时修改，没改就跳过这一步）：`python3 scripts/deploy.py websocket --branch codex/bug-<record_id> --lane <同一个泳道>`。新泳道缺 WebSocket V2 基础设施会失败（看 `failed_log_tail` 和 `hint`）：其他端照常部署，最后判失败，写明需要人工先建 ws 基础设施。
-   - 改了前端（或改了 server，前端需要对接这个泳道）：`python3 scripts/deploy.py web --branch <tutti 分支> --server-lane <泳道>`。只改了 server 时，用 `main` 作为前端分支部署预览并指向泳道。
-   - 改了 Computer（desktopd、runtime 等）：`python3 scripts/deploy.py computer --branch codex/bug-<record_id>`，记下 canary 版本。
-   - 每次部署后把 run 链接、泳道、预览链接、canary 版本写进修复进度。
+5. **部署 PPE**，顺序固定，详见 [PPE 部署](references/deploy.md)。**每条 deploy 命令都带 `--record-id REC`**：成功后脚本把这一端的访问方式回填到「访问环境」，并把 run 链接写进修复进度；返回 `record_error` 时用 `feishu.py environment --service … --value …` 补写。
+   - 改了 tutti-server：`python3 scripts/deploy.py server --record-id REC --branch codex/bug-<record_id> --lane <fix.json 的泳道>`，等它成功。
+   - 改了 tsh-websocket（基础设施，很少改动；只在方案明确要求时修改，没改就跳过这一步）：`python3 scripts/deploy.py websocket --record-id REC --branch codex/bug-<record_id> --lane <同一个泳道>`。新泳道缺 WebSocket V2 基础设施会失败（看 `failed_log_tail` 和 `hint`）：其他端照常部署，最后判失败，写明需要人工先建 ws 基础设施。
+   - 改了前端（或改了 server，前端需要对接这个泳道）：`python3 scripts/deploy.py web --record-id REC --branch <tutti 分支> --server-lane <泳道>`。只改了 server 时，用 `main` 作为前端分支部署预览并指向泳道。
+   - 改了 Computer（desktopd、runtime 等）：`python3 scripts/deploy.py computer --record-id REC --branch codex/bug-<record_id>`，记下 canary 版本。
+   - 置「已部署待验收」前确认「访问环境」里有这次部署的每一端（`feishu.py read --record-id REC --field environment`）。
    - 泳道部署时关闭了连接器授权。修复依赖连接器授权才能验证（授权、连接器相关的 Bug）时，PR 照提、部署照做，然后判失败，说明「新泳道 bug-… 需要人工预配 connector task-platform binding 后重试」。
 6. **自验证。** 部署成功后自己按「验收标准」逐条验证，完整流程见 [部署后自验证](references/verify.md)：
    - 用 `chrome-devtools` MCP 连接本机 Chrome（用它的 tutti.sh 登录态），`new_page` 打开预览链接，只操作自己开的标签页，结束后关掉。

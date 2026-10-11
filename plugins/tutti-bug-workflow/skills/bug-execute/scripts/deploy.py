@@ -18,6 +18,10 @@
 Each command dispatches with `gh workflow run`, finds the run, waits with `gh run watch`
 and reports the run URL and conclusion, plus the tail of the failed steps' log when it
 fails. Order is the caller's job: server, websocket, web, then computer.
+
+With `--record-id REC` the outcome goes onto the bug record as well: a successful deploy
+replaces its side's line in 访问环境 (preview link, lane, canary version), and every
+deploy appends a 修复进度 line with the run link.
 """
 
 import argparse
@@ -106,6 +110,36 @@ def dispatch_and_wait(repository, workflow, ref, fields, wait, timeout_minutes):
     return result
 
 
+def environment_line(service, args, result):
+    if service == "web":
+        backend = f"Server 泳道 {args.server_lane}" if args.server_lane else "线上 Server"
+        return f"{result['preview_url']}（前端分支 {args.branch}，{backend}）"
+    if service == "computer":
+        return f"{result.get('canary_version') or '版本未知'}（分支 {args.branch}）"
+    return f"{args.lane}（namespace lane-{args.lane}，分支 {args.branch}）"
+
+
+def record_outcome(cfg, service, args, result):
+    """Write a deploy's outcome to the bug record; returns an error message or None."""
+    import feishu  # only needed with --record-id
+
+    try:
+        client = feishu.Feishu(cfg)
+        name = feishu.ENVIRONMENT[service]
+        if result["ok"]:
+            line = environment_line(service, args, result)
+            result["environment"] = feishu.set_environment(client, args.record_id, service, line).splitlines()
+            message = f"部署成功 {name}：{line}，run {result['url']}"
+        elif args.no_wait:
+            message = f"已触发部署 {name}：run {result['url']}"
+        else:
+            message = f"部署失败 {name}（{result.get('conclusion') or result.get('status')}）：run {result['url']}"
+        feishu.append_progress(client, args.record_id, message)
+    except (ValueError, OSError, subprocess.TimeoutExpired) as error:
+        return f"部署结果没能写回 bug 单：{error}"
+    return None
+
+
 def server(args, cfg):
     section = deploy_config(cfg)["server"]
     if not LANE.fullmatch(args.lane):
@@ -172,6 +206,7 @@ def main():
             continue
         if name in ("server", "websocket", "web", "computer"):
             command.add_argument("--branch", required=True)
+            command.add_argument("--record-id", help="Bug record: fill 访问环境 and 修复进度 with the outcome.")
         if name in ("server", "websocket", "destroy-lane"):
             command.add_argument("--lane", required=True)
         if name == "destroy-lane":
@@ -191,8 +226,12 @@ def main():
             return 0
         result = {"server": server, "websocket": websocket, "web": web, "computer": computer,
                   "destroy-lane": destroy}[args.operation](args, cfg)
+        if getattr(args, "record_id", None):
+            error = record_outcome(cfg, args.operation, args, result)
+            if error:
+                result["record_error"] = error
         wb.emit(result)
-        return 0 if result["ok"] or args.no_wait else 1
+        return 0 if (result["ok"] or args.no_wait) and "record_error" not in result else 1
     except (ValueError, OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as error:
         wb.emit({"ok": False, "error": str(error)})
         return 2

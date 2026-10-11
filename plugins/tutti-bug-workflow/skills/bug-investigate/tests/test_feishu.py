@@ -48,12 +48,12 @@ class FeishuTests(unittest.TestCase):
 
     def test_create_fills_defaults_reporter_time_and_view_fields(self):
         created = self.feishu("create", "--title", "房间：顶部名称与左侧不一致", "--record-time", "2026-10-10T09:30:00Z",
-                              "--set", "platform=新框架一期-Web", "--set", "priority=P1", "--set", "module=房间/群聊")
+                              "--set", "platform=新框架一期-Web", "--set", "priority=P1", "--set", "module=房间-群聊")
         self.assertEqual((created["action"], created["record_id"]), ("created", "rec1"))
         record = self.record()
         self.assertEqual((record["status"], record["issue_type"], record["reporter"]), ("未解决", "bug", [{"id": "ou_me"}]))
         self.assertEqual(record["record_time"], "2026-10-10 17:30:00")  # Asia/Shanghai
-        self.assertEqual((record["platform"], record["priority"], record["module"]), ("新框架一期-Web", "P1", "房间/群聊"))
+        self.assertEqual((record["platform"], record["priority"], record["module"]), ("新框架一期-Web", "P1", "房间-群聊"))
         again = self.feishu("create", "--title", "房间：顶部名称与左侧不一致")
         self.assertEqual(again, {"action": "existing", "record_id": "rec1"})
         self.assertEqual(len(self.lark()["records"]), 1)
@@ -72,6 +72,12 @@ class FeishuTests(unittest.TestCase):
         self.feishu("write", "--record-id", "rec1", "--set", "status=已关闭", expected=2)
         self.assertEqual(self.feishu("options", "--field", "platform")["options"],
                          ["新框架一期-Mac", "新框架一期-Windows", "新框架一期-Web"])
+
+    def test_retired_module_options_are_hidden_and_rejected(self):
+        self.feishu("create", "--title", "T")
+        self.assertEqual(self.feishu("options", "--field", "module")["options"], ["房间-群聊", "Agent GUI", "Computer"])
+        self.assertIn("房间-群聊", self.feishu("write", "--record-id", "rec1", "--set", "module=房间/群聊", expected=2)["error"])
+        self.feishu("write", "--record-id", "rec1", "--set", "module=房间-群聊")
 
     def test_context_fields_are_written_and_root_cause_is_not_settable(self):
         self.feishu("create", "--title", "T", "--set", "page_url=https://tutti.sh/platform/rooms/r1",

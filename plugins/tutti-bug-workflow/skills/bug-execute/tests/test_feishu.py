@@ -102,6 +102,8 @@ class ExecuteFeishuTests(unittest.TestCase):
         self.assertEqual(self.feishu("set-plan-status", "--value", "修复中")["previous"], "已批准")
         self.assertTrue(self.feishu("set-plan-status", "--value", "修复中", expected=3)["skipped"])
         self.feishu("progress", "--message", "PR https://github.com/tutti-lab/tutti/pull/9")
+        self.assertIn("访问环境为空", self.feishu("set-plan-status", "--value", "已部署待验收", expected=2)["error"])
+        self.feishu("environment", "--service", "web", "--value", "https://tutti.sh/x")
         done = self.feishu("set-plan-status", "--value", "已部署待验收", "--note", "预览 https://tutti.sh/x")
         self.assertEqual(done["plan_status"], "已部署待验收")
         lines = self.cell("fix_progress").splitlines()
@@ -111,6 +113,19 @@ class ExecuteFeishuTests(unittest.TestCase):
         self.assertTrue(lines[2].endswith("修复中 → 已部署待验收：预览 https://tutti.sh/x"))
         self.assertIn("Fixing only sets", self.feishu("set-plan-status", "--value", "待评审", expected=2)["error"])
         self.assertTrue(self.feishu("set-plan-status", "--value", "修复失败", expected=3)["skipped"])
+
+    def test_environment_keeps_one_line_per_side_in_order(self):
+        self.save(self.approved(environment="备注：RD 手写的说明"))
+        self.feishu("environment", "--service", "computer", "--value", "canary-aaa（分支 b）")
+        self.feishu("environment", "--service", "web", "--value", "https://tutti.sh/platform/?webBranch=b1")
+        self.feishu("environment", "--service", "server", "--value", "ppe-bug-rec1")
+        lines = self.feishu("environment", "--service", "web",
+                            "--value", "https://tutti.sh/platform/?webBranch=b2")["environment"]
+        self.assertEqual(lines, ["前端预览：https://tutti.sh/platform/?webBranch=b2", "Server 泳道：ppe-bug-rec1",
+                                 "Computer canary：canary-aaa（分支 b）", "备注：RD 手写的说明"])
+        self.assertIn("invalid choice", subprocess.run(
+            [sys.executable, str(FEISHU), "environment", "--record-id", "rec1", "--service", "db", "--value", "x"],
+            capture_output=True, text=True, env=self.env, timeout=30).stderr)
 
     def test_claim_needs_complete_approved_plan(self):
         self.save(self.approved(acceptance=""))
