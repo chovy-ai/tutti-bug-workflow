@@ -58,7 +58,7 @@
       ],
       "configuration": "repositories",
       "requirements": [
-        "两仓库读取权限与网络",
+        "三个仓库读取权限与网络",
         "缓存与检出的磁盘空间",
         "分析用全局检出跟随最新 main；修复从远端 main 切 worktree，推送需写权限"
       ],

@@ -68,13 +68,13 @@ class ScanTests(unittest.TestCase):
         first = calls[0]
         self.assertIn("--dangerously-bypass-approvals-and-sandbox", first["argv"])
         self.assertIn("修复分支：codex/bug-reca1", first["prompt"])
-        self.assertIn("Server PPE 泳道：bug-reca1", first["prompt"])
+        self.assertIn("PPE 泳道：ppe-bug-reca1", first["prompt"])
         run_dir = Path(report["results"][0]["run_dir"])
         self.assertEqual(json.loads((run_dir / "fix.json").read_text()),
-                         {"branch": "codex/bug-reca1", "lane": "bug-reca1"})
+                         {"branch": "codex/bug-reca1", "lane": "ppe-bug-reca1"})
         self.assertIn("## 修复方式", (run_dir / "context.md").read_text())
         progress = self.record("recA1")[FIELDS["fix_progress"]]
-        self.assertIn("已批准 → 修复中：定时修复开始，分支 codex/bug-reca1，泳道 bug-reca1", progress)
+        self.assertIn("已批准 → 修复中：定时修复开始，分支 codex/bug-reca1，泳道 ppe-bug-reca1", progress)
         # The session for recB2 ended without a verdict, so the round marks it failed.
         self.assertEqual(self.record("recB2")[FIELDS["plan_status"]], "修复失败")
         self.assertIn("没有更新方案状态", self.record("recB2")[FIELDS["fix_progress"]])

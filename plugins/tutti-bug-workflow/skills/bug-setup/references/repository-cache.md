@@ -11,6 +11,8 @@ repositories/tutti.git            bare 缓存（cache_path）
 repositories/tutti                全局分析检出（checkout_path），跟随最新 main，只读
 repositories/tutti-server.git
 repositories/tutti-server
+repositories/tsh-websocket.git
+repositories/tsh-websocket
 worktrees/<仓库>/<分支>            修复时临时创建，推送后删除
 ```
 
@@ -26,4 +28,4 @@ worktrees/<仓库>/<分支>            修复时临时创建，推送后删除
 
 ## 预热
 
-用户要求预热时，可调用 `$tutti-bug-workflow:bug-solution` 的代码同步完成首次初始化；初始化下载两个仓库的完整 main 历史，耗时取决于网络。
+用户要求预热时，可调用 `$tutti-bug-workflow:bug-solution` 的代码同步完成首次初始化；初始化下载三个仓库的完整 main 历史，耗时取决于网络。

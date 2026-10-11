@@ -18,6 +18,7 @@
 代码位置：
 - tutti@<sha> <path>:<line>
 - tutti-server@<sha> <path>:<line>
+- tsh-websocket@<sha> <path>:<line>
 
 影响范围：<哪些端、场景、用户会遇到；是否影响数据>
 
@@ -25,4 +26,4 @@
 - <尚未证实的假设，以及怎么验证>
 - <需要 QA 补的现场>
 
-分析来源：定时分析，<yyyy-mm-dd HH:MM>，<运行目录>，tutti@<sha>，tutti-server@<sha>
+分析来源：定时分析，<yyyy-mm-dd HH:MM>，<运行目录>，tutti@<sha>，tutti-server@<sha>，tsh-websocket@<sha>

@@ -22,6 +22,8 @@ elif args[:2] == ["run", "list"]:
     print(json.dumps([{"databaseId": 4242, "createdAt": "2999-01-01T00:00:00Z"}]))
 elif args[:2] == ["run", "watch"]:
     sys.exit(0 if os.environ.get("FAKE_GH_CONCLUSION", "success") == "success" else 1)
+elif args[:2] == ["run", "view"] and "--log-failed" in args:
+    print("deploy\tRead contract\terror: v2 deployment contract not found for lane")
 elif args[:2] == ["run", "view"]:
     run_id = args[2]
     print(json.dumps({"status": "completed", "conclusion": os.environ.get("FAKE_GH_CONCLUSION", "success"),

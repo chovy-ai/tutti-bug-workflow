@@ -36,36 +36,48 @@ class DeployTests(unittest.TestCase):
         return [call for call in json.loads(self.log.read_text()) if call[:2] == ["workflow", "run"]]
 
     def test_lane_name_is_a_valid_lowercase_lane(self):
-        self.assertEqual(self.deploy("lane-name", "--record-id", "recvuU4kdHhaRU")["lane"], "bug-recvuu4kdhharu")
+        self.assertEqual(self.deploy("lane-name", "--record-id", "recvuU4kdHhaRU")["lane"], "ppe-bug-recvuu4kdhharu")
 
-    def test_server_then_web_then_computer(self):
-        server = self.deploy("server", "--branch", "codex/bug-rec1", "--lane", "bug-rec1")
+    def test_server_then_websocket_then_web_then_computer(self):
+        server = self.deploy("server", "--branch", "codex/bug-rec1", "--lane", "ppe-bug-rec1")
         self.assertTrue(server["ok"])
         self.assertEqual(server["url"], "https://github.com/x/actions/runs/1001")
-        web = self.deploy("web", "--branch", "codex/bug-rec1", "--server-lane", "bug-rec1")
+        self.assertTrue(self.deploy("websocket", "--branch", "codex/bug-rec1", "--lane", "ppe-bug-rec1")["ok"])
+        web = self.deploy("web", "--branch", "codex/bug-rec1", "--server-lane", "ppe-bug-rec1")
         self.assertEqual(web["preview_url"], "https://tutti.sh/platform/?webBranch=codex/bug-rec1")
         computer = self.deploy("computer", "--branch", "codex/bug-rec1")
-        self.assertEqual(computer["canary_version"], "canary-abcdef123456-1003-1")
-        server_call, web_call, computer_call = self.dispatches()
+        self.assertEqual(computer["canary_version"], "canary-abcdef123456-1004-1")
+        server_call, ws_call, web_call, computer_call = self.dispatches()
+        self.assertEqual(ws_call[ws_call.index("-R") + 1], "tutti-lab/tsh-websocket")
+        self.assertEqual(ws_call[ws_call.index("--ref") + 1], "codex/bug-rec1")
+        self.assertIn("lane=ppe-bug-rec1", ws_call)
         self.assertEqual(server_call[server_call.index("-R") + 1], "tutti-lab/tutti-server")
         self.assertEqual(server_call[server_call.index("--ref") + 1], "codex/bug-rec1")
-        self.assertIn("lane=bug-rec1", server_call)
+        self.assertIn("lane=ppe-bug-rec1", server_call)
         self.assertIn("connector_authorization_enabled=false", server_call)
         self.assertEqual(web_call[web_call.index("--ref") + 1], "main")
         self.assertIn("branch=codex/bug-rec1", web_call)
-        self.assertIn("server_lane=bug-rec1", web_call)
+        self.assertIn("server_lane=ppe-bug-rec1", web_call)
         self.assertEqual(computer_call[computer_call.index("--ref") + 1], "codex/bug-rec1")
 
     def test_failed_run_is_reported_and_missing_url_falls_back_to_listing(self):
-        failed = self.deploy("server", "--branch", "b", "--lane", "bug-rec1", expected=1, FAKE_GH_CONCLUSION="failure")
+        failed = self.deploy("server", "--branch", "b", "--lane", "ppe-bug-rec1", expected=1, FAKE_GH_CONCLUSION="failure")
         self.assertEqual((failed["ok"], failed["conclusion"]), (False, "failure"))
+        self.assertIn("contract not found", failed["failed_log_tail"][-1])
+        ws = self.deploy("websocket", "--branch", "b", "--lane", "ppe-bug-rec1", expected=1, FAKE_GH_CONCLUSION="failure")
+        self.assertIn("deploy-websocket-v2-infrastructure.yml", ws["hint"])
+        self.assertIn("ppe-", self.deploy("websocket", "--branch", "b", "--lane", "bug-rec1", expected=2)["error"])
         found = self.deploy("computer", "--branch", "b", FAKE_GH_NO_URL="1")
         self.assertEqual(found["run_id"], 4242)
 
     def test_destroy_only_touches_per_bug_lanes(self):
         self.assertIn("per-bug", self.deploy("destroy-lane", "--lane", "ppe-a", expected=2)["error"])
-        self.assertTrue(self.deploy("destroy-lane", "--lane", "bug-rec1")["ok"])
-        self.assertIn("destroy-lane.yml", self.dispatches()[0])
+        self.assertTrue(self.deploy("destroy-lane", "--lane", "ppe-bug-rec1")["ok"])
+        self.deploy("destroy-lane", "--lane", "ppe-bug-rec1", "--service", "websocket")
+        server_call, ws_call = self.dispatches()
+        self.assertIn("destroy-lane.yml", server_call)
+        self.assertEqual(server_call[server_call.index("-R") + 1], "tutti-lab/tutti-server")
+        self.assertEqual(ws_call[ws_call.index("-R") + 1], "tutti-lab/tsh-websocket")
 
 
 if __name__ == "__main__":

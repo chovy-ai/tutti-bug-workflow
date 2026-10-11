@@ -7,7 +7,8 @@
 | 项 | 值 |
 |---|---|
 | bare 缓存 | `repositories/<仓库>.git`（`repositories[].cache_path`），和分析共用 |
-| 分支 | `codex/bug-<record_id 小写>`（`deploy.branch_prefix`），tutti 和 tutti-server 同名 |
+| 仓库 | tutti（Web、Computer）、tutti-server（Server）、tsh-websocket（WebSocket），见 `repositories` |
+| 分支 | `codex/bug-<record_id 小写>`（`deploy.branch_prefix`），各仓库同名 |
 | worktree | `worktrees/<仓库>/<分支，/ 换成 ->` |
 
 路径都相对数据目录（默认 `~/.local/share/bug-workbench`）。

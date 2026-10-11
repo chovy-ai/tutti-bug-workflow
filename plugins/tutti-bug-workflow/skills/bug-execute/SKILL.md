@@ -1,6 +1,6 @@
 ---
 name: bug-execute
-description: 修复已批准的 Bug（定时）：按跟进人每小时扫描飞书 Bug 管理表中方案状态为「已批准」的 Bug，每条 Bug 一个会话，从最新 main 切分支修复、提 PR 到 main，部署 PPE（先 server 泳道、再前端预览，涉及 Computer 发分支 canary），按验收标准验证，进度和结果全部写回 bug 单；也用于开启、查看、停止定时修复，以及手动销毁某条 Bug 的 PPE 泳道。
+description: 修复已批准的 Bug（定时）：按跟进人每小时扫描飞书 Bug 管理表中方案状态为「已批准」的 Bug，每条 Bug 一个会话，从最新 main 切分支修复、提 PR 到 main，部署 PPE（server 泳道 → ws 泳道 → 前端预览，涉及 Computer 发分支 canary），按验收标准验证，进度和结果全部写回 bug 单；也用于开启、查看、停止定时修复，以及手动销毁某条 Bug 的 PPE 泳道。
 ---
 
 # 修复与部署
@@ -46,8 +46,9 @@ python3 scripts/schedule.py uninstall --assignee "张三"
 
 ```sh
 python3 scripts/deploy.py lane-name --record-id REC
-python3 scripts/deploy.py destroy-lane --lane bug-rec…
-python3 scripts/feishu.py progress --record-id REC --message "已销毁 PPE 泳道 bug-rec…：<run 链接>"
+python3 scripts/deploy.py destroy-lane --lane ppe-bug-rec…                      # server
+python3 scripts/deploy.py destroy-lane --lane ppe-bug-rec… --service websocket  # 部署过 ws 时
+python3 scripts/feishu.py progress --record-id REC --message "已销毁 PPE 泳道 ppe-bug-rec…：<run 链接>"
 ```
 
 ## 定时模式
@@ -58,7 +59,7 @@ python3 scripts/feishu.py progress --record-id REC --message "已销毁 PPE 泳�
 |---|---|
 | `context.md` | 已批准的分析根因、修复方式、验收标准，以及问题上下文、环境与版本、页面链接、已有的关联 PR、修复进度 |
 | `attachments/`、`diagrams/` | 现场附件；根因流程图与架构图 |
-| `fix.json` | 本条 Bug 固定的分支名 `codex/bug-<record_id>` 和泳道名 `bug-<record_id>` |
+| `fix.json` | 本条 Bug 固定的分支名 `codex/bug-<record_id>` 和泳道名 `ppe-bug-<record_id>` |
 
 **每完成一步立刻写进度**：`python3 scripts/feishu.py progress --record-id REC --message "…"`。**任何一步失败**：写清卡在哪一步、错误信息和链接，然后
 
@@ -68,7 +69,7 @@ python3 scripts/feishu.py set-plan-status --record-id REC --value 修复失败 -
 
 结束会话，不再继续后面的步骤。
 
-1. **读懂方案。** 读 `context.md`、根因图；修复进度里有上一次的记录时，从失败的那一步接着做。确认修复要动哪些仓库（tutti、tutti-server）。
+1. **读懂方案。** 读 `context.md`、根因图；修复进度里有上一次的记录时，从失败的那一步接着做。确认修复要动哪些仓库：tutti（Web、Computer）、tutti-server（Server）、tsh-websocket（WebSocket）。
 2. **切分支。** 每个要改的仓库：
    ```sh
    python3 scripts/repos.py start --repo tutti --branch codex/bug-<record_id>
@@ -85,6 +86,7 @@ python3 scripts/feishu.py set-plan-status --record-id REC --value 修复失败 -
    分支已有打开的 PR（`gh pr view -R … codex/bug-<record_id>`）就复用，不重复创建。PR 描述写 bug 记录链接、根因一句话、改动、测试结果、PPE 部署信息（部署后用 `gh pr comment` 补上）。
 5. **部署 PPE**，顺序固定，详见 [PPE 部署](references/deploy.md)：
    - 改了 tutti-server：`python3 scripts/deploy.py server --branch codex/bug-<record_id> --lane <fix.json 的泳道>`，等它成功。
+   - 改了 tsh-websocket：`python3 scripts/deploy.py websocket --branch codex/bug-<record_id> --lane <同一个泳道>`。新泳道缺 WebSocket V2 基础设施会失败（看 `failed_log_tail` 和 `hint`）：其他端照常部署，最后判失败，写明需要人工先建 ws 基础设施。
    - 改了前端（或改了 server，前端需要对接这个泳道）：`python3 scripts/deploy.py web --branch <tutti 分支> --server-lane <泳道>`。只改了 server 时，用 `main` 作为前端分支部署预览并指向泳道。
    - 改了 Computer（desktopd、runtime 等）：`python3 scripts/deploy.py computer --branch codex/bug-<record_id>`，记下 canary 版本。
    - 每次部署后把 run 链接、泳道、预览链接、canary 版本写进修复进度。

@@ -67,14 +67,14 @@ def prompt(record, assignee, run_dir, plan):
 - 优先级：{record.get('priority') or '未填'}
 - 跟进人：{assignee['name']}（{assignee['open_id']}）
 - 方案状态：已由本轮置为「修复中」
-- 修复分支：{plan['branch']}（tutti 和 tutti-server 都用这个名字）
-- Server PPE 泳道：{plan['lane']}
+- 修复分支：{plan['branch']}（tutti、tutti-server、tsh-websocket 都用这个名字）
+- PPE 泳道：{plan['lane']}（tutti-server 和 tsh-websocket 共用）
 - 运行目录（当前目录）：{run_dir}
   - context.md：分析根因、修复方式、验收标准（RD 已批准），以及问题上下文、环境与版本、修复进度等
   - attachments/：现场附件；diagrams/：根因流程图与架构图
   - fix.json：分支名与泳道名
 
-按 Skill 的定时模式完成：修复 → 测试 → 推送并提 PR 到 main → 部署 PPE（先 server 泳道，再前端预览，涉及 Computer 再发 canary）→ 用本机 Chrome 打开预览按验收标准自验证（涉及 UI 每条用例截图，上传到「修复截图」）→ 回填验证结果。
+按 Skill 的定时模式完成：修复 → 测试 → 推送并提 PR 到 main → 部署 PPE（server 泳道 → ws 泳道 → 前端预览 → Computer canary，按涉及的端）→ 用本机 Chrome 打开预览按验收标准自验证（涉及 UI 每条用例截图，上传到「修复截图」）→ 回填验证结果。
 每一步都用 feishu.py progress 写进「修复进度」。最后把方案状态设为「已部署待验收」，任何一步失败则设为「修复失败」并写明原因。
 无人值守：不要提问、不要等待回复。
 """

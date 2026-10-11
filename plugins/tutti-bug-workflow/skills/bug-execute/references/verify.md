@@ -54,3 +54,4 @@ python3 scripts/feishu.py attach --record-id REC --file fix-REC-1-202610101830.p
 | 任一必需用例 failed | 判「修复失败」，失败用例的截图也上传，进度写明哪条、实际表现 |
 | 涉及 UI 但没能截图（Chrome 不可用、未登录、页面打不开） | 判「修复失败」，写明原因 |
 | 依赖连接器授权，新泳道无法验证 | 判「修复失败」，写明需要人工预配 binding |
+| 改了 tsh-websocket 但新泳道缺 ws 基础设施、ws 没部署上 | 判「修复失败」，写明需要人工先建 WebSocket V2 基础设施 |

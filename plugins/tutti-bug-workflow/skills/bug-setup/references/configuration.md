@@ -9,7 +9,7 @@
 ## 项目配置
 
 - `bug_report.base_url`、`base_token`、`table_id`、`view_id`：三个场景共用的 Bug 管理表；`field_map` 的键为业务语义，值为真实字段 ID。`defaults`、`platform_choices`、`excluded_priorities` 供提 Bug 使用。更换表格前必须重新解析和读取字段，不能复用原字段或视图 ID。字段职责见 [字段与职责](report-fields.md)，场景交接见 [工作流](workflow.md)。
-- `repositories`：默认配置 tutti 与 tutti-server 两个仓库的远端 main；每项提供 `name`、`url`、`base_branch`、`cache_path`（bare 缓存）和 `checkout_path`（全局分析检出）。修复 worktree 位于数据目录 `worktrees/` 下，推送后删除。操作见 [代码缓存](repository-cache.md)，其他分支需用户指定。
+- `repositories`：默认配置 tutti（Web、Computer）、tutti-server（Server）、tsh-websocket（WebSocket）三个仓库的远端 main；每项提供 `name`、`url`、`base_branch`、`cache_path`（bare 缓存）和 `checkout_path`（全局分析检出）。修复 worktree 位于数据目录 `worktrees/` 下，推送后删除。操作见 [代码缓存](repository-cache.md)，其他分支需用户指定。
 - `log_sources`：每项提供 `name`、`kind`、`transport`、`environment` 及对应入口。Web 有两个来源：`chrome-devtools-mcp`（插件注册的 chrome-devtools MCP，见 [WebMCP 连接准备](web-logs.md)）与 `user-export`（QA 导出的诊断包）；`files` 使用明确的文件 `paths`，支持绝对路径、`~/`、`${TMPDIR}/` 和 `${TEMP}/`，读取前解析为本机绝对路径；`mcp` 使用 `mcp_server` 与实际 `tool`；兼容旧配置的 `cli` 使用 `argv` 与可选 `cwd`。Computer 的路径规则及远端协议见 [Computer 日志获取](computer-logs.md)。缺少入口时保留空值，检查逐个报告未配置；配置检查不表示已取得日志。
 - `validation`：实际环境、URL、浏览器工具，以及部署版本的读取方法。部署操作仍按当前任务授权执行。
 - `aws_cli`：默认 AWS 接入，保存 profile 与查询参考区域。执行 `setup-aws-cli --install` 准备 CLI v2；完整 Setup 或选择 AWS 时接续 `--check-auth` 并处理认证缺口，详见 [AWS CLI 安装与日志读取](aws-cli.md)。
