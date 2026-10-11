@@ -8,9 +8,8 @@
 
 ## 项目配置
 
-- `feishu.base_url`、`base_token`、`table_id`：已固定为用户指定的「Bug 列表」；`field_map` 的键为业务语义，值为真实字段 ID。更换表格前必须重新解析和读取字段，不能复用原字段或视图 ID。
-- `feishu.workflow.status_values`、`view_ids`：三个阶段的真实选项名和视图 ID；状态字段通过 `field_map.workflow_status` 定位。`empty_status_stage: bug` 表示空状态旧记录归入 bug单视图。具体推进规则见 [工作流与交接](workflow.md)。
-- `repositories`：默认配置 tutti 与 tutti-server 两个仓库的远端 main；每项提供 `name`、`url`、`base_branch`、`cache_path` 和可选 `local_path`。固定 bare 缓存供所有 Bug 复用，本地路径仅用于首次预热；Skill 为各 Bug 准备隔离工作区。操作见 [代码缓存](repository-cache.md)，其他分支需用户指定。
+- `bug_report.base_url`、`base_token`、`table_id`、`view_id`：三个场景共用的 Bug 管理表；`field_map` 的键为业务语义，值为真实字段 ID。`defaults`、`platform_choices`、`excluded_priorities` 供提 Bug 使用。更换表格前必须重新解析和读取字段，不能复用原字段或视图 ID。字段职责见 [字段与职责](report-fields.md)，场景交接见 [工作流](workflow.md)。
+- `repositories`：默认配置 tutti 与 tutti-server 两个仓库的远端 main；每项提供 `name`、`url`、`base_branch`、`cache_path`（bare 缓存）和 `checkout_path`（全局分析检出）。修复 worktree 位于数据目录 `worktrees/` 下，推送后删除。操作见 [代码缓存](repository-cache.md)，其他分支需用户指定。
 - `log_sources`：每项提供 `name`、`kind`、`transport`、`environment` 及对应入口。Web 有两个来源：`chrome-devtools-mcp`（插件注册的 chrome-devtools MCP，见 [WebMCP 连接准备](web-logs.md)）与 `user-export`（QA 导出的诊断包）；`files` 使用明确的文件 `paths`，支持绝对路径、`~/`、`${TMPDIR}/` 和 `${TEMP}/`，读取前解析为本机绝对路径；`mcp` 使用 `mcp_server` 与实际 `tool`；兼容旧配置的 `cli` 使用 `argv` 与可选 `cwd`。Computer 的路径规则及远端协议见 [Computer 日志获取](computer-logs.md)。缺少入口时保留空值，检查逐个报告未配置；配置检查不表示已取得日志。
 - `validation`：实际环境、URL、浏览器工具，以及部署版本的读取方法。部署操作仍按当前任务授权执行。
 - `aws_cli`：默认 AWS 接入，保存 profile 与查询参考区域。执行 `setup-aws-cli --install` 准备 CLI v2；完整 Setup 或选择 AWS 时接续 `--check-auth` 并处理认证缺口，详见 [AWS CLI 安装与日志读取](aws-cli.md)。
@@ -97,6 +96,6 @@ AWS 默认通过 CLI 接入，setup 不注册 AWS MCP。保留的 `setup-aws-mcp
 
 写入前确认实际字段类型和 CellValue 结构，只更新该 Bug 的已映射字段；附件使用专用命令。成功以进程退出码和 `ok: true` 为准。审批门禁或权限错误需要按实际反馈处理，不能通过静默追加确认参数绕过。
 
-报告使用 [独立字段契约](report-fields.md)。`analysis_report` 对应「根因分析」，沿用原「原因分析」字段 ID，只填写因果链与影响范围；结论、排查验证、代码基线、相关代码、修复方案、验收标准、修复后验证、沟通和待核实项各有自己的 field_map 键。写入前读取目标字段，保留人工内容和其他场景的条目；发现并发修改时重新读取并合并。旧分节报告先读取并按授权迁移，不批量改写历史记录。缺少字段时补齐实际映射或保存回填缺口，不能把全部内容退回写进根因分析。
+字段按 [字段与职责](report-fields.md) 写入：每个场景只写自己负责的字段，写前读取、写后回读，保留人工内容；状态由人工流转。缺少字段映射时先补齐实际字段 ID，不把内容挪到其他字段。
 
 当宿主提供飞书官方 Skills/MCP 时优先复用。若当前宿主没有可用操作说明，用 CLI 自带帮助或官方 API 文档补齐契约后执行。

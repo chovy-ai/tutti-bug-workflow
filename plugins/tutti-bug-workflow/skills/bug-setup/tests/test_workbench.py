@@ -36,15 +36,15 @@ class WorkbenchTests(unittest.TestCase):
 
     def test_reinitialization_preserves_user_configuration(self):
         cfg = self.config()
-        cfg["feishu"]["table_id"] = "user-configured-table"
+        cfg["bug_report"]["table_id"] = "user-configured-table"
         self.save_config(cfg)
         report = self.run_cli("init")
         self.assertEqual(report["action"], "preserved")
-        self.assertEqual(self.config()["feishu"]["table_id"], "user-configured-table")
+        self.assertEqual(self.config()["bug_report"]["table_id"], "user-configured-table")
 
     def test_doctor_distinguishes_configuration_from_connection(self):
         cfg = self.config()
-        cfg["feishu"].update({"base_url": "http://127.0.0.1:8123/base/test",
+        cfg["bug_report"].update({"base_url": "http://127.0.0.1:8123/base/test",
                               "table_id": "synthetic-table", "field_map": {"title": "synthetic-field"}})
         self.save_config(cfg)
         report = self.run_cli("doctor")
@@ -52,7 +52,7 @@ class WorkbenchTests(unittest.TestCase):
         self.assertEqual(report["external_connections"], "not_checked")
         self.assertFalse(report["automatic_trigger_available"])
         self.assertTrue(report["integrations_configured"]["feishu"])
-        cfg["feishu"]["base_url"] = None
+        cfg["bug_report"]["base_url"] = None
         self.save_config(cfg)
         self.assertFalse(self.run_cli("doctor")["integrations_configured"]["feishu"])
 

@@ -1,4 +1,4 @@
 interface:
   display_name: "修复与验证"
-  short_description: "执行 RD 批准的修复方案，在指定环境验证行为并记录人工验收证据"
-  default_prompt: "使用 $tutti-bug-workflow:bug-execute 按 RD 批准的方案修复 Bug，在指定环境验证并保存证据。"
+  short_description: "按 RD 批准的方案从最新 main 修复、推送并提 PR，按验收标准验证并回填结果"
+  default_prompt: "使用 $tutti-bug-workflow:bug-execute 按 RD 批准的方案修复这条 Bug，验证并回填结果。"

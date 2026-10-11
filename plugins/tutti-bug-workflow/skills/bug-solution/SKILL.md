@@ -1,45 +1,76 @@
 ---
 name: bug-solution
-description: 根据已确认的 Bug 根因和代码设计修复方案，提供流程图与架构图，并与 RD 对话修订方案和验收标准；用于方案设计与批准阶段。
+description: RD 对一条已登记的 Bug 做根因分析和方案设计：读取飞书 Bug 管理表的记录与现场日志，在全局代码检出上定位根因，给出根本方案、兼容方案和设计图，与 RD 协商修复方式和验收标准，并在 RD 批准后把批准记录写回同一条记录。
 ---
 
-# 方案协商
+# 根因与方案
 
-你负责 RD 对接，把根因转为可执行、可验收的方案，并让 RD 能清楚评估选择与代价。
+你面向 RD，把 `$tutti-bug-workflow:bug-investigate` 登记的一条 Bug 推进到「RD 已批准的方案」：定位根因、设计方案、写好验收标准，拿到 RD 的真实批准。修改业务代码属于 `$tutti-bug-workflow:bug-execute`。
 
-工具准备按 [场景工具 Setup](references/tool-setup.md) 使用 `solution` 清单，复用公共工具和固定代码基线；图先提供 Mermaid 源码，要求图片/PDF 时再准备实际渲染器。
+**无状态。** 飞书 Bug 管理表里的记录是唯一事实来源，不建本地档案。`record_id` 记在会话上下文里；日志等下载到会话临时目录（下称 `$TMP`），用完即弃。脚本路径相对本 Skill 目录（`skills/bug-solution/`），都输出一段 JSON。工具安装与认证由 `$tutti-bug-workflow:bug-setup` 负责。
 
-## 开始
+**不改状态。** 「状态」「修复版本」等流转字段由人工操作，本 Skill 只写下表三个字段，写入经 `scripts/feishu.py`，写后回读核对。字段细节见 [字段规则](references/fields.md)。
 
-读取 [工作流与交接](references/workflow.md)，加载最新根因、证据、QA 材料和固定代码版本。阅读实际相关实现，确认报告与代码一致。根因尚未确认或新证据推翻根因时，把明确的疑点交回 `$tutti-bug-workflow:bug-investigate`。
-
-## 设计与讨论
-
-1. 给出根本解决方案和兼容方案。比较覆盖范围、架构影响、兼容性、改动成本、回归风险和回滚方式；若两者最终相同，解释原因。
-2. 针对选项说明需要修改的模块、接口或状态处理，保留用户已明确的约束。生成相关工作流程图和架构设计图，优先采用可维护的 Mermaid 源码，标出当前问题点及方案改变的位置。
-3. 与 RD 对话确认选择。把每次反馈映射到方案内容和验收标准，保留来源引用；实质变化增加方案版本。需要新增根因证据时回到分析场景，不把猜测当成方案依据。
-4. 编写验收方案：修复前如何复现、修复后期望、执行环境与版本读取方式、正向/边界/回归用例、证据要求和通过标准。方案与验收一起提交 RD 决策。
-
-使用 [方案模板](assets/plan.md) 和 [验收模板](assets/acceptance.md)。方案写入 `plan.md`，验收写入 `acceptance.md`，同步版本后进入 `waiting_rd_approval`。
-
-## 独立字段回填规则（必须执行）
-
-使用 `feishu.field_map` 定位字段，方案和验收不得追加进「根因分析」。
-
-| 内容 | 飞书字段 | field_map 键 |
+| 字段 | 内容 | 模板 |
 |---|---|---|
-| 根本方案、兼容方案、取舍、范围、方案版本和批准状态 | 修复方案 | `solution_report` |
-| 复现条件、期望行为、验收断言、边界与必要回归 | 验收标准 | `acceptance_report` |
-| RD 反馈、选择与批准原文的真实来源 | QA/RD沟通 | `dialogue` |
-| 待决策项、方案限制、技术阻塞与恢复条件 | 待核实与阻塞 | `open_items` |
-| 经评估的方案基线及必要代码位置 | 代码基线、相关代码 | `code_baselines`、`code_references` |
+| 分析根因 | 结论、因果链、证据、代码位置、影响范围、待确认 | [root-cause.md](assets/root-cause.md) |
+| 修复方式 | 根本方案与兼容方案、取舍、选定方案、修改范围、设计图；末尾的【RD 批准】由脚本写 | [plan.md](assets/plan.md) |
+| 验收标准 | 环境、修复前复现、验收用例、回归、通过标准 | [acceptance.md](assets/acceptance.md) |
 
-写入前读取最新字段，保留人工内容、分析结论、根因、排查验证和修复后验证。共享字段只追加或更新本场景条目，不覆盖其他场景记录。完整方案和验收文件保存到本地档案，各字段写对应摘要；附件按 [集中附件规则](references/registration-logs.md#日志文件与附件数量) 提交，不逐轮附报告。未经批准的方案明确注明待批准。字段缺失或写入失败时记录回填缺口，不能将内容退回汇总到根因字段。旧报告迁移与字段契约见 [报告字段](references/report-fields.md)。
+## 1. 读取记录与现场
 
-## 批准与交接
+1. 用户给的是飞书链接时从中取 `record_id`（`record=` 参数，或先用 `lark-cli base +url-resolve` 解析）。
+2. 读记录，下载全部附件：
+   ```sh
+   python3 scripts/feishu.py read --record-id REC
+   python3 scripts/feishu.py download --record-id REC --output-dir $TMP/attachments
+   ```
+   重点看：Bug 描述、问题上下文（期望／实际／复现步骤／发生时间／关联 ID）、环境与版本、页面链接；附件里的截图视频（实际查看）、Web 日志（`web-logs.log` 或诊断包 zip）、`server-logs.log`、Computer 召回包。
+3. 已有「分析根因」「修复方式」「验收标准」时在其基础上继续，人工写的内容保留。
 
-向 RD 明确展示将执行的方案版本、范围和验收标准。真实批准记录绑定根因、方案、验收与仓库基线；按工作流契约保存报告摘要和批准来源。没有真实批准时保持等待状态。
+## 2. 同步代码
 
-批准后交接给 `$tutti-bug-workflow:bug-execute`，附带修改范围、基线、批准原文引用、验收方案和已知风险。正式业务代码修改属于执行场景。
+根因分析在全局代码检出上进行，所有 Bug 共用，每次分析前拉到最新 main：
 
-按 [独立字段契约](references/report-fields.md) 将方案写入「修复方案」、验收写入「验收标准」，成功后再将飞书阶段改为「待 review 方案」。保留根因、排查验证、修复后验证和人工内容；RD 沟通与决定追加到「QA/RD沟通」并保留真实来源，未决项写入「待核实与阻塞」。阶段选项不能替代真实批准，也不表示已经自动修复。
+```sh
+python3 scripts/repos.py sync
+```
+
+返回每个仓库的 `checkout`（如 `~/.local/share/bug-workbench/repositories/tutti`）和 `sha`。检出只读：只阅读、搜索、`git log`／`blame`，不在这里改代码、切分支或装依赖。需要跑最小复现时复制到 `$TMP`。详见 [代码检出](references/code.md)。
+
+「环境与版本」里的线上版本和 main 不一致时，用 `git log <版本>..<sha>` 核实差异是否影响根因，写进证据。
+
+## 3. 定位根因
+
+1. 从现场出发：按发生时间和关联 ID（request id、房间、Computer、Agent）在 Web／Server／Computer 日志里找到出错的那几条，串起时间线。
+2. 回到代码：找到对应实现，解释日志为什么会这样，形成因果链。每个环节要么有日志或代码作证，要么标成假设并写出怎么验证。
+3. 现场缺口（日志没覆盖、复现条件不清）列进「待确认」；需要 QA 补现场时，在回复里说清要什么，补充后再次调用本 Skill。
+4. 按 [根因模板](assets/root-cause.md) 写入：
+   ```sh
+   python3 scripts/feishu.py write --record-id REC --set root_cause=@$TMP/root-cause.md
+   ```
+
+## 4. 设计方案与验收
+
+1. 给出**根本方案**和**兼容方案**，比较覆盖范围、架构影响、兼容性、改动成本、回归风险和回滚方式；两者相同时说明原因。
+2. 写清要改的模块、接口、状态处理，附 Mermaid 工作流程图和架构图，标出问题点和改动位置。
+3. 写验收标准：修复前复现、修复后期望、执行环境与版本读取方式、正向／边界／回归用例、证据要求和通过标准。验收要能被 `bug-execute` 逐条执行。
+4. 写入：
+   ```sh
+   python3 scripts/feishu.py write --record-id REC --set solution=@$TMP/plan.md --set acceptance=@$TMP/acceptance.md
+   ```
+
+## 5. 与 RD 协商并记录批准
+
+1. 把根因、方案、验收的要点和飞书记录链接发给 RD，按反馈修改并重新写入。
+2. RD 明确同意某个方案后记录批准，批准人必须是 RD 本人，原话照录：
+   ```sh
+   python3 scripts/feishu.py approve --record-id REC --approver "张三" --quote "可以，按根本方案修" --source "当前对话"
+   ```
+   脚本在「修复方式」末尾写入【RD 批准】：批准人、时间、原话、来源，以及当前根因、方案和验收的摘要。同名多人或查不到时返回候选，请用户确认后重试。
+3. 批准只能来自 RD 的真实表态；没有明确同意就保持待批准，不替 RD 批准。
+4. 批准后又改了根因、方案或验收中的任何一项，`write` 会清除批准（返回 `approval_cleared: true`），需要 RD 重新批准。
+
+## 6. 回复
+
+回复：飞书记录链接、根因结论、选定方案、验收要点、批准情况（已批准／待批准及缺什么）。已批准时提示可以用 `$tutti-bug-workflow:bug-execute` 修复。

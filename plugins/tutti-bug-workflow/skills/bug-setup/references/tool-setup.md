@@ -6,11 +6,11 @@
 
 | 场景 | 每次需要的工具 | 按实际任务启用 |
 |---|---|---|
-| `investigate`：QA 上报与根因分析 | 本地文件/搜索/终端/图片查看、飞书记录/附件、Git 与代码缓存、提 Bug 结束后的 session 上传 | Web 日志、Computer 目录、本地或远端 Computer 日志、Server/Tutti CLI 与 AWS 日志；必要的测试或浏览器复现 |
-| `solution`：RD 方案协商 | 共享的本地/飞书/Git 能力，以及 Mermaid 图源码生成 | 导出图片/PDF 时的实际渲染器；新日志或复现需求交回分析场景 |
+| `investigate`：QA 提 Bug，记录现场 | 本地文件/搜索/终端/图片查看、飞书记录/附件、提 Bug 结束后的 session 上传 | Web 日志、Computer 目录、本地或远端 Computer 日志、Server/Tutti CLI 与 AWS 日志；必要的测试或浏览器复现 |
+| `solution`：RD 根因与方案 | 共享的本地/飞书能力、Git 与全局代码检出，以及 Mermaid 图源码生成 | 导出图片/PDF 时的实际渲染器；需要补现场时交回提 Bug 场景 |
 | `execute`：修复与验证 | 共享的本地/飞书/Git 能力、批准核对、项目测试/类型检查/lint、浏览器验收与证据保存 | GitHub/PR 交付工具、部署工具，以及排查或验证需要的日志来源 |
 
-QA 每轮更新两个最新 main，RD 与执行读取交接的固定基线；工具准备不擅自更新已批准的修复版本。RD 所需图可以先交付 Mermaid 源码，专用图服务或图片渲染工具属于条件项。
+根因分析使用跟随最新 main 的全局检出，修复每次从远端最新 main 切 worktree。RD 所需图可以先交付 Mermaid 源码，专用图服务或图片渲染工具属于条件项。
 
 `investigate` 需准备 [提 Bug 结束后的会话上传](session-upload.md)：核对 tutti-ops 实际 session 命令、当前宿主日志入口及管理端上传权限，确认提 Bug 结束后才执行。会话归档接入缺口单独记录，继续可进行的业务工作；`solution` 与 `execute` 不把该能力列为必需项。
 
@@ -23,7 +23,7 @@ QA 每轮更新两个最新 main，RD 与执行读取交接的固定基线；工
 | `code` | Git、bare 缓存、worktree | 复用 Git；两仓库 URL/main、缓存目录与空间 | GitHub 网络与两仓库读取权限；执行交付另需写权限 |
 | `session-upload` | tutti-ops Session JSONL 上传 | `setup-tutti-ops --install` 先复用；按 [session 能力检查](session-upload.md#1-核对-cli目标与权限) 核对命令，旧版缺能力时升级官方包；当前宿主提供会话定位/导出 | 管理端认证、diagnostics write、`session_logs.write`；核对当前 provider/session 身份，实际确认 uploaded 才表示上传完成 |
 | `diagrams` | Mermaid 源码生成；条件性渲染器 | 文本图无需新装 CLI/MCP；输出图片/PDF 时准备实际渲染入口 | 源码生成不代表图片已渲染，按交付格式检查 |
-| `approval` | 可信消息读取 + 本地 `check-execution` | 复用飞书/直接用户消息来源、Python 检查脚本 | 每条 Bug 核对真实 RD 批准与方案版本；本地一致性不证明身份 |
+| `approval` | 记录内【RD 批准】+ bug-execute 的 `check-approval` | 复用飞书读取 | 批准与当前根因、方案、验收一致；校验不证明批准人身份 |
 | `project-checks` | 项目实际运行时、依赖与测试工具 | 读取对应 checkout 的 AGENTS.md、开发说明、锁文件和检查命令后准备 | 相关测试/类型检查/lint 实际通过；环境阻塞与测试失败分开记录 |
 | `browser-validation` | Playwright、浏览器 MCP 或宿主浏览器工具 | 选一个实际入口，准备浏览器、环境 URL、证据输出和版本读取方法 | 登录态、测试数据及所需交互权限；执行验收用例并保存证据 |
 | `web-logs` | 插件注册的 chrome-devtools MCP 连接本机 Chrome WebMCP；兜底为 QA 导出的诊断包 | Node/npx；Chrome 开启 WebMCP flag 与远程调试 | 实际调用 `get_web_logs` 成功；不可用时诊断包覆盖故障时间 |

@@ -20,7 +20,7 @@
 | `page_url` | 页面链接 | 超链接 | 出问题页面的完整 URL |
 | `context` | 问题上下文 | 文本 | 见下 |
 
-「分析根因」保留给 RD 填写，本 Skill 不写。修复版本、修复方式、关联 PR、自定义 tag、反馈用户、父记录、备注等也不填。
+「分析根因」「修复方式」「验收标准」由 `$tutti-bug-workflow:bug-solution` 填写，「关联 PR」「验证结果」由 `$tutti-bug-workflow:bug-execute` 填写，本 Skill 不写。修复版本、自定义 tag、反馈用户、父记录、备注等也不填。
 
 ## 环境与版本
 

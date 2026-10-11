@@ -39,17 +39,16 @@
       ],
       "configuration": "feishu",
       "requirements": [
-        "实际表格字段与状态映射",
+        "Bug 管理表（bug_report）的实际字段映射",
         "身份认证",
-        "记录读取、创建、分节更新及附件读写权限；宿主工具可作为替代入口"
+        "记录读取、创建、字段更新及附件读写权限；宿主工具可作为替代入口"
       ],
       "install_operation": null
     },
     {
       "id": "code",
-      "label": "Git、共享代码缓存与隔离工作区",
+      "label": "Git、共享代码缓存、全局分析检出与修复 worktree",
       "required_in": [
-        "investigate",
         "solution",
         "execute"
       ],
@@ -60,8 +59,8 @@
       "configuration": "repositories",
       "requirements": [
         "两仓库读取权限与网络",
-        "缓存/worktree 空间",
-        "QA 更新 main；RD/执行使用交接的固定基线"
+        "缓存与检出的磁盘空间",
+        "分析用全局检出跟随最新 main；修复从远端 main 切 worktree，推送需写权限"
       ],
       "install_operation": null
     },
@@ -101,7 +100,7 @@
     },
     {
       "id": "approval",
-      "label": "批准来源核对与执行一致性检查",
+      "label": "RD 批准校验",
       "required_in": [
         "execute"
       ],
@@ -109,9 +108,8 @@
       "commands": [],
       "configuration": "per-bug",
       "requirements": [
-        "可信 RD 批准来源的读取入口",
-        "每条 Bug 的批准版本与摘要",
-        "workbench.py check-execution；检查一致性不证明批准身份"
+        "修复方式末尾的【RD 批准】记录",
+        "bug-execute 的 feishu.py check-approval；校验内容一致性，不证明批准人身份"
       ],
       "install_operation": null
     },

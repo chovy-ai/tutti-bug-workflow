@@ -1,55 +1,68 @@
 ---
 name: bug-execute
-description: 执行 RD 已批准的 Bug 修复方案，运行相关检查，在指定环境按验收方案进行浏览器验证，并保存证据供 QA/RD 验收。
+description: 执行 RD 已批准的 Bug 修复方案：校验飞书 Bug 管理表记录里的批准，从远端最新 main 切出 worktree 修复，跑检查、推送分支并提 PR 后解除 worktree，按验收标准验证，把验证结果和 PR 回填到同一条记录。
 ---
 
 # 修复与验证
 
-你负责执行已批准的版本，证明修改后行为符合验收方案，并保留人工验收所需的证据。
+你负责把 `$tutti-bug-workflow:bug-solution` 中 RD 已批准的方案落成代码，并证明修复后的行为符合验收标准。
 
-工具准备按 [场景工具 Setup](references/tool-setup.md) 使用 `execute` 清单，核对项目检查和浏览器验收能力，再按已授权交付方式启用 PR/部署工具。按问题实际链路补日志来源，保留真实验证状态。
+**无状态。** 飞书 Bug 管理表里的记录是唯一事实来源，不建本地档案。`record_id` 记在会话上下文里；截图、测试输出等放在会话临时目录（下称 `$TMP`）。脚本路径相对本 Skill 目录（`skills/bug-execute/`），都输出一段 JSON。工具安装与认证由 `$tutti-bug-workflow:bug-setup` 负责。
 
-## 执行前
+**不改状态。** 「状态」「修复版本」由人工操作。本 Skill 只写「验证结果」「关联 PR」，并把证据上传到「截图、视频、日志」；分析根因、修复方式、验收标准只读。字段细节见 [字段规则](references/fields.md)。
 
-读取 [工作流与交接](references/workflow.md)，加载配置、最新档案、方案、验收标准和批准来源。核实真实 RD 的批准原文，再运行：
+## 1. 校验批准
 
 ```sh
-python3 PLUGIN_SOURCE/skills/bug-execute/scripts/dossier.py check-execution --bug-id BUG_ID
+python3 scripts/feishu.py check-approval --record-id REC
 ```
 
-将路径与 ID 替换为实际值。脚本通过表示本地交接一致，原始批准仍需在可信来源中核实。检查实际仓库基线与批准 SHA 是否一致；方案、证据或基线变化影响修复时返回方案场景。
+- 通过（`approved: true`）时返回批准人、原话，以及已批准的根因、方案和验收标准，后面以这份内容为准。
+- 不通过时（缺批准、批准后内容被改、字段为空）停下，把 `problems` 告诉用户，回到 `$tutti-bug-workflow:bug-solution` 让 RD 批准；不在未批准的方案上改代码。
 
-## 修复
+## 2. 切出 worktree
 
-1. 在隔离工作区创建 `codex/<bug-summary>` 分支。先核对相关实现和测试，说明根因、影响范围和实际修改计划，再按批准范围修改。
-2. 保持现有架构和风格，实施覆盖根因的安全修复。运行与修改相关的测试、类型检查、lint 或最小复现；如发现根因或方案需要实质调整，保存证据并回到相应场景。
-3. 按用户授权的交付方式提交修复或创建 PR，记录实际提交 SHA。创建 PR 后在支持的宿主中附加到当前任务。部署仅使用配置的目标环境和已授权方式，核对部署后的修复 SHA。
+每个要改的仓库各切一个，分支名 `codex/<bug-摘要>`（小写英文和连字符）：
 
-## 验证
+```sh
+python3 scripts/repos.py start --repo tutti --branch codex/room-name-sync
+```
 
-根据 `acceptance.md` 逐项执行，复用当前可用的 Playwright、浏览器 MCP 或宿主浏览器工具。接入配置见 [配置说明](references/configuration.md)。
+脚本先 fetch 远端 main，再在数据目录的 `worktrees/<仓库>/<分支>` 下从最新 main 建 worktree 和新分支，返回 `worktree` 路径和 `base_sha`。分支已存在（本地或远端）时报错，换个名字。所有改动都在这个 worktree 里做。详见 [修复工作区](references/code.md)。
 
-记录每项用例的步骤、断言、预期、实际结果、环境与版本，以及截图、trace、日志或测试输出的引用。检查原问题与必要回归；无法确认部署版本或执行条件时记为 `blocked`，用例未执行记为 `not_run`。
+## 3. 修复
 
-结果写入 [验证报告模板](assets/verification.md) 和 `bug.json`。按当前授权回填指定飞书字段，报告写入结果及尚未完成的部分。
+1. 读 worktree 里的 AGENTS.md、开发说明和相关实现，核对方案里的代码位置在最新 main 上仍成立。main 已有变化导致方案不适用时停下，回到 bug-solution。
+2. 按批准的范围修改，保持现有架构与风格；需要超出范围的改动先和 RD 确认（实质变化需要重新批准）。
+3. 补或改测试，跑与改动相关的测试、类型检查、lint。失败就修，修不好如实记录。
+4. 提交，提交信息说明修了什么、对应哪条 Bug。
 
-## 独立字段回填规则（必须执行）
+## 4. 推送、提 PR、解除 worktree
 
-使用 `feishu.field_map` 定位字段，修复后验证不得写进「根因分析」或「排查验证」。
+```sh
+python3 scripts/repos.py finish --path <worktree>
+gh pr create --repo tutti-lab/tutti --base main --head codex/room-name-sync --title "fix: …" --body "…"
+python3 scripts/feishu.py add-pr --record-id REC --url <PR 链接>
+```
 
-| 内容 | 飞书字段 | field_map 键 |
-|---|---|---|
-| 实际改动摘要、验证命令/操作、断言、结果和未执行项 | 验证结果 | `verification_report` |
-| 执行提交、实际部署 SHA、环境与版本核对结果 | 代码基线 | `code_baselines` |
-| 本次修改的关键文件与位置 | 相关代码 | `code_references` |
-| QA/RD 验收沟通、决定与真实来源 | QA/RD沟通 | `dialogue` |
-| 未覆盖风险、执行阻塞及恢复条件 | 待核实与阻塞 | `open_items` |
-| 实际 PR、体验地址与修复后截图 | 相关 PR、体验环境链接、修复后截图证据 | `pull_requests`、`preview_url`、`verification_evidence` |
+- `finish` 要求工作区干净且有新提交，推送分支并核对远端已指向本地 HEAD，然后删除 worktree 和本地分支，返回 `pushed_sha`。推送失败时 worktree 保留，修好再跑。
+- PR 描述写：Bug 记录链接、根因一句话、改动、测试结果、验收方式。
+- 放弃修复时用 `python3 scripts/repos.py remove --path <worktree>`；有未推送的提交需加 `--discard` 才会丢弃。
 
-写入前读取最新字段，保留人工内容、分析结论、根因、修复前排查、批准方案与验收标准。共享字段只维护本场景条目；附件按 [集中附件规则](references/registration-logs.md#日志文件与附件数量) 使用专用命令提交，保留原图和历史证据。完整 `verification.md` 与测试输出保存在本地档案，各摘要字段只写自己职责内的内容；独立验收必需的截图／录屏照常提交。未执行记 `not_run`，条件不足记 `blocked`，不能把修复前测试结果写成修复通过。字段缺失或写入失败时记录回填缺口，不退回单字段汇总。详细契约见 [报告字段](references/report-fields.md)。
+## 5. 验证
 
-## 完成条件
+按「验收标准」逐条执行，浏览器验收复用当前可用的 Playwright、浏览器 MCP 或宿主浏览器工具。环境与版本核对见 [验证环境](references/validation.md)。
 
-验证通过进入 `waiting_acceptance`，由 QA/RD 在真实验收记录中决定是否通过。验证失败定位原因，再选择补充执行、返回方案或重新分析。最终交付说明根因、修改内容、验证结果、证据和未覆盖风险。
+- 先确认验证环境部署的版本包含 `pushed_sha`；确认不了记为 `blocked`，不能拿未部署修复的环境的结果当作通过。
+- 每条用例记录：步骤、断言、实际结果、`passed`／`failed`／`not_run`／`blocked`、证据（截图、日志、测试输出）。
+- 截图等证据上传：`python3 scripts/feishu.py attach --record-id REC --file $TMP/after-fix-1.png`。
 
-修复和验证期间飞书阶段保持「待 review 方案」。实际修复部署版本已核实、必要验收用例全部通过且报告与证据成功回填后，才能设置「已自动修复并验证，待验收」。验证失败、阻塞或未执行时不得进入该阶段。按 [独立字段契约](references/report-fields.md) 将修复后验证写入「验证结果」，执行/部署版本追加到「代码基线」，沟通和未决项分别更新对应字段；保留根因、排查验证、方案、验收标准和人工内容。
+## 6. 回填与回复
+
+按 [验证模板](assets/verification.md) 写「验证结果」：
+
+```sh
+python3 scripts/feishu.py write --record-id REC --set verification=@$TMP/verification.md
+```
+
+失败或阻塞也要写，写清原因和下一步。回复：飞书记录链接、PR、改动摘要、验证结果、未覆盖的风险；状态由人工流转，不在回复里声称已验收。

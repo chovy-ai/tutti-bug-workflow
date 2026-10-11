@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local configuration, dossier and handoff helpers; Python standard library only."""
+"""Local configuration, tool installation and integration checks; Python standard library only."""
 
 import argparse
 import getpass
@@ -97,8 +97,7 @@ def load_config(args, root):
 
 
 def initialize(args, root):
-    for name in ("bugs", "tools"):
-        (root / name).mkdir(parents=True, exist_ok=True)
+    (root / "tools").mkdir(parents=True, exist_ok=True)
     target = root / "config.json"
     if target.exists():
         action = "preserved"
@@ -506,7 +505,7 @@ def doctor(args, root):
         dependencies.append({"name": item["name"], "available": command is not None,
                              "required": bool(item.get("required", True)),
                              "executable": command, "version": "not_checked"})
-    feishu = cfg.get("feishu", {})
+    feishu = cfg.get("bug_report", {})
     repositories = cfg.get("repositories", [])
     logs = cfg.get("log_sources", [])
     log_reports = [{"name": source.get("name") if isinstance(source, dict) else None,
