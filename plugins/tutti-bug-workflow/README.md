@@ -1,42 +1,30 @@
 # tutti-bug-workflow
 
-版本：0.1.44。运行方式：Codex 本地会话。三个业务场景以飞书 Bug 管理表中的同一条记录交接，不保留本地档案；公共初始化 Skill 准备配置与依赖。
+版本：0.1.45。运行方式：Codex 本地会话。三个业务场景以飞书 Bug 管理表中的同一条记录交接，不保留本地档案；公共初始化 Skill 准备配置与依赖。
 
 | 入口 | 工作内容 |
 |---|---|
 | `$tutti-bug-workflow:bug-investigate` | QA 提 Bug：登记并带全现场日志与上下文，不分析根因 |
 | `$tutti-bug-workflow:bug-solution` | RD 根因与方案（定时）：每小时按跟进人逐条分析根因、生成流程图与架构图 PNG、起草方案和验收，记录 RD 批准 |
 | `$tutti-bug-workflow:bug-execute` | 修复与部署（定时）：每小时按跟进人修复已批准的 Bug，提 PR 到 main，部署 PPE（server 泳道 → ws 泳道 → 前端预览 → Computer canary），验证，进度写回 bug 单 |
-| `$tutti-bug-workflow:bug-setup` | 按场景准备工具，主动补齐认证与权限并复查接入 |
+| `$tutti-bug-workflow:bug-setup` | 准备环境：选场景，自动检查、安装、补默认配置，一步步引导登录和授权，可直接开启定时任务 |
 
 ## 首次使用
 
-安装说明见分发目录根部的 README。安装后可在 Codex 中输入：
+安装说明见分发目录根部的 README。安装后在 Codex 里说：
 
-> 使用 $tutti-bug-workflow:bug-setup，先列出每步所需条件、已有值、待决策的获取方式和验证标准，这轮只梳理。
+> 使用 $tutti-bug-workflow:bug-setup 帮我准备环境
 
-也可以指定“只准备 QA 分析／RD 方案／修复验证工具”。[场景工具 Setup](skills/bug-setup/references/tool-setup.md) 列出公共工具、条件工具和准备顺序；只读清单命令 `skills/bug-setup/scripts/tool_setup.py --scene solution` 支持按场景查看，使用 `--include TOOL_ID` 启用条件项。工具准备沿用现有安装入口，清单脚本不执行安装或认证。
+Agent 会先问你要准备哪个场景：**QA 提 Bug**、**定时分析**、**定时修复**，或**全部**（RD 一般选定时分析＋定时修复）。之后：
 
-使用者可按 [准备与授权教程](skills/bug-setup/references/setup-user-guide.md) 操作：Agent 先完成所有选中工具的安装或复用及可执行检查，安装阶段结束后立即进入授权；需要本人登录或补充权限时给出实际入口与步骤，完成后复查并继续。
+1. **检查**：`skills/bug-setup/scripts/prepare.py check --scene …` 逐项实际验证：飞书登录与 Bug 表、三个仓库、Codex 登录、mmdc 渲染、GitHub 登录与推送/部署权限、tutti-ops Token、本机 Chrome 连接、定时任务。
+2. **能做的直接做**：`prepare.py fix` 补齐默认配置（已有值不动，原文件备份），用 npm／Homebrew 安装缺少的 lark-cli、codex、mmdc、tutti-ops、gh。
+3. **一步步引导**：需要你本人做的（飞书扫码授权、`gh auth login`、`codex login`、管理端创建 Token、Chrome 点允许、找管理员要权限），一次一项给出步骤和可复制的命令，你回复「已完成」后 Agent 复查。
+4. **收尾**：汇总已就绪／等你／等管理员，询问是否开启定时任务（默认跟进人是你，每小时一轮，不限优先级）。
 
-完整的逐步准备清单写在 [Setup Skill](skills/bug-setup/SKILL.md)。梳理模式只检查已有信息；确定接入方式后，再执行初始化：
+只想先看看要准备什么：「使用 $tutti-bug-workflow:bug-setup，只列出准备情况」。
 
-> 使用 $tutti-bug-workflow:bug-setup 初始化 Bug 工作台，复用或安装 tutti-ops 与 AWS CLI，检查日志入口，完成全部工具安装后立即进入授权，主动检查并补齐权限，必要的本人授权完成后继续验证。
-
-初始化脚本只依赖 Python 3.10+ 标准库。将下面的 `PLUGIN_SOURCE` 替换为插件源码目录：
-
-```sh
-python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py init
-python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py doctor
-python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py setup-tutti-ops --install
-python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py setup-aws-cli --install
-```
-
-上述安装完成后立即进入授权。tutti-ops 使用 Token：运行 `python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py configure-tutti-token`，隐藏输入后校验并保存，后续自动复用；飞书和 AWS 沿用各自认证流程。
-
-默认数据目录为 `~/.local/share/bug-workbench`，可用 `--data-dir` 或环境变量 `BUG_WORKBENCH_DATA` 覆盖。配置、代码缓存与安装的工具保存在数据目录，独立于插件源码和安装缓存。
-
-数据目录的 `config.json` 已默认绑定飞书 Bug 管理表及其字段，以及 tutti（Web、Computer）、tutti-server（Server）、tsh-websocket（WebSocket）的远端 main。补充 Web/目标 computer 的日志来源与验证环境后开始对应场景；已有配置不会被初始化覆盖。每个场景读取同一份配置，实际参数见 [配置说明](skills/bug-setup/references/configuration.md)。
+默认配置（Bug 表与字段、三个仓库、定时任务、PPE 部署、tutti-ops 管理端、本机 Computer 日志路径等）都已内置，不需要你提供，见 [Setup Skill](skills/bug-setup/SKILL.md#默认配置)。数据目录默认 `~/.local/share/bug-workbench`（可用 `BUG_WORKBENCH_DATA` 覆盖），配置、代码缓存与运行记录都在这里，插件更新不影响。单项工具命令（`workbench.py doctor`、`setup-tutti-ops`、`configure-tutti-token`、`setup-aws-cli`）仍可直接使用，见 [准备与授权教程](skills/bug-setup/references/setup-user-guide.md)。
 
 ## 飞书 Bug 管理表
 
