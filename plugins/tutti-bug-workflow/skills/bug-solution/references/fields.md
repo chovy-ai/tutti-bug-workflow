@@ -6,7 +6,7 @@ Bug 管理表（base `CEHMbNF8Zavq5wsAO3ecrpQ6nPc`，表「Bug 管理」，视�
 
 | 配置键 | 飞书字段 | 怎么填 |
 |---|---|---|
-| `root_cause` | 分析根因 | 按 [根因模板](../assets/root-cause.md)；末尾「分析来源」写分析时间、会话运行目录和代码 SHA |
+| `root_cause` | 分析根因 | 按 [根因模板](../assets/root-cause.md)：开头「根因」（两三句大白话，150 字以内）、「复现路径」、「预期工作流程」三段，之后是细节；末尾「分析来源」写分析时间、会话运行目录和代码 SHA |
 | `diagrams` | 根因图（附件） | `feishu.py attach`，只收 PNG；文件名 `flow-<record_id>-<时间>.png`、`arch-<record_id>-<时间>.png`，重新分析时新增一组，不删旧图 |
 | `solution` | 修复方式 | 按 [方案模板](../assets/plan.md) |
 | `acceptance` | 验收标准 | 按 [验收模板](../assets/acceptance.md) |
