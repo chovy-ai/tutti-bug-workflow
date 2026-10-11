@@ -12,14 +12,8 @@ Bug 管理表（base `CEHMbNF8Zavq5wsAO3ecrpQ6nPc`，表「Bug 管理」，视�
 
 ## 只读的字段
 
-分析根因、修复方式（含【RD 批准】）、验收标准由 `$tutti-bug-workflow:bug-solution` 写；状态、修复版本、指派人由人工维护。本 Skill 不改它们。
+分析根因、根因图、修复方式、验收标准由 `$tutti-bug-workflow:bug-solution` 写；方案状态（已批准／已驳回）、状态、修复版本、指派人由人工维护。本 Skill 不改它们。
 
 ## 批准校验
 
-`check-approval` 读取分析根因、修复方式、验收标准，要求：
-
-- 三者非空；
-- 修复方式末尾有【RD 批准】块，含批准人、时间、原话和摘要；
-- 摘要与当前三段内容一致，也就是批准后没有被修改过。
-
-任一不满足即不通过（退出码 1），返回 `problems`。脚本只校验记录内的一致性；批准人是否真是负责的 RD，以 bug-solution 记录的来源为准，有疑问时向用户确认。
+`check-approval` 读取方案状态、分析根因、修复方式、验收标准，要求方案状态为「已批准」（`bug_report.plan_status.approved`）且三段都非空；不满足即不通过（退出码 1），返回 `problems`。批准由 RD 在飞书里选择，表格的修改记录可查谁改的。

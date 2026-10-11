@@ -6,26 +6,30 @@ Bug 管理表（base `CEHMbNF8Zavq5wsAO3ecrpQ6nPc`，表「Bug 管理」，视�
 
 | 配置键 | 飞书字段 | 怎么填 |
 |---|---|---|
-| `root_cause` | 分析根因 | 按 [根因模板](../assets/root-cause.md)：结论、因果链、证据、代码位置（仓库@sha 路径:行号）、影响范围、待确认 |
-| `solution` | 修复方式 | 按 [方案模板](../assets/plan.md)；末尾【RD 批准】块只由 `feishu.py approve` 写，手写会被拒绝 |
-| `acceptance` | 验收标准 | 按 [验收模板](../assets/acceptance.md)，每条用例写清操作、断言和证据要求 |
+| `root_cause` | 分析根因 | 按 [根因模板](../assets/root-cause.md)；末尾「分析来源」写分析时间、会话运行目录和代码 SHA |
+| `diagrams` | 根因图（附件） | `feishu.py attach`，只收 PNG；文件名 `flow-<record_id>-<时间>.png`、`arch-<record_id>-<时间>.png`，重新分析时新增一组，不删旧图 |
+| `solution` | 修复方式 | 按 [方案模板](../assets/plan.md) |
+| `acceptance` | 验收标准 | 按 [验收模板](../assets/acceptance.md) |
+| `plan_status` | 方案状态（单选） | `feishu.py set-plan-status --value 待评审`，只能置「待评审」，要求三段都非空 |
 
-`write` 整体替换字段内容：改之前先 `read`，在现有内容上修改，保留人工写的部分。
+- `write` 整体替换字段内容。
+- `write --if-open`：写入前方案状态不是空／未处理／已驳回就整次跳过（退出码 3）。定时模式一律带上，RD 已经评审或批准的内容不会被覆盖。
 
 ## 只读的字段
 
-Bug 描述、问题上下文、环境与版本、页面链接、截图／视频／日志由提 Bug 写入；状态、修复版本、指派人等由人工维护；验证结果、关联 PR 由 `$tutti-bug-workflow:bug-execute` 写。本 Skill 都不改。
+Bug 描述、问题上下文、环境与版本、页面链接、截图／视频／日志由提 Bug 写入；状态、修复版本、指派人、驳回意见由人工维护；验证结果、关联 PR 由 `$tutti-bug-workflow:bug-execute` 写。
 
-## RD 批准
+## 扫描条件
 
-```
-【RD 批准】
-批准人：张三（ou_xxx）
-时间：2026-10-10 18:00:00
-原话：可以，按根本方案修
-来源：当前对话
-摘要：sha256:<分析根因 + 修复方式正文 + 验收标准 的摘要>
-```
+`feishu.py scan [--assignee 姓名] [--min-priority P1]`：指派人包含跟进人、状态为「未解决」（`bug_report.defaults.status`）、方案状态为空／未处理／已驳回（`bug_report.plan_status.open`）。有 `--min-priority` 时只保留该优先级及以上，没有优先级的记录不算。按优先级、记录时间排序。
 
-- `approve` 要求三个字段都非空，批准人按通讯录唯一匹配。
-- 摘要绑定批准时的三段内容。之后任何一段被修改，`write` 会清除这一块；人工直接在表格里改了内容，`bug-execute` 的批准校验也会失败。两种情况都需要 RD 重新批准。
+## 方案状态
+
+| 值 | 含义 |
+|---|---|
+| 空／未处理 | 还没出方案，定时任务会分析 |
+| 待评审 | 定时任务已写完根因、图、方案、验收，等 RD 看 |
+| 已批准 | RD 认可，`$tutti-bug-workflow:bug-execute` 只修复这个状态的 Bug |
+| 已驳回 | RD 不认可，原因写在「驳回意见」；下一轮结合意见和上一版重新分析 |
+
+选项名在 `bug_report.plan_status` 中配置。

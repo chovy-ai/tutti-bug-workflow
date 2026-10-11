@@ -1,6 +1,6 @@
 ---
 name: bug-execute
-description: 执行 RD 已批准的 Bug 修复方案：校验飞书 Bug 管理表记录里的批准，从远端最新 main 切出 worktree 修复，跑检查、推送分支并提 PR 后解除 worktree，按验收标准验证，把验证结果和 PR 回填到同一条记录。
+description: 执行 RD 已批准的 Bug 修复方案：确认飞书 Bug 管理表记录的方案状态为「已批准」，从远端最新 main 切出 worktree 修复，跑检查、推送分支并提 PR 后解除 worktree，按验收标准验证，把验证结果和 PR 回填到同一条记录。
 ---
 
 # 修复与验证
@@ -9,7 +9,7 @@ description: 执行 RD 已批准的 Bug 修复方案：校验飞书 Bug 管理�
 
 **无状态。** 飞书 Bug 管理表里的记录是唯一事实来源，不建本地档案。`record_id` 记在会话上下文里；截图、测试输出等放在会话临时目录（下称 `$TMP`）。脚本路径相对本 Skill 目录（`skills/bug-execute/`），都输出一段 JSON。工具安装与认证由 `$tutti-bug-workflow:bug-setup` 负责。
 
-**不改状态。** 「状态」「修复版本」由人工操作。本 Skill 只写「验证结果」「关联 PR」，并把证据上传到「截图、视频、日志」；分析根因、修复方式、验收标准只读。字段细节见 [字段规则](references/fields.md)。
+**不改状态。** 「状态」「方案状态」「修复版本」由人工操作。本 Skill 只写「验证结果」「关联 PR」，并把证据上传到「截图、视频、日志」；分析根因、修复方式、验收标准只读。字段细节见 [字段规则](references/fields.md)。
 
 ## 1. 校验批准
 
@@ -17,8 +17,8 @@ description: 执行 RD 已批准的 Bug 修复方案：校验飞书 Bug 管理�
 python3 scripts/feishu.py check-approval --record-id REC
 ```
 
-- 通过（`approved: true`）时返回批准人、原话，以及已批准的根因、方案和验收标准，后面以这份内容为准。
-- 不通过时（缺批准、批准后内容被改、字段为空）停下，把 `problems` 告诉用户，回到 `$tutti-bug-workflow:bug-solution` 让 RD 批准；不在未批准的方案上改代码。
+- 通过（`approved: true`）：方案状态为「已批准」，返回根因、方案和验收标准，后面以这份内容为准。
+- 不通过（方案状态不是「已批准」或字段为空）就停下，把 `problems` 告诉用户：等 RD 在飞书里评审后选「已批准」；不在未批准的方案上改代码。
 
 ## 2. 切出 worktree
 

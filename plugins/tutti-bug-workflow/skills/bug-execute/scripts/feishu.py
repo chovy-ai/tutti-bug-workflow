@@ -3,18 +3,15 @@
 
 Stateless: nothing is persisted locally. The agent passes record_id on every call; the
 Feishu record in the `bug_report` table is the only source of truth. `check-approval`
-confirms 修复方式 ends with a 【RD 批准】 block whose digest still matches the current
-分析根因, 修复方式 and 验收标准; any edit after approval fails the check. This skill
-writes only 验证结果 and 关联 PR and uploads evidence to 截图、视频、日志; it never
-touches the approved fields or 状态 (status changes are manual).
+confirms RD set 方案状态 to 已批准 and that 分析根因, 修复方式 and 验收标准 are filled.
+This skill writes only 验证结果 and 关联 PR and uploads evidence to 截图、视频、日志; it
+never touches the approved fields, 方案状态 or 状态 (status changes are manual).
 """
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
-import re
 import subprocess
 import sys
 from zoneinfo import ZoneInfo
@@ -25,8 +22,6 @@ import common as wb  # noqa: E402
 APPROVED = ("root_cause", "solution", "acceptance")
 WRITABLE = ("verification",)
 ATTACHMENT_FIELDS = {"attachments"}
-APPROVAL_MARK = "【RD 批准】"
-DIGEST = re.compile(r"^摘要：sha256:([0-9a-f]{64})$", re.M)
 
 
 class LarkError(ValueError):
@@ -49,6 +44,7 @@ class Feishu:
         self.identity = table.get("identity") or "user"
         self.timezone = ZoneInfo(table.get("timezone") or "Asia/Shanghai")
         self.fields = {key: value for key, value in (table.get("field_map") or {}).items() if value}
+        self.plan_status_approved = (table.get("plan_status") or {}).get("approved") or "已批准"
         if not self.base or not self.table or "title" not in self.fields:
             raise ValueError("Config needs bug_report.base_token, table_id and field_map.title.")
         command = os.environ.get("LARK_CLI")
@@ -122,19 +118,6 @@ def text_value(raw):
     return raw
 
 
-def split_approval(solution):
-    """Return (solution body, approval block or None)."""
-    index = solution.find(APPROVAL_MARK)
-    if index < 0:
-        return solution.strip(), None
-    return solution[:index].strip(), solution[index:].strip()
-
-
-def digest(root_cause, body, acceptance):
-    joined = "\n\x1e\n".join(part.strip() for part in (root_cause, body, acceptance))
-    return hashlib.sha256(joined.encode("utf-8")).hexdigest()
-
-
 def write_and_verify(client, record_id, values):
     client.upsert({client.field_id(key): value for key, value in values.items()}, record_id)
     actual = client.read(record_id, sorted(values))
@@ -158,31 +141,16 @@ def parse_assignments(items):
 
 
 def approval_state(client, record_id):
-    values = {key: as_text(value) for key, value in client.read(record_id, list(APPROVED)).items()}
-    body, block = split_approval(values["solution"])
-    problems = []
-    if not values["root_cause"].strip():
-        problems.append("分析根因为空")
-    if not body:
-        problems.append("修复方式为空")
-    if not values["acceptance"].strip():
-        problems.append("验收标准为空")
-    fields = {}
-    if not block:
-        problems.append(f"修复方式里没有 {APPROVAL_MARK}")
-    else:
-        for line in block.splitlines()[1:]:
-            key, _, value = line.partition("：")
-            fields[key] = value
-        match = DIGEST.search(block)
-        if not match:
-            problems.append("批准记录缺少摘要")
-        elif match.group(1) != digest(values["root_cause"], body, values["acceptance"]):
-            problems.append("批准后分析根因、修复方式或验收标准被修改过，需要 RD 重新批准")
-    return {"approved": not problems, "problems": problems, "approver": fields.get("批准人"),
-            "time": fields.get("时间"), "quote": fields.get("原话"), "source": fields.get("来源"),
-            "root_cause": values["root_cause"].strip(), "solution": body,
-            "acceptance": values["acceptance"].strip()}
+    values = {key: as_text(value).strip()
+              for key, value in client.read(record_id, [*APPROVED, "plan_status"]).items()}
+    approved = client.plan_status_approved
+    problems = [f"{name}为空" for key, name in (("root_cause", "分析根因"), ("solution", "修复方式"),
+                                               ("acceptance", "验收标准")) if not values[key]]
+    if values["plan_status"] != approved:
+        problems.append(f"方案状态是「{values['plan_status'] or '空'}」，需要 RD 在飞书里选「{approved}」")
+    return {"approved": not problems, "problems": problems, "plan_status": values["plan_status"] or None,
+            "root_cause": values["root_cause"], "solution": values["solution"],
+            "acceptance": values["acceptance"]}
 
 
 def check_approval(args, client):

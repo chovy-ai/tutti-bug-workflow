@@ -27,11 +27,21 @@
       "solution": "fld1KYGjrO",
       "acceptance": "fldjWBiXnK",
       "verification": "fldkbXHbtG",
-      "pull_requests": "fldeUIY2k9"
+      "pull_requests": "fldeUIY2k9",
+      "diagrams": "fldlTE3qwJ",
+      "plan_status": "fld8Dz9R5w",
+      "rejection": "fldB6Bg8uL"
     },
+    "plan_status": { "open": ["未处理", "已驳回"], "review": "待评审", "approved": "已批准", "rejected": "已驳回" },
     "defaults": { "status": "未解决", "issue_type": "bug" },
     "platform_choices": ["新框架一期-Mac", "新框架一期-Windows", "新框架一期-Web"],
     "excluded_priorities": ["P2"]
+  },
+  "solution_schedule": {
+    "interval_seconds": 3600,
+    "timeout_minutes": 45,
+    "keep_days": 7,
+    "codex_command": "codex"
   },
   "repositories": [
     { "name": "tutti", "url": "https://github.com/tutti-lab/tutti.git", "base_branch": "main", "cache_path": "repositories/tutti.git", "checkout_path": "repositories/tutti" },
@@ -54,7 +64,9 @@
     { "name": "git", "command": "git", "required": true, "installer": null },
     { "name": "gh", "command": "gh", "required": false, "installer": null },
     { "name": "tutti-ops", "command": "tutti-ops", "required": true, "installer": { "type": "npm-global", "package": "@tutti-os/tutti-ops-cli" } },
-    { "name": "aws", "command": "aws", "required": false, "installer": { "type": "aws-official", "version": "2.34.11" } }
+    { "name": "aws", "command": "aws", "required": false, "installer": { "type": "aws-official", "version": "2.34.11" } },
+    { "name": "codex", "command": "codex", "required": false, "installer": null },
+    { "name": "mmdc", "command": "mmdc", "required": false, "installer": null }
   ],
   "mcp_servers": {},
   "aws_cli": { "profile": null, "region": "us-east-1" },

@@ -1,4 +1,4 @@
 interface:
-  display_name: "根因与方案 · RD"
-  short_description: "读取 Bug 现场与代码定位根因，与 RD 协商方案和验收标准并记录批准"
-  default_prompt: "使用 $tutti-bug-workflow:bug-solution 分析这条 Bug 的根因，设计修复方案和验收标准，与 RD 确认。"
+  display_name: "根因与方案 · 定时"
+  short_description: "按跟进人每小时扫描 Bug，逐条分析根因、生成流程图和架构图、起草方案并写回"
+  default_prompt: "使用 $tutti-bug-workflow:bug-solution 为我开启每小时的 Bug 根因定时分析。"

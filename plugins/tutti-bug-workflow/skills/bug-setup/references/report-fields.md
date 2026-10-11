@@ -14,17 +14,20 @@
 | `platform` / `priority` / `module` / `issue_type` | 所属端 / 优先级 / 业务模块 / 问题类型 | 单选 | bug-investigate |
 | `record_time` | 记录时间 | 日期 | bug-investigate |
 | `env_version` / `page_url` / `context` | 环境与版本 / 页面链接 / 问题上下文 | 文本 / 超链接 / 文本 | bug-investigate |
-| `root_cause` | 分析根因 | 文本 | bug-solution |
-| `solution` | 修复方式 | 文本 | bug-solution（末尾【RD 批准】由其 `approve` 写） |
+| `root_cause` | 分析根因 | 文本 | bug-solution（定时分析） |
+| `diagrams` | 根因图 | 附件 | bug-solution（流程图、架构图 PNG） |
+| `solution` | 修复方式 | 文本 | bug-solution |
 | `acceptance` | 验收标准 | 文本 | bug-solution |
 | `verification` | 验证结果 | 文本 | bug-execute |
 | `pull_requests` | 关联 PR | 文本 | bug-execute |
+| `plan_status` | 方案状态 | 单选 | bug-solution 置「待评审」；RD 选「已批准」「已驳回」 |
+| `rejection` | 驳回意见 | 文本 | RD 驳回时填写 |
 
-「验收标准」「验证结果」是为修复流程新增的列。修复版本、自定义 tag、反馈用户、父记录、备注等不映射，由人工维护。
+「验收标准」「验证结果」「根因图」「方案状态」「驳回意见」是为修复流程新增的列。修复版本、自定义 tag、反馈用户、父记录、备注等不映射，由人工维护。
 
 ## 规则
 
 - 每个 Skill 只写自己负责的字段，写后回读核对；改之前先读，保留人工内容。
 - 「状态」除建单默认值外不由 Agent 修改，流转全部人工操作。
-- 【RD 批准】记录批准人、时间、原话、来源和三段内容（分析根因、修复方式正文、验收标准）的摘要；内容变化后批准失效，需要 RD 重新批准。
+- 方案状态：空／未处理／已驳回 → 定时分析后置「待评审」→ RD 选「已批准」（bug-execute 才会修复）或「已驳回」（写驳回意见，下一轮重新分析）。
 - 字段改名不影响映射；更换表格时重新读取字段并更新全部字段 ID，不能复用旧 ID。

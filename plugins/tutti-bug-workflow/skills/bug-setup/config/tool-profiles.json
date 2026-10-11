@@ -85,16 +85,18 @@
     },
     {
       "id": "diagrams",
-      "label": "Mermaid 流程图与架构图",
+      "label": "Mermaid 源码与 PNG 渲染（mmdc）",
       "required_in": [
         "solution"
       ],
       "conditional_in": [],
-      "commands": [],
+      "commands": [
+        "mmdc"
+      ],
       "configuration": "source-only",
       "requirements": [
-        "Mermaid 源码生成",
-        "导出图片/PDF 时再选择实际渲染器"
+        "@mermaid-js/mermaid-cli 提供的 mmdc 可执行",
+        "渲染所需的 Chromium（mmdc 自带 puppeteer）"
       ],
       "install_operation": null
     },
@@ -108,8 +110,8 @@
       "commands": [],
       "configuration": "per-bug",
       "requirements": [
-        "修复方式末尾的【RD 批准】记录",
-        "bug-execute 的 feishu.py check-approval；校验内容一致性，不证明批准人身份"
+        "Bug 记录的方案状态为「已批准」",
+        "bug-execute 的 feishu.py check-approval"
       ],
       "install_operation": null
     },

@@ -1,6 +1,5 @@
 """Approval check, verification and PR write-back against a fake lark-cli."""
 
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -18,12 +17,6 @@ FIELDS = json.loads(EXAMPLE_CONFIG.read_text())["bug_report"]["field_map"]
 ROOT_CAUSE, PLAN, ACCEPTANCE = "切换房间未刷新标题状态", "根本方案：同步顶部名称。", "切换三次房间名称一致"
 
 
-def approval(root_cause=ROOT_CAUSE, plan=PLAN, acceptance=ACCEPTANCE):
-    digest = hashlib.sha256("\n\x1e\n".join((root_cause, plan, acceptance)).encode()).hexdigest()
-    return (f"{plan}\n\n【RD 批准】\n批准人：张三（ou_z1）\n时间：2026-10-10 18:00:00\n"
-            f"原话：可以\n来源：当前对话\n摘要：sha256:{digest}")
-
-
 class ExecuteFeishuTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
@@ -33,9 +26,15 @@ class ExecuteFeishuTests(unittest.TestCase):
         self.data.mkdir()
         shutil.copyfile(EXAMPLE_CONFIG, self.data / "config.json")
         self.state = self.base / "lark.json"
-        self.save({FIELDS["root_cause"]: ROOT_CAUSE, FIELDS["solution"]: approval(),
-                   FIELDS["acceptance"]: ACCEPTANCE})
+        self.save(self.approved())
         self.env = {**os.environ, "LARK_CLI": str(FAKE), "FAKE_LARK_STATE": str(self.state)}
+
+    @staticmethod
+    def approved(**changes):
+        record = {FIELDS["root_cause"]: ROOT_CAUSE, FIELDS["solution"]: PLAN, FIELDS["acceptance"]: ACCEPTANCE,
+                  FIELDS["plan_status"]: "已批准"}
+        record.update({FIELDS[key]: value for key, value in changes.items()})
+        return record
 
     def save(self, record):
         self.state.write_text(json.dumps({"records": {"rec1": record}, "next": 2, "calls": []}))
@@ -50,17 +49,18 @@ class ExecuteFeishuTests(unittest.TestCase):
     def cell(self, key):
         return json.loads(self.state.read_text())["records"]["rec1"].get(FIELDS[key])
 
-    def test_matching_approval_passes_and_returns_the_approved_content(self):
+    def test_approved_plan_passes_and_returns_the_approved_content(self):
         state = self.feishu("check-approval")
         self.assertTrue(state["approved"])
-        self.assertEqual((state["approver"], state["quote"], state["solution"]), ("张三（ou_z1）", "可以", PLAN))
+        self.assertEqual((state["plan_status"], state["solution"]), ("已批准", PLAN))
 
-    def test_edits_after_approval_or_missing_block_fail(self):
-        self.save({FIELDS["root_cause"]: ROOT_CAUSE, FIELDS["solution"]: approval(),
-                   FIELDS["acceptance"]: "改过的验收"})
-        self.assertIn("重新批准", self.feishu("check-approval", expected=1)["problems"][0])
-        self.save({FIELDS["root_cause"]: ROOT_CAUSE, FIELDS["solution"]: PLAN, FIELDS["acceptance"]: ACCEPTANCE})
-        self.assertFalse(self.feishu("check-approval", expected=1)["approved"])
+    def test_plan_status_other_than_approved_or_empty_fields_fail(self):
+        for status in ("待评审", "已驳回", None):
+            self.save(self.approved(plan_status=status))
+            state = self.feishu("check-approval", expected=1)
+            self.assertIn("已批准", state["problems"][0])
+        self.save(self.approved(acceptance=""))
+        self.assertEqual(self.feishu("check-approval", expected=1)["problems"], ["验收标准为空"])
 
     def test_writes_only_verification_and_appends_prs_once(self):
         self.feishu("write", "--set", "verification=3/3 用例通过")
@@ -72,7 +72,7 @@ class ExecuteFeishuTests(unittest.TestCase):
         self.feishu("add-pr", "--url", "https://github.com/tutti-lab/tutti-server/pull/3")
         self.assertEqual(self.cell("pull_requests").splitlines()[0], url)
         self.assertEqual(len(self.cell("pull_requests").splitlines()), 2)
-        self.assertEqual(self.cell("solution"), approval())
+        self.assertEqual(self.cell("solution"), PLAN)
 
     def test_attach_skips_files_already_on_the_record(self):
         shot = self.base / "after-fix.png"
