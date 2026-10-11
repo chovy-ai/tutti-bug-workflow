@@ -92,6 +92,8 @@ if shortcut == "+record-list":
            "data": [[records[rid].get(f) for f in fields] for rid in page],
            "has_more": offset + limit < len(matched)})
 if shortcut == "+record-upload-attachment":
+    if any(Path(path).is_absolute() for path in values("--file")):  # real lark-cli: relative paths only
+        reply("unsafe file path: --file must be a relative path within the current directory", ok=False, code=2)
     record = records[value("--record-id")]
     cell = record.setdefault(value("--field-id"), [])
     for path in values("--file"):
@@ -100,6 +102,8 @@ if shortcut == "+record-upload-attachment":
                      "size": Path(path).stat().st_size})
     reply({})
 if shortcut == "+record-download-attachment":
+    if Path(value("--output")).is_absolute():  # real lark-cli: relative path inside the cwd only
+        reply("unsafe output path: --output must be a relative path within the current directory", ok=False, code=2)
     token = value("--file-token")
     item = next(i for cell in records[value("--record-id")].values() if isinstance(cell, list)
                 for i in cell if isinstance(i, dict) and i.get("file_token") == token)
