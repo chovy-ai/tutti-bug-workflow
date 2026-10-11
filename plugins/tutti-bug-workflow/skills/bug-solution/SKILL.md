@@ -69,11 +69,14 @@ python3 scripts/schedule.py uninstall --assignee "张三"
    - **复现路径**：前置条件和操作步骤，到出现问题的那一步。
    - **预期工作流程**：正常应该怎么走（每一步是哪一端做什么），并指出实际在哪一步偏离。
    之后才是细节：时间线、证据、代码位置、影响范围、待确认。细节里因果链每一环要么有日志或代码作证，要么标成假设；现场不够的写进「待确认」，不中断。最新 main 已修复的，根因照写，并在第一段末尾注明「最新 main 已由 <PR/提交> 修复」。
-5. **画图**：按 [图规范](assets/diagrams.md) 写 `flow.mmd`（和「预期工作流程」一致，标出实际偏离的出错点）和 `arch.mmd`（涉及的组件与调用关系，标出问题位置），渲染：
+5. **画图**：按 [图规范](assets/diagrams.md) 画两张，目标是 RD 扫一眼就懂谁做了什么、哪一步出错、应该怎样：
+   - `flow.mmd`：**时序图**，按端分泳道，和「预期工作流程」一一对应；出错那段红底标「❌ 根因」，预期那段绿底标「✅ 预期」。
+   - `arch.mmd`：**一行从左到右的链路**，颜色区分端，问题组件标红，旁边挂黄色说明；不用分组、不画回头线。
+   - 文字用大白话，不写类名、函数名、错误码常量；流程不超过 10 步，架构不超过 8 个节点。
    ```sh
    python3 scripts/render.py --input flow.mmd --input arch.mmd
    ```
-   报错就按提示改 Mermaid 源码再渲染，直到两张都成功。把 PNG 改名为 `flow-<record_id>-<yyyymmddHHMM>.png`、`arch-<record_id>-<yyyymmddHHMM>.png`。
+   渲染后打开 PNG 自查（文字重叠、连线交叉、红色位置），不清楚就改源码重渲染。PNG 改名为 `flow-<record_id>-<yyyymmddHHMM>.png`、`arch-<record_id>-<yyyymmddHHMM>.png`。
 6. **写方案与验收**：按 [方案模板](assets/plan.md) 和 [验收模板](assets/acceptance.md)；tsh-websocket 是很少改动的基础设施，根因确实在 ws 时才把它列进修改范围（修复时会多一步 ws 泳道部署）；方案里的 Mermaid 源码与 PNG 一致。
 7. **写回**，每次写入都带 `--if-open`：方案状态已被 RD 改成「待评审」「已批准」时返回退出码 3，立即结束本会话，不再写任何内容：
    ```sh

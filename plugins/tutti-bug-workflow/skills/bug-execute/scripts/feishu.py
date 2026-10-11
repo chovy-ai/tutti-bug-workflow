@@ -79,9 +79,9 @@ class Feishu:
             raise ValueError(f"bug_report.field_map has no entry for {key!r}.")
         return value
 
-    def _invoke(self, command, label):
+    def _invoke(self, command, label, cwd=None):
         try:
-            result = subprocess.run(command, capture_output=True, text=True, timeout=300, check=False)
+            result = subprocess.run(command, capture_output=True, text=True, timeout=300, check=False, cwd=cwd)
         except FileNotFoundError:
             raise LarkError(f"lark-cli not found: {self.command}") from None
         try:
@@ -94,9 +94,26 @@ class Feishu:
             raise LarkError(f"lark-cli {label} failed: {error.get('message') or value}")
         return value.get("data") or {}
 
-    def run(self, shortcut, *arguments):
+    def run(self, shortcut, *arguments, cwd=None):
         return self._invoke([self.command, "base", shortcut, "--base-token", self.base,
-                             "--table-id", self.table, "--as", self.identity, *arguments], shortcut)
+                             "--table-id", self.table, "--as", self.identity, *arguments], shortcut, cwd=cwd)
+
+    def upload_files(self, record_id, field_id, files):
+        # lark-cli only reads --file as a relative path inside its working directory.
+        by_folder = {}
+        for file in files:
+            by_folder.setdefault(file.parent, []).append(file)
+        for folder, group in by_folder.items():
+            arguments = ["--record-id", record_id, "--field-id", field_id]
+            for file in group:
+                arguments += ["--file", f"./{file.name}"]
+            self.run("+record-upload-attachment", *arguments, cwd=folder)
+
+    def download_file(self, record_id, file_token, target):
+        # lark-cli only writes --output as a relative path inside its working directory.
+        target.parent.mkdir(parents=True, exist_ok=True)
+        self.run("+record-download-attachment", "--record-id", record_id, "--file-token", file_token,
+                 "--output", f"./{target.name}", "--overwrite", cwd=target.parent)
 
     def contact(self, *arguments):
         data = self._invoke([self.command, "contact", "+search-user", "--as", "user", "--format", "json",
@@ -303,10 +320,7 @@ def attach(args, client):
     pending = [(file, size) for file, size in files if (file.name, size) not in attached]
     uploaded = []
     if pending:
-        arguments = ["--record-id", record_id, "--field-id", client.field_id(args.field)]
-        for file, _ in pending:
-            arguments += ["--file", str(file)]
-        client.run("+record-upload-attachment", *arguments)
+        client.upload_files(record_id, client.field_id(args.field), [file for file, _ in pending])
         present = {item.get("file_token") for item in existing}
         added = [item for item in client.read(record_id, [args.field])[args.field] or []
                  if item.get("file_token") not in present]
@@ -328,8 +342,7 @@ def download_items(client, record_id, items, folder):
             name = f"{item['file_token'][:8]}-{name}"
         names.add(name)
         target = folder / name
-        client.run("+record-download-attachment", "--record-id", record_id,
-                   "--file-token", item["file_token"], "--output", str(target), "--overwrite")
+        client.download_file(record_id, item["file_token"], target)
         if not target.is_file() or target.stat().st_size != item.get("size"):
             raise LarkError(f"Downloaded {item['name']} is missing or its size differs from the record.")
         saved.append({"name": item["name"], "path": str(target), "size": item.get("size")})
