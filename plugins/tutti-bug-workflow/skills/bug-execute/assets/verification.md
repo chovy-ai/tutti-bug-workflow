@@ -1,5 +1,7 @@
 结论：通过／未通过（<一句话>）
 
+一句话解释原因：<与「一句话解释原因」列同一句话>
+
 修复：
 - 分支：codex/bug-<record_id>（tutti@<sha>，tutti-server@<sha>，tsh-websocket@<sha>，没改的仓库不写）
 - PR：<链接>

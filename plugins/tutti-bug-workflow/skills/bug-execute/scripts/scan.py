@@ -80,7 +80,7 @@ def prompt(record, assignee, run_dir, plan):
   - attachments/：现场附件；diagrams/：根因流程图与架构图
   - fix.json：分支名与泳道名
 
-按 Skill 的定时模式完成：修复 → 测试 → 推送并提 PR 到 main → 部署 PPE（server 泳道 → ws 泳道 → 前端预览 → Computer canary，按涉及的端；每次 deploy.py 都带 --record-id，把预览链接、泳道、canary 版本回填到「访问环境」）→ 用本机 Chrome 打开预览按验收标准自验证（涉及 UI 每条用例截图，上传到「修复截图」）→ 回填验证结果。
+按 Skill 的定时模式完成：修复 → 测试 → 推送并提 PR 到 main → 部署 PPE（server 泳道 → ws 泳道 → 前端预览 → Computer canary，按涉及的端；每次 deploy.py 都带 --record-id，把预览链接、泳道、canary 版本回填到「访问环境」）→ 用本机 Chrome 打开预览按验收标准自验证（涉及 UI 每条用例截图，上传到「修复截图」）→ 根据 PR 用一句大白话写「一句话解释原因」→ 回填验证结果。
 每一步都用 feishu.py progress 写进「修复进度」。最后把方案状态设为「已部署待验收」，任何一步失败则设为「修复失败」并写明原因。
 只要有一端部署成功，不论最后是「已部署待验收」还是「修复失败」，bug 单的「访问环境」里都必须有一个点开就能体验的链接（前端预览；只改 Computer 时为 canary 发布页），结束前用 feishu.py read --field environment 确认；最后一条消息也写上这个链接。
 无人值守：不要提问、不要等待回复。

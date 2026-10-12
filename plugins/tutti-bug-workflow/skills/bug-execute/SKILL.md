@@ -19,6 +19,7 @@ description: 修复已批准的 Bug（定时）：按跟进人每小时扫描飞
 | 修复进度 | 每一步追加一行带时间的记录：分支、PR、泳道与部署 run、预览链接、canary 版本、失败原因 |
 | 访问环境 | 一个可点击的体验链接（前端预览，只改 Computer 时为 canary 发布页）；`deploy.py --record-id` 部署成功后自动回填，为空时不能置「已部署待验收」 |
 | 关联 PR | `add-pr`，每行一个 |
+| 一句话解释原因 | 修复完成后根据 PR 的实际改动写**一句大白话**，说清 Bug 为什么会出现；为空时不能置「已部署待验收」 |
 | 验证结果 | 按 [验证模板](assets/verification.md) 写 |
 | 修复截图 | 部署 PPE 后自验证的截图，涉及 UI 的用例必须有 |
 
@@ -103,9 +104,14 @@ python3 scripts/feishu.py set-plan-status --record-id REC --value 修复失败 -
    - Computer 的修复写明 canary 版本，能在 canary Computer 上验证的就验证，不能的记 `not_run` 并写原因。
    - 任何必需用例失败，或涉及 UI 却没能截图（Chrome 不可用、未登录）→ 判失败。
 7. **回填与收尾。**
+   先写「一句话解释原因」：`gh pr diff` 看这次 PR 实际改了什么，用一句话告诉 QA 和产品这个 Bug 为什么会出现。
+   - 讲原因，不讲改法；说用户看得到的现象和背后的那一步出错，不用类名、函数名、接口名、错误码；单行、不超过 80 字，最好 50 字以内。
+   - 以 PR 为准：实际修的和方案里的根因不一样时，按 PR 写。
+   - 例：「切换房间时顶部标题没跟着刷新，一直显示上一个房间的名字」「服务端只认公开回复，把话题里的悄悄话当成非法消息拒掉了」。
    ```sh
+   python3 scripts/feishu.py write --record-id REC --set "cause=<一句话原因>"
    python3 scripts/feishu.py write --record-id REC --set verification=@verification.md
    python3 scripts/feishu.py set-plan-status --record-id REC --value 已部署待验收 --note "预览 <链接>，泳道 <泳道>"
    ```
    置状态前先 `feishu.py read --record-id REC --field environment`，确认「访问环境」是能点开的体验链接，缺了用 `feishu.py environment --url` 补上。
-   最后一条消息写一行结论（PR、访问环境、验证、方案状态），供运行日志查看。用户问起时，直接给出这个可点击的链接。
+   最后一条消息写一行结论（一句话解释原因、PR、访问环境、验证、方案状态），供运行日志查看。用户问起时，直接给出这个可点击的链接。

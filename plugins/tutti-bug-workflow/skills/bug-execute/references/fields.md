@@ -10,6 +10,7 @@ Bug 管理表（base `CEHMbNF8Zavq5wsAO3ecrpQ6nPc`，表「Bug 管理」，视�
 | `fix_progress` | 修复进度 | `feishu.py progress --message`，只追加，每行 `[yyyy-mm-dd HH:MM] 内容` |
 | `environment` | 访问环境（链接样式） | **一个裸 https 链接**，点开即可体验修复：前端预览 `https://tutti.sh/platform/?webBranch=<分支>`（指向本条泳道）；只改 Computer 时为 canary 发布 run 页面，且不会覆盖已有的前端预览。`deploy.py … --record-id REC` 部署成功后自动写；手动补写或换成更具体的页面用 `feishu.py environment --url <链接> [--service computer]`，非链接内容会被拒绝。泳道、canary 版本写在修复进度。为空时 `set-plan-status 已部署待验收` 报错 |
 | `pull_requests` | 关联 PR | `feishu.py add-pr --url`，每行一个链接，已有的不重复追加 |
+| `cause` | 一句话解释原因 | `feishu.py write --set cause=…`：修复完成后根据 PR 的实际改动写一句通俗的原因，单行、不超过 80 字，不用代码名词，讲原因不讲改法；为空时 `set-plan-status 已部署待验收` 报错 |
 | `verification` | 验证结果 | `feishu.py write --set verification=@file`，按 [验证模板](../assets/verification.md)，整体替换 |
 | `fix_screenshots` | 修复截图（附件） | `feishu.py attach --file`（默认这一列），只收 PNG／JPEG，文件名 `fix-<record_id>-<用例编号>-<yyyymmddHHMM>.png`（修复前对照用 `before-`）；同名同大小不重复上传 |
 | `attachments` | 截图、视频、日志 | `feishu.py attach --field attachments --file`，只放截图以外的补充证据（如测试输出、日志）；QA 的现场附件不删 |
@@ -21,7 +22,7 @@ Bug 管理表（base `CEHMbNF8Zavq5wsAO3ecrpQ6nPc`，表「Bug 管理」，视�
 | 从 | 到 | 谁 |
 |---|---|---|
 | 已批准 | 修复中 | 定时任务认领（要求根因、方案、验收都非空） |
-| 修复中 | 已部署待验收 | 会话：PR 已提、PPE 已部署（访问环境非空）、验收通过 |
+| 修复中 | 已部署待验收 | 会话：PR 已提、PPE 已部署（访问环境非空）、一句话解释原因已写、验收通过 |
 | 修复中／已批准 | 修复失败 | 会话或定时任务：任何一步失败、会话超时或中断 |
 | 修复失败 | 已批准 | RD 处理后手动改回，下一轮重试 |
 

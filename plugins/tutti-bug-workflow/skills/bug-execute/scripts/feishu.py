@@ -13,6 +13,8 @@ the only source of truth, and every step of a fix shows up on it:
   preview, or the Computer canary run page when only Computer changed. `deploy.py
   --record-id` fills it after a successful deploy; 已部署待验收 is refused while it is
   empty. Lanes and canary versions go to 修复进度 and 验证结果.
+- 一句话解释原因 is one plain sentence on why the bug happened, written from the merged PR's
+  actual change (not the plan); 已部署待验收 is refused while it is empty.
 - 验证结果, 关联 PR and the after-fix screenshots in 修复截图 are written at the end.
 
 分析根因, 修复方式, 验收标准 and 状态 are never written.
@@ -32,7 +34,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import common as wb  # noqa: E402
 
 APPROVED = ("root_cause", "solution", "acceptance")
-WRITABLE = ("verification",)
+WRITABLE = ("verification", "cause")
+CAUSE_LIMIT = 80  # characters; one sentence
 DOWNLOADABLE = {"attachments", "diagrams", "fix_screenshots"}
 UPLOADABLE = {"fix_screenshots", "attachments"}
 IMAGE_HEADERS = (b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff")
@@ -44,7 +47,7 @@ SIDES = {"web": "前端预览", "server": "Server 泳道", "websocket": "WebSock
 CONTEXT_FIELDS = (("title", "Bug 描述"), ("priority", "优先级"), ("platform", "所属端"), ("module", "业务模块"),
                   ("plan_status", "方案状态"), ("root_cause", "分析根因"), ("solution", "修复方式"),
                   ("acceptance", "验收标准"), ("context", "问题上下文"), ("env_version", "环境与版本"),
-                  ("page_url", "页面链接"), ("pull_requests", "关联 PR"), ("environment", "访问环境"),
+                  ("page_url", "页面链接"), ("pull_requests", "关联 PR"), ("environment", "访问环境"), ("cause", "一句话解释原因"),
                   ("fix_progress", "修复进度"),
                   ("verification", "验证结果"), ("assignee", "指派人"), ("record_time", "记录时间"))
 
@@ -224,6 +227,9 @@ def parse_assignments(items):
         if key in result:
             raise ValueError(f"{key!r} given twice.")
         result[key] = text_value(raw).strip()
+    cause = result.get("cause")
+    if cause is not None and ("\n" in cause or not cause or len(cause) > CAUSE_LIMIT):
+        raise ValueError(f"一句话解释原因只写一句：单行、不超过 {CAUSE_LIMIT} 字（现在 {len(cause)} 字）。")
     return result
 
 
@@ -297,6 +303,9 @@ def set_plan_status(args, client):
         problems = approval_state(client, args.record_id)["problems"]
         if problems:
             raise ValueError(f"Not ready to fix: {problems}")
+    if args.value == client.plan_status["deployed"] and not as_text(
+            client.read(args.record_id, ["cause"])["cause"]).strip():
+        raise ValueError("一句话解释原因为空：先根据 PR 用一句大白话写 `write --set cause=…`，再置已部署待验收。")
     if args.value == client.plan_status["deployed"] and not access_link(client, args.record_id):
         raise ValueError("访问环境为空：先用 deploy.py --record-id 部署（或 feishu.py environment --url）回填可点击的"
                          "体验链接，再置已部署待验收。")
