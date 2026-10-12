@@ -15,7 +15,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 - 耗时操作在本轮内等它完成：Computer 远端召回最长约 25 分钟，期间并行做其他步骤，不把控制权交还给用户。
 - 某一项卡住时记下原因，继续其他能做的；全部做完或全部卡住才写最终回复。
 
-**尽量并行。** Web 日志先采（它给出 request id 和 Computer 线索），随后三件事同时进行：Computer 召回用后台进程跑，Server 日志交给 subagent 查，主 agent 上传附件、填字段。宿主不支持 subagent 时，Server 也用后台进程跑。
+**尽量并行。** Web 日志先采（它给出要对到服务端的请求和 Computer 线索），随后三件事同时进行：Computer 召回用后台进程跑，Server 日志交给 subagent 查，主 agent 上传附件、填字段。宿主不支持 subagent 时，Server 也用后台进程跑。
 
 **登录过期就当场重新登录，不停下来问。** 认证失效不是卡点，不要写「因登录过期受阻，已记录原因」然后结束：
 
@@ -40,7 +40,8 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 | Server 日志 | `captured`／`empty`／`blocked`（附原因）；登录过期已自动重新登录并重试过 |
 | Computer 日志 | 召回已完成并上传；或写明受阻原因、待用户确认的设备 |
 | 附件 | QA 的截图／视频与全部日志都在「截图、视频、日志」，`check_collection` 显示 `attached: true` |
-| 上下文字段 | 环境与版本、页面链接、问题上下文已写入并回读 |
+| 上下文字段 | 环境与版本、页面链接、问题上下文已写入并回读；问题上下文以「概要」「现场核对」开头，回复里提到的每条发现都在这两段里 |
+| Bug 描述 | 一行写清「类别：现象（触发条件／关键对照）」；采集中确认了新条件或对照时已更新 |
 | 会话上传 | 全部完成后已上传一次 |
 
 ## 1. 接收
@@ -65,7 +66,7 @@ python3 scripts/feishu.py create --title "房间：顶部名称与左侧选中�
 python3 scripts/feishu.py assign --record-id REC --name "张三"     # 用户没指定跟进人时省略 --name
 ```
 
-「Bug 描述」写精简一行「类别：现象」。同名记录已存在时返回它，不重复建单。新记录自动填状态「未解决」、问题类型「bug」、提交人（lark-cli 当前用户）和记录时间。跟进人同名多人、查不到或没指定时不写入，返回候选或常联系的人，留到第 5 步请用户指定。
+「Bug 描述」写一行「类别：现象（触发条件／关键对照）」，先按用户描述写，第 4 步采集完再补全，见 [字段规则](references/report-fields.md#bug-描述)。同名记录已存在时返回它，不重复建单。新记录自动填状态「未解决」、问题类型「bug」、提交人（lark-cli 当前用户）和记录时间。跟进人同名多人、查不到或没指定时不写入，返回候选或常联系的人，留到第 5 步请用户指定。
 
 ## 3. 采集现场
 
@@ -95,11 +96,12 @@ python3 scripts/collect_computer.py --computer-id ID --incident-at <question_tim
 
 ```sh
 python3 scripts/collect_server.py --question-time <question_time> \
-  --web-logs <web-logs.log 或诊断包 zip> [--path-contains <房间或 Computer ID>] \
-  --output-dir $TMP/server
+  --web-logs <web-logs.log 或诊断包 zip> --output-dir $TMP/server
 ```
 
-结果里的 `namespaces`／`environments` 告诉你环境：`tutti` 是生产，`lane-ppe-*` 是 PPE。详见 [Server 日志](references/server-logs.md)。
+Web 日志通常不带 request id，脚本会把失败的 Web 请求按 method、路径、状态码、时间对到服务端访问日志，取回它们的 `request_id` 并拉全这些请求的日志；`request_ids_in_web_logs: 0` 是正常的，看 `web_requests_matched`。`--path-contains <房间或 Computer ID>` 会带回整段时间窗的大量请求，只在结果为 `empty` 或需要整段上下文时再加。
+
+结果里的 `namespaces`／`environments` 告诉你环境：`tutti` 是生产，`lane-ppe-*` 是 PPE；`correlated_requests` 中与故障相关的请求和 `web_failures_not_in_server_logs`（页面失败但没到服务端的请求）写进「问题上下文」。详见 [Server 日志](references/server-logs.md)。
 
 ## 4. 上传与填字段
 
@@ -115,7 +117,8 @@ python3 scripts/collect_server.py --question-time <question_time> \
    ```
    - **环境与版本**：环境（生产／PPE／本地开发）与标识（页面域名、Server namespace 如 `lane-ppe-cloud-0928`），Web、tutti-server、Computer 版本与浏览器。
    - **页面链接**：出问题页面的完整 URL。
-   - **问题上下文**：期望、实际、复现步骤、频率、发生时间（精确到分钟，含时区）、操作账号；关联 ID：账号、房间、页面会话、Computer、Agent、关键 request id、召回任务 ID。
+   - **问题上下文**：先写「概要」（什么坏了、条件、报错原文、与正常情况的差异）和「现场核对」（采集中核对过的事实：成功／失败对照、设置或版本差异、日志报错、服务端失败请求，各带来源和时间）；再写期望、实际、复现步骤、频率、发生时间（精确到分钟，含时区）、操作账号；最后「关联 ID」只列 ID：账号、房间、页面会话、Computer、Agent、关键 request id、召回任务 ID。
+   - **Bug 描述**：采集中确认了触发条件或关键对照时，`--set title=…` 更新成「类别：现象（触发条件／关键对照）」。
 3. `python3 scripts/check_collection.py --record-id REC --web @$TMP/web.json --computer @$TMP/computer.json` 核对附件。
 
 ## 5. 收尾
