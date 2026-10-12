@@ -54,6 +54,18 @@ class CollectServerTests(unittest.TestCase):
         self.server(expected=2)
         self.server("--path-contains", 'x" or 1=1', expected=2)
 
+    def test_expired_sso_login_is_renewed_then_retried(self):
+        expired = {**self.env, "FAKE_AWS_EXPIRED": "1"}
+        result = self.server("--request-id", RID1, env=expired)
+        self.assertEqual((result["status"], result["login"]), ("captured", {"triggered": True, "ok": True}))
+        (self.base / "aws.json").unlink()
+        failed = self.server("--request-id", RID1, env={**expired, "FAKE_AWS_LOGIN": "fail"})
+        self.assertEqual((failed["status"], failed["reason_kind"]), ("blocked", "login_expired"))
+        self.assertIn("自动登录没有完成", failed["reason"])
+        (self.base / "aws.json").unlink()
+        unattended = self.server("--request-id", RID1, "--no-login", env=expired)
+        self.assertEqual((unattended["status"], "login" in unattended), ("blocked", False))
+
     def test_many_ids_are_batched(self):
         ids = [f"20261010T0948{i:02d}Z-4bfd1111-2222-3333-4444-fa347ac78d{i:02d}" for i in range(45)]
         self.server(*[arg for rid in ids for arg in ("--request-id", rid)])

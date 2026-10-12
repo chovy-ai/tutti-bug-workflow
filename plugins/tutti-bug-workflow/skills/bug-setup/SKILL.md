@@ -58,7 +58,9 @@ python3 scripts/prepare.py fix --scene solution --scene execute
 | 项 | Agent 先做 | 用户做 |
 |---|---|---|
 | 飞书应用未配置 | 后台运行 `lark-cli config init --new`，取出链接 | 打开链接，按页面创建应用 |
-| 飞书登录 | `lark-cli auth login --domain base,contact,drive --no-wait --json`，发链接；`lark-cli auth qrcode` 生成二维码 | 扫码或打开链接点「授权」；回复后 Agent 用 `--device-code` 完成登录 |
+| 飞书登录 | `lark-cli auth login --domain base,contact,drive --no-wait --json` → `open <verification_url>` 在本机打开浏览器 → `lark-cli auth login --device-code <code>` 等待完成 | 在弹出的浏览器里点「授权」，不用回复 |
+| Codex 登录 | 直接运行 `codex login`（会自己打开浏览器并等待） | 在浏览器里登录，不用回复 |
+| AWS SSO 过期 | 直接运行 `aws sso login`（会自己打开浏览器并等待） | 在浏览器里点「允许」，不用回复 |
 | Chrome 连接（`host`） | 调用 chrome-devtools 的 `list_pages`（提 Bug 场景再 `list_webmcp_tools`） | Chrome 弹窗点「允许」；没开远程调试或 WebMCP flag 时按 `guide` 打开 |
 | tutti-ops Token | 准备好 `configure-tutti-token` 命令 | 在管理端创建 Token，在终端隐藏粘贴 |
 
@@ -70,7 +72,7 @@ python3 scripts/prepare.py fix --scene solution --scene execute
 2. **你要做什么**：照 `guide` 写成编号步骤；要在终端运行的命令给出完整、可直接复制的一行；网页给出真实链接。
 3. **做完回复「已完成」**，我来检查。
 
-收到「已完成」后重新 `check`，以实际结果为准；通过就进入下一项，没通过就说明这次具体卡在哪、下一步怎么做。
+能由 Agent 发起、只需用户在浏览器里点一下的登录（上表），不要让用户回复，命令返回后直接复查。收到「已完成」后重新 `check`，以实际结果为准；通过就进入下一项，没通过就说明这次具体卡在哪、下一步怎么做。
 
 - Token、密码、App Secret 只在用户本机的隐藏输入里出现，不要让用户发到对话里，也不写进配置或 Bug 表。
 - 需要管理员处理的（表格编辑权限、GitHub 仓库写权限、管理端账号）：告诉用户找谁、要什么权限，然后继续其他项，不卡住整个流程。
