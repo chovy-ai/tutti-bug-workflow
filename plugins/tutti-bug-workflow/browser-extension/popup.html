@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font: 13px/1.5 -apple-system, "Segoe UI", sans-serif; width: 300px; margin: 12px; color: #1f2328; }
+    .status { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #8c959f; }
+    .dot.ok { background: #1a7f37; }
+    .hint { color: #59636e; margin: 6px 0 10px; word-break: break-all; }
+    .page { border-top: 1px solid #d1d9e0; padding: 8px 0; }
+    .page-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    button { margin-top: 6px; padding: 4px 10px; font: inherit; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="status"><span id="dot" class="dot"></span><span id="state">检查中…</span></div>
+  <div id="hint" class="hint"></div>
+  <div id="pages"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

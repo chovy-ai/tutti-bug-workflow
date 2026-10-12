@@ -109,6 +109,16 @@ class WorkbenchTests(unittest.TestCase):
         self.save_config(cfg)
         self.assertFalse(self.run_cli("doctor")["integrations_configured"]["logs"])
 
+    def test_bridge_web_source_requires_the_plugin_server(self):
+        cfg = self.config()
+        cfg["log_sources"] = [{"name": "web-chrome", "transport": "tutti-web-bridge",
+                               "environment": "local_chrome", "mcp_server": "tutti-web"}]
+        self.save_config(cfg)
+        self.assertTrue(self.run_cli("doctor")["integrations_configured"]["logs"])
+        cfg["log_sources"][0]["mcp_server"] = "chrome-devtools"
+        self.save_config(cfg)
+        self.assertFalse(self.run_cli("doctor")["integrations_configured"]["logs"])
+
     def test_chrome_devtools_web_source_requires_the_plugin_server(self):
         cfg = self.config()
         cfg["log_sources"] = [{"name": "web-chrome", "transport": "chrome-devtools-mcp",
@@ -153,13 +163,14 @@ class WorkbenchTests(unittest.TestCase):
         portable = json.loads((source / "mcp.json").read_text())
         legacy = json.loads((source / ".mcp.json").read_text())
         self.assertEqual({name: value for name, value in portable["mcpServers"].items()
-                          if name != "chrome-devtools"}, cfg["mcp_servers"])
+                          if name not in ("chrome-devtools", "tutti-web")}, cfg["mcp_servers"])
+        self.assertEqual(portable["mcpServers"]["tutti-web"]["args"], ["./bridge/tutti-web-bridge.mjs", "mcp"])
         self.assertIn("--categoryExperimentalWebmcp", portable["mcpServers"]["chrome-devtools"]["args"])
         self.assertEqual(legacy["mcpServers"]["chrome-devtools"]["command"], "npx")
         cfg["mcp_servers"] = {}
         self.save_config(cfg)
         self.run_cli("configure-mcp", "--output-dir", str(source))
-        self.assertEqual(set(json.loads((source / "mcp.json").read_text())["mcpServers"]), {"chrome-devtools"})
+        self.assertEqual(set(json.loads((source / "mcp.json").read_text())["mcpServers"]), {"chrome-devtools", "tutti-web"})
         self.assertEqual(legacy["mcpServers"]["web"], {"url": "http://127.0.0.1:8123/mcp"})
 
     def test_cli_refuses_unpinned_install(self):

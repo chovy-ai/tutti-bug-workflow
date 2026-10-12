@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Merge get_web_logs pages read through chrome-devtools execute_webmcp_tool into one web-logs.log.
+"""Merge get_web_logs pages read through tutti-web call_tutti_tool into one web-logs.log.
 
 The agent pages with input {"range": "10m", "limit": 200, "untilUnixMs": Q} and then
 {"...", "beforeSequence": nextBeforeSequence} while truncated, saving each raw tool
@@ -35,7 +35,7 @@ def parse_link(link):
 
 
 def snapshot_of(raw):
-    """Accept the tool result in the shapes chrome-devtools-mcp may return."""
+    """Accept the raw snapshot, an MCP content envelope, or the older chrome-devtools shapes."""
     value = raw
     for _ in range(8):  # message -> JSON -> status/output -> JSON -> snapshot, plus envelopes
         if isinstance(value, str):
@@ -87,7 +87,7 @@ def merge(pages, page_id, account, question_time):
             break  # Stalled cursor: keep what was read, mark partial.
     records.sort(key=lambda record: (record["occurredAtUnixMs"], record["id"]))
     metadata = {
-        "type": "metadata", "source": "chrome-devtools-webmcp", "pageSessionId": page_id,
+        "type": "metadata", "source": "tutti-web-bridge", "pageSessionId": page_id,
         "accountId": account, "questionTime": question_time, "sinceUnixMs": since, "untilUnixMs": until,
         "pages": len(pages), "recordCount": len(records), "redacted": False,
         "collectionStatus": "complete" if complete else "partial",

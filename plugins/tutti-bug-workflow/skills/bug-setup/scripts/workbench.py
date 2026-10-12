@@ -21,6 +21,8 @@ PLUGIN_ROOT = Path(__file__).resolve().parents[3]
 CHROME_DEVTOOLS_MCP = {"type": "stdio", "command": "npx",
                        "args": ["-y", "chrome-devtools-mcp@1.10.1", "--autoConnect",
                                 "--categoryExperimentalWebmcp"]}
+TUTTI_WEB_MCP = {"type": "stdio", "command": "node", "args": ["./bridge/tutti-web-bridge.mjs", "mcp"], "cwd": "."}
+PLUGIN_MCP = {"chrome-devtools": CHROME_DEVTOOLS_MCP, "tutti-web": TUTTI_WEB_MCP}
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}\Z")
 PACKAGE = re.compile(r"(?:@[a-z0-9_.-]+/)?[a-z0-9][a-z0-9_.-]*\Z")
 VERSION = re.compile(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?\Z")
@@ -461,8 +463,11 @@ def log_source_configured(source, cfg):
     if transport == "user-export":
         # QA exports the archive from Tutti Settings → Diagnostics; nothing to connect.
         return True
+    if transport == "tutti-web-bridge":
+        # Registered by the plugin; the Chrome extension connection is checked live.
+        return source.get("mcp_server") == "tutti-web"
     if transport == "chrome-devtools-mcp":
-        # Registered by the plugin; Chrome WebMCP and remote-debugging consent are checked live.
+        # Earlier configurations: Chrome WebMCP and remote-debugging consent are checked live.
         return source.get("mcp_server") == "chrome-devtools"
     if transport == "files":
         if "paths" in source:
@@ -823,9 +828,10 @@ def configure_mcp(args, root):
     cfg = load_config(args, root)
     servers = cfg.get("mcp_servers", {})
     validate_servers(servers)
-    if "chrome-devtools" in servers and servers["chrome-devtools"] != CHROME_DEVTOOLS_MCP:
-        raise ValueError("chrome-devtools is the plugin-owned Chrome WebMCP entry.")
-    servers = {**servers, "chrome-devtools": CHROME_DEVTOOLS_MCP}
+    for name, server in PLUGIN_MCP.items():
+        if name in servers and servers[name] != server:
+            raise ValueError(f"{name} is a plugin-owned MCP entry.")
+    servers = {**servers, **PLUGIN_MCP}
     target = Path(args.output_dir).expanduser().resolve()
     if ".codex" in target.parts and "cache" in target.parts:
         raise ValueError("Generate MCP configuration in source, not the installed plugin cache.")

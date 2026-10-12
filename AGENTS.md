@@ -16,6 +16,8 @@ plugins/tutti-bug-workflow/
     tests/        本 Skill 脚本的测试
   scripts/        插件级：插件校验
   config/         插件级：运行配置模板 workbench.example.json
+  bridge/         插件级：本机 Web 日志 bridge（tutti-web MCP + Chrome Native Messaging hub）
+  browser-extension/  插件级：Tutti Bug Workflow Bridge Chrome 插件
   plugin.json, .codex-plugin/, mcp.json, .mcp.json, README.md
 ```
 
@@ -24,7 +26,7 @@ plugins/tutti-bug-workflow/
 1. **Skill 之间不互相引用文件。** 一个 Skill 的 SKILL.md、references、scripts 只链接或调用本 Skill 目录下的文件。多个 Skill 需要同一份内容时，各自保留一份，并只保留与本 Skill 相关的部分；接受重复，避免耦合。例如 `feishu.py` 由各 Skill 按自己的读写需要各自维护。
 2. **需要另一个 Skill 的能力时，引用 Skill 而不是文件**，例如「工具安装与认证由 `$tutti-bug-workflow:bug-setup` 处理」。
 3. **使用和准备分开写。** 工具的安装、认证、授权写在 bug-setup；如何使用写在使用它的 Skill。
-4. **插件级目录只放插件本身的东西**：插件清单、MCP 注册文件（`mcp.json`、`.mcp.json`，注册官方 `chrome-devtools-mcp`）、`scripts/validate_plugin.py`、各 Skill 共同读取的运行配置模板 `config/workbench.example.json`、README。不要在插件级新增 `references/`、`assets/` 或业务脚本。
+4. **插件级目录只放插件本身的东西**：插件清单、MCP 注册文件（`mcp.json`、`.mcp.json`，注册官方 `chrome-devtools-mcp` 与自带的 `tutti-web`）、`bridge/` 与 `browser-extension/`（多个 Skill 共用的本机 MCP server 和 Chrome 插件，各自带测试；安装与授权仍写在 bug-setup，用法写在使用它的 Skill）、`scripts/validate_plugin.py`、各 Skill 共同读取的运行配置模板 `config/workbench.example.json`、README。不要在插件级新增 `references/`、`assets/` 或业务脚本。
 5. Skill 内脚本的路径写成相对 Skill 目录（如 `scripts/feishu.py`），或插件源码下的完整路径（如 `PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py`）。
 
 ## 测试
@@ -35,6 +37,7 @@ for skill in bug-investigate bug-setup bug-solution bug-execute; do
   python3 -m unittest discover -s skills/$skill/tests -t skills/$skill/tests
 done
 python3 scripts/validate_plugin.py
+node --test bridge/tests/*.test.mjs
 ```
 
 `skills/*/tests/fixtures-*.py` 是测试替身，不要作为测试文件直接运行。

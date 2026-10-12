@@ -10,7 +10,7 @@
 
 - `bug_report.base_url`、`base_token`、`table_id`、`view_id`：三个场景共用的 Bug 管理表；`field_map` 的键为业务语义，值为真实字段 ID。`defaults`、`platform_choices`、`excluded_priorities` 供提 Bug 使用。更换表格前必须重新解析和读取字段，不能复用原字段或视图 ID。字段职责见 [字段与职责](report-fields.md)，场景交接见 [工作流](workflow.md)。
 - `repositories`：默认配置 tutti（Web、Computer）、tutti-server（Server）、tsh-websocket（WebSocket）三个仓库的远端 main；每项提供 `name`、`url`、`base_branch`、`cache_path`（bare 缓存）和 `checkout_path`（全局分析检出）。修复 worktree 位于数据目录 `worktrees/` 下，推送后删除。操作见 [代码缓存](repository-cache.md)，其他分支需用户指定。
-- `log_sources`：每项提供 `name`、`kind`、`transport`、`environment` 及对应入口。Web 有两个来源：`chrome-devtools-mcp`（插件注册的 chrome-devtools MCP，见 [WebMCP 连接准备](web-logs.md)）与 `user-export`（QA 导出的诊断包）；`files` 使用明确的文件 `paths`，支持绝对路径、`~/`、`${TMPDIR}/` 和 `${TEMP}/`，读取前解析为本机绝对路径；`mcp` 使用 `mcp_server` 与实际 `tool`；兼容旧配置的 `cli` 使用 `argv` 与可选 `cwd`。Computer 的路径规则及远端协议见 [Computer 日志获取](computer-logs.md)。缺少入口时保留空值，检查逐个报告未配置；配置检查不表示已取得日志。
+- `log_sources`：每项提供 `name`、`kind`、`transport`、`environment` 及对应入口。Web 有两个来源：`tutti-web-bridge`（插件注册的 tutti-web MCP 经 Chrome 插件读取本机 Tutti 页面，见 [Web 日志连接准备](web-logs.md)；旧配置的 `chrome-devtools-mcp` 仍可识别）与 `user-export`（QA 导出的诊断包）；`files` 使用明确的文件 `paths`，支持绝对路径、`~/`、`${TMPDIR}/` 和 `${TEMP}/`，读取前解析为本机绝对路径；`mcp` 使用 `mcp_server` 与实际 `tool`；兼容旧配置的 `cli` 使用 `argv` 与可选 `cwd`。Computer 的路径规则及远端协议见 [Computer 日志获取](computer-logs.md)。缺少入口时保留空值，检查逐个报告未配置；配置检查不表示已取得日志。
 - `validation`：实际环境、URL、浏览器工具，以及部署版本的读取方法。部署操作仍按当前任务授权执行。
 - `aws_cli`：默认 AWS 接入，保存 profile 与查询参考区域。执行 `setup-aws-cli --install` 准备 CLI v2；完整 Setup 或选择 AWS 时接续 `--check-auth` 并处理认证缺口，详见 [AWS CLI 安装与日志读取](aws-cli.md)。
 - `aws_mcp`：保留旧版显式 MCP 接入设置，当前 setup 不使用此项自动注册；CLI 可用后清理由插件创建且未被改动的旧 AWS MCP。
@@ -22,7 +22,7 @@
 
 | 来源 | 获取方式 | 当前配置 |
 |---|---|---|
-| Web 日志 | 本机 Chrome WebMCP（chrome-devtools MCP），兜底为 QA 导出的诊断包 | MCP 已注册；Chrome 设置由使用者本人开启 |
+| Web 日志 | 本机 Chrome 插件 + tutti-web MCP，兜底为 QA 导出的诊断包 | MCP 已注册；`prepare.py fix` 安装本机 bridge，插件由使用者本人加载一次 |
 | 本地 computer 日志 | 直接读取用户明确指定的文件路径 | 当前 Mac 已保存核实的三个主日志及 Codex 临时诊断路径；分发配置的 `computer-local.paths` 仍为空，新机器需确认后填写 |
 | 远端 computer 日志 | tutti-ops CLI 或实际 MCP 执行 Tutti 日志召回，再下载、校验和读取日志包 | 已记录 CLI 命令与协议；使用时确认实际入口、环境与权限，MCP 待接入 |
 
@@ -32,7 +32,7 @@
 
 远端可使用 [tutti-ops CLI 获取 Computer 日志](tutti-ops-computer-logs.md)，Setup 先准备 CLI，安装阶段结束后立即检查授权；Token 缺失时引导本人在 [admin.tutti.sh](https://admin.tutti.sh) 管理端获取 Token，使用 `configure-tutti-token` 直接验证并保存到 CLI 原生配置，再核对实际权限。安装不表示 `computer-remote` 的 MCP 已连接；已有 CLI、目标环境与权限时按实际命令直接执行，无需等待 MCP。每条 Bug 保存本次实际使用的 CLI/API origin、目标 Computer、taskId 与证据覆盖。缺少鉴权时按 [主动补齐授权](setup-user-guide.md#主动补齐授权) 发起恢复流程，保持原定身份。
 
-Web 日志优先通过插件注册的 chrome-devtools MCP 读取本机 Chrome 页面（准备步骤见 [WebMCP 连接准备](web-logs.md)），不可用时使用 QA 导出的诊断包。
+Web 日志优先通过插件注册的 tutti-web MCP 与 Chrome 插件读取本机 Tutti 页面（准备步骤见 [Web 日志连接准备](web-logs.md)），不可用时使用 QA 导出的诊断包。
 
 远端 computer MCP 接入时，核对实际 URL/运行入口、认证、工具 schema 与返回格式，将服务器配置写入 `mcp_servers`，再设置对应日志来源的 `mcp_server` 与 `tool`。实际使用前发现宿主工具并执行授权范围内的读取；仅填名称不代表连接成功。查询按 Bug 的环境、时间与时区、computer/会话/request 标识和部署版本定位，并保留实际支持的分页、保留时长及截断信息。
 
