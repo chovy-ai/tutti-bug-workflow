@@ -28,7 +28,8 @@ python3 scripts/collect_server.py --question-time <question_time> \
 
 - `status: captured`：取到日志；`namespaces`／`environments` 写进「环境与版本」，`service.version` 写进版本信息。
 - `status: empty`：时间窗内没有匹配，常见原因是 request id 来自别的时间或页面已刷新；放宽 `--before-minutes`／`--after-minutes` 或换用 `--path-contains` 再试一次。
-- `status: blocked`：AWS 认证或权限问题，写进回复交给维护方，不让用户找日志。
+- AWS SSO 登录过期：脚本自动运行 `aws sso login`（本机弹出浏览器，用户点「允许」），成功后重试，结果带 `login: {triggered: true, ok: true}`。无人值守时加 `--no-login`。
+- `status: blocked`：`reason_kind: login_expired` 表示自动登录也没完成（10 分钟没授权、没有配置 SSO），写清用户要做的一步；其他是权限或网络问题，写进回复交给维护方，不让用户找日志。
 
 ## 上传
 

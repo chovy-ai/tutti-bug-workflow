@@ -170,10 +170,9 @@ def check_lark(cfg):
     if user.get("tokenStatus") != "valid":
         return [item("lark-auth", "飞书登录", "user", user.get("message") or "飞书用户身份未登录或已过期",
                      guide=["Agent 运行 `lark-cli auth login --domain base,contact,drive --no-wait --json`，"
-                            "把返回的链接（和 `lark-cli auth qrcode` 生成的二维码）发给你；",
-                            "你用飞书扫码或打开链接，点「授权」；",
-                            "回复「已完成」后，Agent 用返回的 device code 运行 "
-                            "`lark-cli auth login --device-code <code>` 完成登录。"],
+                            "用 `open <verification_url>` 在本机打开浏览器；",
+                            "Agent 接着运行 `lark-cli auth login --device-code <device_code>` 等待授权完成；",
+                            "你只需在弹出的浏览器里点「授权」，不用回复。"],
                      verify="lark-cli auth status 中 user.tokenStatus 为 valid")]
     items.append(item("lark-auth", "飞书登录", "ok", f"{user.get('userName')}（{user.get('openId')}）"))
     table = cfg.get("bug_report") or example()["bug_report"]
@@ -229,8 +228,9 @@ def check_codex():
     code, out = run(["codex", "login", "status"])
     if code or "Logged in" not in out:
         return [item("codex-login", "Codex 登录", "user", out.strip()[-200:] or "未登录",
-                     guide=["在终端运行 `codex login`，按提示在浏览器登录（ChatGPT 账号或 API key）；",
-                            "完成后回复「已完成」。"], verify="codex login status 显示 Logged in")]
+                     guide=["Agent 直接运行 `codex login`，它会在本机打开浏览器并等待；",
+                            "你在浏览器里登录（ChatGPT 账号或 API key），不用回复。"],
+                     verify="codex login status 显示 Logged in")]
     return [item("codex-login", "Codex 登录", "ok", out.strip().splitlines()[0])]
 
 

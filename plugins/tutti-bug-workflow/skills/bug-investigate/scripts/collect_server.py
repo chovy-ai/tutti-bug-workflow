@@ -8,6 +8,10 @@ Computer id, within a window around question_time.
 The Kubernetes namespace of the matches tells the environment: `tutti` is production,
 `lane-ppe-*` is PPE, other `lane-*` are preview lanes.
 
+An expired AWS SSO login is renewed on the spot: `aws sso login` opens the browser on
+this machine, the person approves there, and the query is retried once. `--no-login`
+turns that off (unattended runs).
+
 Stateless: one JSON result on stdout and one server-logs.log (JSON Lines, metadata
 first, records by time) in --output-dir. Exit 0 whenever a result is produced
 (captured, empty or blocked); 2 for invalid input. Standard library only.
@@ -44,8 +48,26 @@ def request_ids_from(path):
     return list(dict.fromkeys(REQUEST_ID.findall(text)))
 
 
+EXPIRED = re.compile(r"expired|refresh failed|token does not exist|Error loading SSO Token|sso session", re.I)
+LOGIN_TIMEOUT = 600
+
+
 class Blocked(Exception):
-    pass
+    def __init__(self, message, kind="other"):
+        super().__init__(message)
+        self.kind = kind
+
+
+def sso_login(command):
+    """Run `aws sso login` (honours AWS_PROFILE); the CLI opens the browser itself."""
+    try:
+        result = subprocess.run([command, "sso", "login"], capture_output=True, text=True,
+                                timeout=LOGIN_TIMEOUT, check=False)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return {"triggered": True, "ok": False, "reason": f"{LOGIN_TIMEOUT // 60} 分钟内没有完成浏览器授权"}
+    if result.returncode:
+        return {"triggered": True, "ok": False, "reason": (result.stderr or result.stdout).strip()[-300:]}
+    return {"triggered": True, "ok": True}
 
 
 def environment(namespace):
@@ -67,7 +89,9 @@ def aws(command, region, *arguments):
     except subprocess.TimeoutExpired:
         raise Blocked("aws CLI timed out") from None
     if result.returncode != 0:
-        raise Blocked(f"aws {arguments[1] if len(arguments) > 1 else ''} failed: {result.stderr.strip()[:400]}")
+        message = result.stderr.strip()[:400]
+        raise Blocked(f"aws {arguments[1] if len(arguments) > 1 else ''} failed: {message}",
+                      "login_expired" if EXPIRED.search(message) else "other")
     return json.loads(result.stdout or "{}")
 
 
@@ -110,6 +134,7 @@ def main():
     parser.add_argument("--region", default=DEFAULT_REGION)
     parser.add_argument("--container", default="tutti-server")
     parser.add_argument("--poll-seconds", type=float, default=2)
+    parser.add_argument("--no-login", action="store_true", help="Do not renew an expired SSO login.")
     args = parser.parse_args()
     try:
         moment = datetime.fromisoformat(args.question_time.replace("Z", "+00:00"))
@@ -139,15 +164,28 @@ def main():
               "window": {"since": since.astimezone(timezone.utc).isoformat(), "until": until.astimezone(timezone.utc).isoformat()},
               "log_group": args.log_group, "region": args.region, "request_ids": len(ids),
               "path_terms": args.path_contains}
-    try:
+    def collect():
         rows, truncated = [], False
         for index in range(0, len(terms), BATCH):
             batch = run_query(command, args.region, args.log_group, since, until,
                               terms_query(args.container, terms[index:index + BATCH]), args.poll_seconds)
             truncated = truncated or len(batch) >= LIMIT
             rows += batch
+        return rows, truncated
+
+    try:
+        try:
+            rows, truncated = collect()
+        except Blocked as blocked:
+            if blocked.kind != "login_expired" or args.no_login:
+                raise
+            result["login"] = sso_login(command)
+            if not result["login"]["ok"]:
+                raise Blocked(f"AWS 登录已过期，自动登录没有完成：{result['login']['reason']}", "login_expired") from None
+            rows, truncated = collect()
     except Blocked as blocked:
-        print(json.dumps({**result, "status": "blocked", "reason": str(blocked)}, ensure_ascii=False))
+        print(json.dumps({**result, "status": "blocked", "reason": str(blocked), "reason_kind": blocked.kind},
+                         ensure_ascii=False))
         return 0
     seen, records = set(), []
     for row in sorted(rows, key=lambda r: r.get("@timestamp", "")):

@@ -5,6 +5,12 @@ from pathlib import Path
 args = sys.argv[1:]
 state_path = Path(os.environ["FAKE_AWS_STATE"])
 state = json.loads(state_path.read_text()) if state_path.exists() else {"queries": []}
+if args[:2] == ["sso", "login"]:
+    state["logged_in"] = os.environ.get("FAKE_AWS_LOGIN") != "fail"
+    state_path.write_text(json.dumps(state))
+    sys.exit(0 if state["logged_in"] else 1)
+if os.environ.get("FAKE_AWS_EXPIRED") and not state.get("logged_in"):
+    print("Error when retrieving token from sso: Token has expired and refresh failed", file=sys.stderr); sys.exit(255)
 if os.environ.get("FAKE_AWS_FAIL"):
     print("AccessDenied", file=sys.stderr); sys.exit(255)
 if "start-query" in args:

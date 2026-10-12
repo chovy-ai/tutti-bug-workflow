@@ -17,6 +17,15 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 **尽量并行。** Web 日志先采（它给出 request id 和 Computer 线索），随后三件事同时进行：Computer 召回用后台进程跑，Server 日志交给 subagent 查，主 agent 上传附件、填字段。宿主不支持 subagent 时，Server 也用后台进程跑。
 
+**登录过期就当场重新登录，不停下来问。** 认证失效不是卡点，不要写「因登录过期受阻，已记录原因」然后结束：
+
+| 入口 | 怎么自动恢复 |
+|---|---|
+| AWS（Server 日志） | `collect_server.py` 遇到 SSO 过期会自己运行 `aws sso login`，浏览器在本机弹出，用户在浏览器里点「允许」即可，脚本随后重试。结果里 `login.ok` 为 true 就照常继续 |
+| 飞书（lark-cli） | 报未登录或 token 过期时：`lark-cli auth login --domain base,contact,drive --no-wait --json` 取 `verification_url` 和 `device_code` → `open <verification_url>` 在本机打开浏览器 → `lark-cli auth login --device-code <device_code>`（会等到用户在浏览器里点完授权）→ 重试原命令 |
+
+自动登录的同时在对话里说一句「AWS／飞书登录已过期，已在浏览器打开授权页，点一下允许即可」，然后继续等待，不结束本轮。只有等了 10 分钟仍没完成、没有配置 SSO，或者 tutti-ops Token 失效（需要在管理端重新创建，见 `$tutti-bug-workflow:bug-setup`），才写进最终回复，并写清用户要做的一步。
+
 **不脱敏。** 现场日志原样采集、原样上传。
 
 **无状态。** `record_id`、`question_time`、采集结果都记在本次会话上下文中；日志、截图等是放在会话临时目录（下称 `$TMP`）里的临时文件。对外唯一的事实来源是飞书记录。脚本路径相对本 Skill 目录（`skills/bug-investigate/`），都输出一段 JSON。工具安装与认证由 `$tutti-bug-workflow:bug-setup` 负责，已有权限内的读取、召回、上传与回填属于本任务授权，无需逐项再问。
@@ -28,7 +37,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 | 飞书记录 | `record_id`；Bug 描述、状态、问题类型、提交人、记录时间已填；所属端已判断；优先级已按定义填写，或拿不准、已列入待 QA 确认；业务模块是现有选项之一，或对不上、已列入待 QA 确认 |
 | 跟进人 | 已写入「指派人」；或已在回复中请用户指定 |
 | Web 日志 | `web-logs.log` 或 QA 导出包已上传；或写明缺什么、怎么提供 |
-| Server 日志 | `captured`／`empty`／`blocked`（附原因） |
+| Server 日志 | `captured`／`empty`／`blocked`（附原因）；登录过期已自动重新登录并重试过 |
 | Computer 日志 | 召回已完成并上传；或写明受阻原因、待用户确认的设备 |
 | 附件 | QA 的截图／视频与全部日志都在「截图、视频、日志」，`check_collection` 显示 `attached: true` |
 | 上下文字段 | 环境与版本、页面链接、问题上下文已写入并回读 |
@@ -122,6 +131,6 @@ python3 scripts/collect_server.py --question-time <question_time> \
    | 优先级（拿不准时） | 「这条按 P1（明显 Bug）登记合适吗？P0 严重阻塞／P1 明显 Bug／P2 非核心 Bug」，附一句判断理由 |
    | 业务模块（对不上时） | 列出两三个最接近的现有模块请 QA 选，不新建选项 |
 
-   工具、权限、认证问题不问用户，写在回复里交给维护方。用户补充后再次调用本 Skill，读取同一记录继续。
+   登录过期按上面的规则当场自动恢复，不列在这里；真正的工具缺失、权限不足（没有表格或日志的访问权）才写进回复交给维护方。用户补充后再次调用本 Skill，读取同一记录继续。
 3. 按开头的自查表逐项确认；全部完成后按 [会话上传](references/session-upload.md) 上传本次会话一次。
 4. 最终回复：飞书记录链接、环境、已采集的现场与附件、缺失项及需要用户提供的内容。
