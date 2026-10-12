@@ -8,6 +8,14 @@
         "--autoConnect",
         "--categoryExperimentalWebmcp"
       ]
+    },
+    "tutti-web": {
+      "command": "node",
+      "args": [
+        "./bridge/tutti-web-bridge.mjs",
+        "mcp"
+      ],
+      "cwd": "."
     }
   }
 }

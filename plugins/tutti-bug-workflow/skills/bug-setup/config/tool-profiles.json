@@ -154,20 +154,19 @@
     },
     {
       "id": "web-logs",
-      "label": "Web 日志（本机 Chrome WebMCP，兜底为 QA 导出包）",
+      "label": "Web 日志（本机 Chrome 插件 + tutti-web bridge，兜底为 QA 导出包）",
       "required_in": [],
       "conditional_in": [
-        "investigate",
-        "execute"
+        "investigate"
       ],
       "commands": [
-        "node",
-        "npx"
+        "node"
       ],
       "configuration": "source:web-chrome",
       "requirements": [
-        "插件注册的 chrome-devtools MCP（chrome-devtools-mcp --autoConnect --categoryExperimentalWebmcp）",
-        "Chrome 开启 WebMCP for testing 与远程调试，并允许连接",
+        "插件注册的 tutti-web MCP（node bridge/tutti-web-bridge.mjs mcp）",
+        "prepare.py fix 安装本机 bridge 并注册 Native Messaging",
+        "Chrome 以开发者模式加载 Tutti Bug Workflow Bridge 插件（*.tutti.sh）",
         "不可用时使用 QA 在「设置 → 诊断」导出的诊断包"
       ],
       "install_operation": null

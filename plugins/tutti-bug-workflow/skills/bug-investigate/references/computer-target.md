@@ -7,7 +7,7 @@
 按顺序取第一个可用的来源，记下来源：
 
 1. **Web 诊断包**：`manifest.json` 的 `computers[]` 列出这段时间页面关联过的 Computer（`computerId`、`platform`、`arch`、`computerVersion`）；故障时间附近记录的 `computerRefs` 指向 `manifest.computerContexts[].ref`，能缩小到同一次操作涉及的那台。页面当前选中的 Computer 可能已经变了，以故障时间附近的记录为准。
-2. **页面目录（WebMCP 可用时）**：用同一个页面的 `execute_webmcp_tool` 调用 `list_my_computers`（当前 Account 自有的全部 Computer，含离线与名称）、`list_rooms`、`list_room_agents({roomId})`（房间里共享 Agent 背后的 Computer）。按返回的 `nextCursor` 读完全部分页，游标 60 秒过期；`computerId` 为 null 的条目保留为未知，不从名称推断。
+2. **页面目录（本机插件可用时）**：用同一个连接链接的 `tutti-web.call_tutti_tool` 调用 `list_my_computers`（当前 Account 自有的全部 Computer，含离线与名称）、`list_rooms`、`list_room_agents({roomId})`（房间里共享 Agent 背后的 Computer）。按返回的 `nextCursor` 读完全部分页，游标 60 秒过期；`computerId` 为 null 的条目保留为未知，不从名称推断。
 3. **QA 提供的设备名称或 ID**：用 `tutti-ops --admin-url https://admin.tutti.sh --mode read computer devices list --name-query NAME --page-all` 查到 `computerId`（见 [tutti-ops CLI](tutti-ops-computer-logs.md#定位目标与已有任务)）。
 4. **展示名称**：诊断包里只有 ID，没有设备名称。需要让 QA 选择时，用 `tutti-ops ... computer devices get --computer-id ID` 取 `displayName`、`platform`、在线状态，再列给 QA。
 

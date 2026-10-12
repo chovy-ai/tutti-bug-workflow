@@ -36,7 +36,7 @@ python3 scripts/prepare.py check --scene solution --scene execute
 | `ok` | 已就绪并实际验证过（装好、登录有效、资源能访问） | — |
 | `fix` | 缺，但能无人值守补上 | Agent，第 3 步 |
 | `user` | 需要本人操作（登录、Token、找负责人要权限），带 `guide` 步骤和 `verify` 复查方法 | 用户，Agent 引导，第 4 步 |
-| `host` | 需要 Agent 在 Codex 里实际验证（chrome-devtools MCP 与 Chrome 授权） | Agent＋用户点允许 |
+| `host` | 需要 Agent 在 Codex 里实际验证（tutti-web 读本机 Tutti 页面；修复验收的 chrome-devtools 与 Chrome 授权） | Agent（chrome-devtools 需用户点允许） |
 | `optional` | 场景能用，但还可以更好（如定时任务还没开） | 收尾时询问 |
 
 先给用户一张简短的表：哪些已就绪、哪些我马上自动处理、哪些需要你。用户只要求「列一下要准备什么」时到这里结束，不安装、不登录。
@@ -61,7 +61,8 @@ python3 scripts/prepare.py fix --scene solution --scene execute
 | 飞书登录 | `lark-cli auth login --domain base,contact,drive --no-wait --json` → `open <verification_url>` 在本机打开浏览器 → `lark-cli auth login --device-code <code>` 等待完成 | 在弹出的浏览器里点「授权」，不用回复 |
 | Codex 登录 | 直接运行 `codex login`（会自己打开浏览器并等待） | 在浏览器里登录，不用回复 |
 | AWS SSO 过期 | 直接运行 `aws sso login`（会自己打开浏览器并等待） | 在浏览器里点「允许」，不用回复 |
-| Chrome 连接（`host`） | 调用 chrome-devtools 的 `list_pages`（提 Bug 场景再 `list_webmcp_tools`） | Chrome 弹窗点「允许」；没开远程调试或 WebMCP flag 时按 `guide` 打开 |
+| Web 日志插件（`web-bridge`） | `prepare.py fix` 安装本机 bridge；打开 `chrome://extensions`，给出插件目录；连上后调用 tutti-web 的 `list_tutti_pages` | 打开开发者模式、加载插件目录（只做一次），见 [Web 日志连接准备](references/web-logs.md) |
+| Chrome 连接（`host`，修复验收） | 调用 chrome-devtools 的 `list_pages` | Chrome 弹窗点「允许」；没开远程调试时按 `guide` 打开 |
 | tutti-ops Token | 准备好 `configure-tutti-token` 命令 | 在管理端创建 Token，在终端隐藏粘贴 |
 
 ## 4. 一步步引导本人操作

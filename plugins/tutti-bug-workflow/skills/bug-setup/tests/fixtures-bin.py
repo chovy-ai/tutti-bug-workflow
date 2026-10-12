@@ -21,6 +21,18 @@ def out(value):
     sys.exit(0)
 
 
+if name == "node" and args and args[0].endswith("tutti-web-bridge.mjs"):
+    installed = log.with_name("bridge-installed")
+    if args[1] == "install":
+        installed.write_text("1")
+        out({"bridgeVersion": "0.1.0"})
+    if args[1] == "doctor":
+        extension = tools.get("bridge_extension", "missing")
+        connected = installed.exists() and extension == "enabled" and tools.get("bridge_connected", False)
+        out({"ready": connected, "needsInstall": not installed.exists(), "bridgeVersion": "0.1.0",
+             "extension": {"dir": "/home/.tutti-bug-workflow/browser-extension",
+                           "profiles": [] if extension == "missing" else
+                           [{"profile": "Default", "installed": True, "enabled": extension == "enabled"}]}})
 if name == "node":
     out(tools.get("node", "v22.1.0"))
 if name == "npm":

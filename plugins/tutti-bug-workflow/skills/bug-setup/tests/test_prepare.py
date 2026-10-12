@@ -48,20 +48,43 @@ class PrepareTests(unittest.TestCase):
         self.install("node", "npm", "npx")
         report, items = self.prepare("check", "investigate")
         self.assertEqual(set(report["scenes"]), {"investigate"})
-        self.assertEqual((items["config"]["status"], items["lark-cli"]["status"], items["tutti-ops"]["status"]),
-                         ("fix", "fix", "fix"))
+        self.assertEqual((items["config"]["status"], items["lark-cli"]["status"], items["tutti-ops"]["status"],
+                          items["web-bridge"]["status"]), ("fix", "fix", "fix", "fix"))
         self.assertNotIn("codex", items)  # not part of this scene
+        self.assertNotIn("chrome-devtools", items)  # QA reads page logs through the bridge extension
         self.tools["tutti_token"] = False
         report, items = self.prepare("fix", "investigate")
-        self.assertEqual(len(report["fixed"]), 3, report)
+        self.assertEqual(len(report["fixed"]), 4, report)
         self.assertEqual(items["config"]["status"], "ok")
         config = json.loads((self.data / "config.json").read_text())
         self.assertEqual(config["tutti_ops"]["admin_url"], "https://admin.tutti.sh")
         self.assertEqual((items["lark-auth"]["status"], items["feishu-table"]["status"]), ("ok", "ok"))
         self.assertEqual(items["tutti-ops-auth"]["status"], "user")
         self.assertIn("admin-tokens", items["tutti-ops-auth"]["guide"][0])
-        self.assertEqual(items["chrome-devtools"]["status"], "host")
+        self.assertEqual(items["web-bridge"]["status"], "user")
+        self.assertIn("chrome://extensions", items["web-bridge"]["guide"][0])
         self.assertFalse(report["ready"])
+
+    def test_web_bridge_walks_from_install_to_connected(self):
+        self.install("node", "npm", "npx", "lark-cli", "tutti-ops")
+        _, items = self.prepare("check", "investigate")
+        self.assertEqual(items["web-bridge"]["fix"], "web-bridge")
+        self.prepare("fix", "investigate")
+        self.tools["bridge_extension"] = "disabled"
+        _, items = self.prepare("check", "investigate")
+        self.assertEqual((items["web-bridge"]["status"], items["web-bridge"]["detail"]), ("user", "插件已加载但被停用"))
+        self.tools["bridge_extension"] = "enabled"
+        _, items = self.prepare("check", "investigate")
+        self.assertEqual(items["web-bridge"]["status"], "host")
+        self.tools["bridge_connected"] = True
+        _, items = self.prepare("check", "investigate")
+        self.assertEqual(items["web-bridge"]["status"], "ok")
+
+    def test_execute_keeps_chrome_devtools_for_browser_validation(self):
+        self.install("node", "npm", "npx")
+        _, items = self.prepare("check", "execute")
+        self.assertEqual(items["chrome-devtools"]["status"], "host")
+        self.assertNotIn("web-bridge", items)
 
     def test_defaults_fill_gaps_but_keep_existing_values(self):
         self.data.mkdir()
@@ -98,7 +121,7 @@ class PrepareTests(unittest.TestCase):
 
     def test_all_scenes_ready_with_schedules(self):
         self.install("node", "npm", "npx", "lark-cli", "git", "codex", "mmdc", "gh", "tutti-ops")
-        self.tools.update(gh_scopes="'repo', 'workflow'")
+        self.tools.update(gh_scopes="'repo', 'workflow'", bridge_extension="enabled", bridge_connected=True)
         for name in ("com.tutti.bug-solution.ou_me.plist", "com.tutti.bug-execute.ou_me.plist"):
             (self.agents / name).write_text("<plist/>")
         report, items = self.prepare("fix", "all")

@@ -10,6 +10,15 @@
         "--categoryExperimentalWebmcp"
       ],
       "type": "stdio"
+    },
+    "tutti-web": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "./bridge/tutti-web-bridge.mjs",
+        "mcp"
+      ],
+      "cwd": "."
     }
   }
 }

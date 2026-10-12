@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Tutti Bug Workflow Bridge",
+  "version": "0.1.0",
+  "description": "Lets local Codex agents read Tutti Web diagnostic tools on *.tutti.sh pages without Chrome remote debugging.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA+ruJJLRm9nXMGOUOsvSBTAceNbPNnQAvhjnUYHBEpGxSXhneSuekwvk+fBRTy7DkUp0CyEF+dMMDAYZBJp++mcigVKpzAA9zn016BSOH0qmM2esoddneskSOykOGiOfG9v4hZM7/x7p4+cT8pRXpVp7DXspM9GDQHouc/raphr/h+6AMvEyYeA2u2aMNpax4czB7/mHDfJi1ckhkE2x8scciASu1WwSm30rjD6vbkhTbbI/fncbinTC8LrO8FjjGZLHPr432zXr3mc/YHKkC98URvlkrZ/zy+24sFYg5FbHb7eu8BZwrnVBduJHPGjwyeeqhjvEG1parGvcuWHPZ0QIDAQAB",
+  "minimum_chrome_version": "116",
+  "permissions": ["nativeMessaging", "alarms", "storage"],
+  "host_permissions": ["https://*.tutti.sh/*"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://*.tutti.sh/*"],
+      "js": ["page-main.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": false
+    },
+    {
+      "matches": ["https://*.tutti.sh/*"],
+      "js": ["page-isolated.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "action": { "default_title": "Tutti Bug Workflow Bridge", "default_popup": "popup.html" }
+}

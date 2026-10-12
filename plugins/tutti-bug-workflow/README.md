@@ -1,6 +1,6 @@
 # tutti-bug-workflow
 
-版本：0.1.47。运行方式：Codex 本地会话。三个业务场景以飞书 Bug 管理表中的同一条记录交接，不保留本地档案；公共初始化 Skill 准备配置与依赖。
+版本：0.1.48。运行方式：Codex 本地会话。三个业务场景以飞书 Bug 管理表中的同一条记录交接，不保留本地档案；公共初始化 Skill 准备配置与依赖。
 
 | 入口 | 工作内容 |
 |---|---|
@@ -17,9 +17,9 @@
 
 Agent 会先问你要准备哪个场景：**QA 提 Bug**、**定时分析**、**定时修复**，或**全部**（RD 一般选定时分析＋定时修复）。之后：
 
-1. **检查**：`skills/bug-setup/scripts/prepare.py check --scene …` 逐项实际验证：飞书登录与 Bug 表、三个仓库、Codex 登录、mmdc 渲染、GitHub 登录与推送/部署权限、tutti-ops Token、本机 Chrome 连接、定时任务。
-2. **能做的直接做**：`prepare.py fix` 补齐默认配置（已有值不动，原文件备份），用 npm／Homebrew 安装缺少的 lark-cli、codex、mmdc、tutti-ops、gh。
-3. **一步步引导**：需要你本人做的（飞书扫码授权、`gh auth login`、`codex login`、管理端创建 Token、Chrome 点允许、找管理员要权限），一次一项给出步骤和可复制的命令，你回复「已完成」后 Agent 复查。
+1. **检查**：`skills/bug-setup/scripts/prepare.py check --scene …` 逐项实际验证：飞书登录与 Bug 表、三个仓库、Codex 登录、mmdc 渲染、GitHub 登录与推送/部署权限、tutti-ops Token、本机 Web 日志插件（提 Bug）与 Chrome 连接（修复验收）、定时任务。
+2. **能做的直接做**：`prepare.py fix` 补齐默认配置（已有值不动，原文件备份），用 npm／Homebrew 安装缺少的 lark-cli、codex、mmdc、tutti-ops、gh，并安装本机 Web 日志 bridge。
+3. **一步步引导**：需要你本人做的（飞书扫码授权、`gh auth login`、`codex login`、管理端创建 Token、在 Chrome 加载 Web 日志插件（一次）、Chrome 点允许、找管理员要权限），一次一项给出步骤和可复制的命令，你回复「已完成」后 Agent 复查。
 4. **收尾**：汇总已就绪／等你／等管理员，询问是否开启定时任务（默认跟进人是你，每小时一轮，不限优先级）。
 
 只想先看看要准备什么：「使用 $tutti-bug-workflow:bug-setup，只列出准备情况」。
@@ -41,7 +41,7 @@ Agent 会先问你要准备哪个场景：**QA 提 Bug**、**定时分析**、**
 不做根因分析，只把当时的现场带全，写进飞书 Bug 管理表（视图「新框架（一期）」）。无状态：流程状态只在会话上下文中，飞书记录是唯一事实来源。流程见 [SKILL.md](skills/bug-investigate/SKILL.md)：
 
 1. 接收上报，判断所属端、优先级、业务模块，`feishu.py create` 建单，`assign` 写跟进人。
-2. Web 日志：本机 Chrome WebMCP 读页面日志（`merge_web_logs.py` 合并），不可用时用 QA 导出的诊断包。
+2. Web 日志：本机 Chrome 插件经 tutti-web MCP 读页面日志（`merge_web_logs.py` 合并），不可用时用 QA 导出的诊断包。
 3. 并行：Computer 召回（`collect_computer.py`，后台）与 Server 日志（`collect_server.py`，subagent，从 Web 日志提取 request id 查 AWS CloudWatch 并识别生产／PPE）。
 4. 上传截图、视频与全部日志，写入环境与版本、页面链接、问题上下文；全部完成后上传本次会话。
 
@@ -77,15 +77,15 @@ Agent 会先问你要准备哪个场景：**QA 提 Bug**、**定时分析**、**
 
 AWS CLI 使用专用官方安装器，新安装固定版本，核对安装脚本摘要和最终版本，详见 [AWS CLI 安装](skills/bug-setup/references/aws-cli.md)。tutti-ops 使用用户指定的全局 npm 安装方式，要求 Node.js >=20 和 npm，详见 [tutti-ops 安装与认证](skills/bug-setup/references/tutti-ops-computer-logs.md)。其他 CLI 先填写可信 npm 包名与精确版本，再显式调用 `install-cli`；通用私有 npm 安装器不运行包的安装脚本，其他原生工具按实际安装方法适配。
 
-插件不自带 MCP server；AWS 默认使用 CLI。确认 CLI 可用后，仅清理由旧插件创建且未被改动的 AWS MCP，保留其他连接。AWS MCP 仅在用户明确要求恢复时按 [兼容接入](skills/bug-setup/references/aws-mcp.md) 配置。其他 MCP 填写真实服务后使用 `configure-mcp --config CONFIG --output-dir PLUGIN_SOURCE` 生成配置，再通过安装流程更新插件。配置生成不代表服务已经部署、登录或连接成功。
+插件自带一个本机 MCP server `tutti-web`（[bridge](bridge/README.md)，只读本机 Chrome 中的 Tutti 页面工具），并注册官方 chrome-devtools MCP 供修复验收使用；AWS 默认使用 CLI。确认 CLI 可用后，仅清理由旧插件创建且未被改动的 AWS MCP，保留其他连接。AWS MCP 仅在用户明确要求恢复时按 [兼容接入](skills/bug-setup/references/aws-mcp.md) 配置。其他 MCP 填写真实服务后使用 `configure-mcp --config CONFIG --output-dir PLUGIN_SOURCE` 生成配置，再通过安装流程更新插件。配置生成不代表服务已经部署、登录或连接成功。
 
-Web 日志由 QA 在出问题的浏览器里自行导出：Tutti「设置 → 诊断 → 浏览器日志」选择覆盖故障时间的范围，点「导出日志」，得到 `tutti-web-diagnostics-<时间>.zip`（`manifest.json`、`errors.jsonl`、`logs.jsonl`，已脱敏）。Agent 把这个包原样上传到 Bug 单，再解包阅读；QA 没附带时，排查到需要时连同其他问题一起请 QA 导出。详见 [Web 日志](skills/bug-investigate/references/web-logs.md)。
+Web 日志优先由 Agent 通过 Tutti Bug Workflow Bridge 插件读取本机 Chrome 中出问题的页面（不弹授权、不需 WebMCP flag，准备见 [Web 日志连接准备](skills/bug-setup/references/web-logs.md)）；QA 在另一台机器或页面已刷新时，由 QA 在出问题的浏览器里自行导出：Tutti「设置 → 诊断 → 浏览器日志」选择覆盖故障时间的范围，点「导出日志」，得到 `tutti-web-diagnostics-<时间>.zip`（`manifest.json`、`errors.jsonl`、`logs.jsonl`，已脱敏）。Agent 把这个包原样上传到 Bug 单，再解包阅读；QA 没附带时，排查到需要时连同其他问题一起请 QA 导出。详见 [Web 日志](skills/bug-investigate/references/web-logs.md)。
 
 远端 Computer 日志通过 [tutti-ops CLI](skills/bug-investigate/references/tutti-ops-computer-logs.md) 定位 Computer、复用或创建召回、查询任务和生成链接，再下载、校验并读取日志包。setup 准备 CLI，使用前从 [admin.tutti.sh](https://admin.tutti.sh) 管理端获取 Token，通过 `configure-tutti-token` 隐藏输入，直接验证并保存到 CLI 本机配置，再核对实际环境与权限；当前 npm 包的原子操作已通过帮助、schema 和零网络预览验证，组合采集命令仅在实际发现后使用。
 
 ## 当前接入范围
 
-飞书 Bug 管理表及字段已绑定，并在本机通过 user 身份读取验证。三个仓库（tutti、tutti-server、tsh-websocket）的 URL 与 main 分支已配置。Web 日志使用 QA 导出的诊断包，见 [Web 日志](skills/bug-investigate/references/web-logs.md)。本地 computer 日志读取用户指定的明确文件路径；远端 computer 固定复用 Tutti 的日志召回流程，可使用 tutti-ops CLI 或实际 MCP 执行，见 [Computer 日志获取](skills/bug-investigate/references/computer-logs.md)。当前 Mac 已保存核实的三个本地主日志及 Codex 临时诊断路径，并记录轮转日志、VM 崩溃报告与导出漏收注意事项；其他机器需确认实际路径。本机 tutti-ops 已安装并完成离线能力核对，远端认证与真实日志采集尚待验证；其他使用者的宿主能力、远端环境／权限及验证地址仍需分别核对。Skills 可复用当前 Codex 会话的本地工具与已连接 MCP；当前包没有自带 MCP server、飞书连接器或常驻调度服务。共享此包携带表格和仓库地址，不授予收件人访问权限，也不携带本机检出路径或凭证。
+飞书 Bug 管理表及字段已绑定，并在本机通过 user 身份读取验证。三个仓库（tutti、tutti-server、tsh-websocket）的 URL 与 main 分支已配置。Web 日志优先经本机 Chrome 插件读取，兜底使用 QA 导出的诊断包，见 [Web 日志](skills/bug-investigate/references/web-logs.md)。本地 computer 日志读取用户指定的明确文件路径；远端 computer 固定复用 Tutti 的日志召回流程，可使用 tutti-ops CLI 或实际 MCP 执行，见 [Computer 日志获取](skills/bug-investigate/references/computer-logs.md)。当前 Mac 已保存核实的三个本地主日志及 Codex 临时诊断路径，并记录轮转日志、VM 崩溃报告与导出漏收注意事项；其他机器需确认实际路径。本机 tutti-ops 已安装并完成离线能力核对，远端认证与真实日志采集尚待验证；其他使用者的宿主能力、远端环境／权限及验证地址仍需分别核对。Skills 可复用当前 Codex 会话的本地工具与已连接 MCP；当前包只自带本机 Web 日志 bridge（由 Chrome 按需启动），没有飞书连接器或常驻调度服务。共享此包携带表格和仓库地址，不授予收件人访问权限，也不携带本机检出路径或凭证。
 
 飞书事件触发、重试、事件去重、跨设备调度与可信 RD 审批属于后续流程服务，契约见 [工作流](skills/bug-setup/references/workflow.md)。本版 `check-approval` 以方案状态为准，谁批准的以飞书修改记录为准。
 

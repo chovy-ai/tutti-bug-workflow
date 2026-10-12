@@ -71,13 +71,13 @@ python3 scripts/feishu.py assign --record-id REC --name "张三"     # 用户没
 
 ### 3.1 Web 日志（主 agent，先做）
 
-详见 [Web 日志](references/web-logs.md)。用户给了 WebMCP 连接链接、页面开在本机 Chrome 时，用 `chrome-devtools` MCP：
+详见 [Web 日志](references/web-logs.md)。用户给了 WebMCP 连接链接、页面开在本机 Chrome 时，用 `tutti-web` MCP（经 Tutti Bug Workflow Bridge 插件，不弹授权）：
 
-1. `list_pages` + `list_webmcp_tools` 按链接里的页面与 Account 匹配页面，记下页面 URL（「页面链接」）。
-2. `execute_webmcp_tool` 分页读 `get_web_logs`，每页存一个文件，用 `scripts/merge_web_logs.py` 合并成 `$TMP/web/web-logs.log`。
-3. `execute_webmcp_tool` 调 `list_my_computers`（房间相关时加 `list_room_agents`），用于定位 Computer。
+1. `list_tutti_pages` 按链接里的页面与 Account 匹配页面，记下页面 URL（「页面链接」）。
+2. `call_tutti_tool` 分页读 `get_web_logs`，每页存一个文件，用 `scripts/merge_web_logs.py` 合并成 `$TMP/web/web-logs.log`。
+3. `call_tutti_tool` 调 `list_my_computers`（房间相关时加 `list_room_agents`），用于定位 Computer。
 
-不刷新、不跳转页面。WebMCP 不可用、用户在另一台机器上或页面已刷新时，用 QA 导出的诊断包；两者都没有时记为 `pending`，第 5 步请用户导出。
+只读，不刷新、不跳转页面。插件不可用、用户在另一台机器上或页面已刷新时，用 QA 导出的诊断包；两者都没有时记为 `pending`，第 5 步请用户导出。
 
 ### 3.2 Computer 日志（后台进程）
 

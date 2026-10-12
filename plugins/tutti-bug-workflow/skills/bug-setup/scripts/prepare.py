@@ -9,7 +9,7 @@ or `all`. Each item comes back with one status:
   Homebrew installs, `gh auth setup-git`).
 - `user`: needs the person (a login, a token, a permission from an owner); `guide` lists
   the exact steps and `verify` says how it is checked afterwards.
-- `host`: checked by the agent inside Codex (the chrome-devtools MCP and Chrome consent).
+- `host`: checked by the agent inside Codex (the tutti-web / chrome-devtools MCP against live Chrome).
 - `optional`: not needed for the scene to work, e.g. the scheduled job not installed yet.
 
 `check` only reads and runs read-only probes. `fix` performs the `fix` items, then checks
@@ -35,6 +35,7 @@ NPM_PACKAGES = {"lark-cli": "@larksuite/cli", "codex": "@openai/codex", "mmdc": 
                 "tutti-ops": "@tutti-os/tutti-ops-cli"}
 SCHEDULE_PREFIX = {"solution": "com.tutti.bug-solution.", "execute": "com.tutti.bug-execute."}
 SCRIPT = Path(__file__).resolve()
+BRIDGE = SCRIPT.parents[3] / "bridge/tutti-web-bridge.mjs"
 
 
 def run(command, timeout=60, **kwargs):
@@ -128,7 +129,7 @@ def check_node():
     if ready:
         return item("node", "Node.js 20+ 与 npm", "ok", version)
     return item("node", "Node.js 20+ 与 npm", "user", f"当前：{version or '未安装'}",
-                guide=["Node.js 用来安装 lark-cli、mmdc、tutti-ops，并运行 chrome-devtools MCP。",
+                guide=["Node.js 用来安装 lark-cli、mmdc、tutti-ops，并运行本机 Web 日志 bridge 与 chrome-devtools MCP。",
                        "macOS 推荐：在终端运行 `brew install node`（没有 Homebrew 先看 https://brew.sh）；"
                        "或用 nvm：`nvm install 22 && nvm use 22`。",
                        "装好后重新打开终端，回复「已完成」。"],
@@ -316,10 +317,49 @@ def check_chrome():
     return [item("chrome-devtools", "本机 Chrome 连接（chrome-devtools MCP）", "host",
                  "插件已注册 chrome-devtools MCP；需要 Agent 在 Codex 里实际连一次",
                  guide=["在 Chrome 打开 `chrome://inspect/#remote-debugging`，勾选允许远程调试；",
-                        "提 Bug 读页面日志还需：打开 `chrome://flags/#enable-webmcp-testing` 设为 Enabled，重启 Chrome；",
                         "在 Chrome 里登录 https://tutti.sh；",
                         "Agent 调用 chrome-devtools 的 `list_pages` 时，Chrome 会弹窗询问，点「允许」。"],
-                 verify="Agent 在 Codex 里调用 chrome-devtools list_pages 成功（提 Bug 场景再看到 get_web_logs 工具）")]
+                 verify="Agent 在 Codex 里调用 chrome-devtools list_pages 成功")]
+
+
+def bridge_doctor():
+    code, out = run(["node", str(BRIDGE), "doctor"], timeout=30)
+    try:
+        return json.loads(out[out.index("{"):])
+    except ValueError:
+        return None
+
+
+def check_web_bridge():
+    label = "本机 Web 日志连接（Tutti Bug Workflow Bridge 插件）"
+    ready, _ = node_ok()
+    if not ready:
+        return [item("web-bridge", label, "user", "需要先装好 Node.js 20+")]
+    report = bridge_doctor()
+    if report is None:
+        return [item("web-bridge", label, "user", "bridge doctor 无法运行，检查 node 与插件源码是否完整")]
+    if report.get("needsInstall"):
+        return [item("web-bridge", label, "fix", "本机 bridge 未安装或版本落后", fix="web-bridge")]
+    extension = report.get("extension") or {}
+    profiles = extension.get("profiles") or []
+    if not any(profile.get("installed") for profile in profiles):
+        return [item("web-bridge", label, "user", "Chrome 里还没有加载插件",
+                     guide=["在 Chrome 地址栏打开 `chrome://extensions`；",
+                            "打开右上角「开发者模式」；",
+                            f"点「加载已解压的扩展程序」，选择文件夹 `{extension.get('dir')}`"
+                            "（macOS 选择框里按 ⌘⇧G 可直接粘贴路径）；",
+                            "确认出现「Tutti Bug Workflow Bridge」并处于开启状态，回复「已完成」。"],
+                     verify="bridge doctor 在 Chrome 配置里找到并启用插件")]
+    if not any(profile.get("enabled") for profile in profiles):
+        return [item("web-bridge", label, "user", "插件已加载但被停用",
+                     guide=["在 `chrome://extensions` 打开「Tutti Bug Workflow Bridge」的开关，回复「已完成」。"],
+                     verify="bridge doctor 显示插件已启用")]
+    if not report.get("ready"):
+        return [item("web-bridge", label, "host", "插件已安装，Chrome 还没连上本机 bridge",
+                     guide=["确认 Chrome 正在运行，打开一个已登录的 Tutti 页面（*.tutti.sh），等待几秒；",
+                            "Agent 调用 tutti-web 的 `list_tutti_pages` 能看到该页面即可。"],
+                     verify="Agent 在 Codex 里调用 tutti-web list_tutti_pages 看到 Tutti 页面")]
+    return [item("web-bridge", label, "ok", f"已连接，bridge {report.get('bridgeVersion')}")]
 
 
 def check_computer_logs(cfg):
@@ -364,9 +404,10 @@ def check(root, scenes, include_aws=False):
         items += check_mmdc()
     if "execute" in scenes:
         items += check_github(cfg)
-    if {"investigate", "execute"} & scenes:
+    if "execute" in scenes:
         items += check_chrome()
     if "investigate" in scenes:
+        items += check_web_bridge()
         items += check_tutti_ops(root, cfg)
         items += check_computer_logs(cfg)
     if include_aws:
@@ -393,6 +434,11 @@ def apply_fix(root, fix):
         if code:
             raise ValueError(f"npm install -g {NPM_PACKAGES[name]} 失败：{out.strip()[-400:]}")
         return f"已安装 {NPM_PACKAGES[name]}"
+    if fix == "web-bridge":
+        code, out = run(["node", str(BRIDGE), "install"], timeout=120)
+        if code:
+            raise ValueError(f"安装本机 bridge 失败：{out.strip()[-400:]}")
+        return "已安装本机 bridge 与插件文件"
     if fix == "brew:gh":
         code, out = run(["brew", "install", "gh"], timeout=900)
         if code:
