@@ -84,6 +84,56 @@ class CollectServerTests(unittest.TestCase):
         empty.write_text("no ids here")
         self.server("--web-logs", str(empty), expected=2)
 
+    def test_web_requests_without_ids_are_matched_to_access_logs(self):
+        # Tutti Web records requestId null; the page path /api/desktop/v2/... is url_path=/v2/... on the server.
+        rid_ok = "20261010T094930Z-11111111-2222-3333-4444-555555555555"
+        rid_fail = "20261010T094940Z-66666666-2222-3333-4444-555555555555"
+        rid_other_time = "20261010T093000Z-77777777-2222-3333-4444-555555555555"
+        path = "/v2/rooms/r1/agent-sessions/s1/prompt-queue"
+        rows = [
+            {"@timestamp": "2026-10-10 09:49:30.300", "kubernetes.namespace_name": "tutti", "kubernetes.pod_name": "p",
+             "log": f"INFO request_id={rid_ok} log_type=api_access method=GET status_code=200 url_path={path} latency_ms=3"},
+            {"@timestamp": "2026-10-10 09:49:40.400", "kubernetes.namespace_name": "tutti", "kubernetes.pod_name": "p",
+             "log": f"INFO request_id={rid_fail} log_type=api_access method=POST status_code=500 url_path=/v2/rooms/r1/messages latency_ms=9"},
+            {"@timestamp": "2026-10-10 09:49:40.500", "kubernetes.namespace_name": "tutti", "kubernetes.pod_name": "p",
+             "log": f"ERROR request_id={rid_fail} message=send failed"},
+            {"@timestamp": "2026-10-10 09:30:00.000", "kubernetes.namespace_name": "tutti", "kubernetes.pod_name": "p",
+             "log": f"INFO request_id={rid_other_time} log_type=api_access method=POST status_code=500 url_path=/v2/rooms/r1/messages"},
+        ]
+        def http(at, method, url, status, level="info", source="web-http-transport"):
+            return {"occurredAtUnixMs": at, "kind": "http", "level": level, "source": source, "requestId": None,
+                    "details": {"method": method, "url": url, "status": status, "durationMs": 120}}
+        base = 1791625770000  # 2026-10-10T09:49:30Z
+        log = self.base / "web-logs.log"
+        log.write_text("\n".join(json.dumps(item) for item in [
+            {"type": "metadata"},
+            http(base, "GET", f"https://tutti.sh/api/desktop{path}", 200),
+            http(base + 10000, "POST", "https://tutti.sh/api/desktop/v2/rooms/r1/messages", 500, "error"),
+            http(base + 20000, "GET", "https://tutti.sh/api/desktop/v2/agents/directory-projection?roomId=r1", 429, "error"),
+            http(base, "GET", "/v1/computers/current/identity", 200, source="desktopd-http-transport"),
+        ]) + "\n")
+        env = {**self.env, "FAKE_AWS_ROWS": json.dumps(rows)}
+        result = self.server("--web-logs", str(log), env=env)
+        self.assertEqual(result["status"], "captured")
+        self.assertEqual((result["request_ids_in_web_logs"], result["web_http_requests"]), (0, 3))
+        # Only failures are matched when there are failures; the earlier 500 is outside the time slack.
+        self.assertEqual([item["request_id"] for item in result["correlated_requests"]], [rid_fail])
+        self.assertEqual(result["matched_request_ids"], 1)
+        self.assertEqual([item["status"] for item in result["web_failures_not_in_server_logs"]], [429])
+        logs = (self.base / "out/server-logs.log").read_text()
+        self.assertIn("send failed", logs)  # application lines of the matched request come along
+        self.assertNotIn(rid_other_time, logs)
+
+        archive = self.base / "tutti-web-diagnostics.zip"
+        with zipfile.ZipFile(archive, "w") as zipped:
+            zipped.writestr("logs.jsonl", json.dumps({
+                "at": "2026-10-10T09:49:30.000Z", "kind": "http", "level": "info", "source": "web-http-transport",
+                "details": {"method": "GET", "url": f"https://tutti.sh/api/desktop{path}", "status": 200,
+                            "durationMs": 50}}) + "\n")
+        (self.base / "aws.json").unlink()
+        from_zip = self.server("--web-logs", str(archive), env=env)
+        self.assertEqual([item["request_id"] for item in from_zip["correlated_requests"]], [rid_ok])
+
 
 if __name__ == "__main__":
     unittest.main()

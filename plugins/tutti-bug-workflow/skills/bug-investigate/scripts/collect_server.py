@@ -2,9 +2,17 @@
 """Pull tutti-server logs for one bug report from AWS CloudWatch Logs Insights.
 
 tutti-server access logs carry request_id but no user id, so the user's requests are
-found by the request ids in the Web logs (`--web-logs`: web-logs.log or the exported
-diagnostics zip) or given directly, plus optional path fragments such as a room or
-Computer id, within a window around question_time.
+found by request ids within a window around question_time:
+
+- given directly, or found in the Web logs (`--web-logs`: web-logs.log or the exported
+  diagnostics zip);
+- matched from the Web logs' HTTP records: Tutti Web usually records no request id, so
+  the failed requests (or, without failures, the ones closest to question_time) are
+  paired with the server access log of the same method, url_path and status nearest in
+  time, and that access log's request_id is used;
+- plus optional path fragments such as a room or Computer id.
+
+All log lines of the resulting request ids are then pulled, not just the access lines.
 The Kubernetes namespace of the matches tells the environment: `tutti` is production,
 `lane-ppe-*` is PPE, other `lane-*` are preview lanes.
 
@@ -26,6 +34,7 @@ import re
 import subprocess
 import sys
 import time
+from urllib.parse import urlparse
 import zipfile
 
 DEFAULT_GROUP = "/aws/containerinsights/nexight-ojo-us-east-1/application"
@@ -36,16 +45,99 @@ SAFE = re.compile(r"[A-Za-z0-9._:\-/]{4,200}\Z")
 REQUEST_ID = re.compile(r"\b\d{8}T\d{6}Z-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b")
 
 
-def request_ids_from(path):
-    """Collect tutti request ids (x-request-id / requestId) from web-logs.log or a diagnostics zip."""
+def web_text(path):
     path = Path(path).expanduser()
     if zipfile.is_zipfile(path):
         with zipfile.ZipFile(path) as archive:
-            text = "\n".join(archive.read(name).decode("utf-8", "ignore") for name in archive.namelist()
+            return "\n".join(archive.read(name).decode("utf-8", "ignore") for name in archive.namelist()
                              if name.endswith((".jsonl", ".json", ".log")))
-    else:
-        text = path.read_text(encoding="utf-8", errors="ignore")
-    return list(dict.fromkeys(REQUEST_ID.findall(text)))
+    return path.read_text(encoding="utf-8", errors="ignore")
+
+
+def request_ids_from(path):
+    """Collect tutti request ids (x-request-id / requestId) from web-logs.log or a diagnostics zip."""
+    return list(dict.fromkeys(REQUEST_ID.findall(web_text(path))))
+
+
+SERVER_PATH = re.compile(r"/v\d+/\S*")
+
+
+def web_requests_from(path):
+    """HTTP records the page sent to tutti-server, from web-logs.log or a diagnostics zip.
+
+    Tutti Web often has no request id for them (success responses are not tagged and
+    failures may lack x-request-id), so they are matched to server access logs instead.
+    The server logs `url_path` without the `/api/<app>` prefix the page uses.
+    """
+    requests = []
+    for line in web_text(path).splitlines():
+        try:
+            record = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(record, dict) or record.get("kind") != "http" or "desktopd" in str(record.get("source")):
+            continue
+        details = record.get("details") or {}
+        url = urlparse(str(details.get("url") or ""))
+        match = SERVER_PATH.search(url.path)
+        if not match or (url.hostname or "").split(".")[0] in ("localhost", "127"):
+            continue
+        if isinstance(record.get("occurredAtUnixMs"), int):
+            at = record["occurredAtUnixMs"]
+        else:
+            try:
+                at = int(datetime.fromisoformat(str(record.get("at")).replace("Z", "+00:00")).timestamp() * 1000)
+            except ValueError:
+                continue
+        status = details.get("status") if isinstance(details.get("status"), int) else None
+        requests.append({"at": at, "method": str(details.get("method") or "GET").upper(), "path": match.group(0),
+                         "status": status, "duration_ms": details.get("durationMs") or 0,
+                         "failed": record.get("level") == "error" or status is None or status >= 400})
+    return requests
+
+
+def logfmt(value, key):
+    match = re.search(rf"(?:^|\s){re.escape(key)}=(\S*)", value or "")
+    return match.group(1) if match else None
+
+
+def insights_ms(value):
+    return int(datetime.strptime(value, "%Y-%m-%d %H:%M:%S.%f").replace(tzinfo=timezone.utc).timestamp() * 1000)
+
+
+def correlate(anchors, rows, slack_ms):
+    """Pair each Web request with the closest unused access log of the same method/path/status."""
+    access = []
+    for row in rows:
+        log = row.get("log") or ""
+        rid = logfmt(log, "request_id")
+        if "log_type=api_access" not in log or not rid or not row.get("@timestamp"):
+            continue
+        status = logfmt(log, "status_code")
+        access.append({"at": insights_ms(row["@timestamp"]), "rid": rid, "method": logfmt(log, "method"),
+                       "path": logfmt(log, "url_path"), "status": int(status) if status and status.isdigit() else None})
+    used, pairs = set(), []
+    for anchor in anchors:
+        window = anchor["duration_ms"] + slack_ms
+        candidates = [entry for entry in access if entry["rid"] not in used and entry["path"] == anchor["path"]
+                      and entry["method"] == anchor["method"]
+                      and (anchor["status"] is None or entry["status"] == anchor["status"])
+                      and abs(entry["at"] - anchor["at"]) <= window]
+        if candidates:
+            best = min(candidates, key=lambda entry: abs(entry["at"] - anchor["at"]))
+            used.add(best["rid"])
+            pairs.append((anchor, best["rid"]))
+        else:
+            pairs.append((anchor, None))
+    return pairs
+
+
+def pick_anchors(requests, moment_ms, since_ms, until_ms, limit):
+    """Failed requests in the window first (closest to the incident), else the closest requests."""
+    inside = [request for request in requests if since_ms <= request["at"] <= until_ms]
+    failed = [request for request in inside if request["failed"]]
+    pool = failed or inside
+    return sorted(pool, key=lambda request: abs(request["at"] - moment_ms))[:limit]
 
 
 EXPIRED = re.compile(r"expired|refresh failed|token does not exist|Error loading SSO Token|sso session", re.I)
@@ -120,15 +212,27 @@ def terms_query(container, terms):
             f'| sort @timestamp asc | limit {LIMIT}')
 
 
+def access_query(container, paths):
+    clauses = " or ".join(f"log like {json.dumps(f'url_path={path} ')}" for path in paths)
+    return (f'fields @timestamp, kubernetes.namespace_name, kubernetes.pod_name, log '
+            f'| filter kubernetes.container_name = "{container}" and log like "log_type=api_access" '
+            f'and ({clauses}) | sort @timestamp asc | limit {LIMIT}')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--question-time", required=True, help="ISO 8601 with timezone.")
     parser.add_argument("--request-id", action="append", default=[])
     parser.add_argument("--request-ids-file", help="One request id per line.")
-    parser.add_argument("--web-logs", action="append", default=[], help="web-logs.log or diagnostics zip to read request ids from.")
+    parser.add_argument("--web-logs", action="append", default=[],
+                        help="web-logs.log or diagnostics zip: request ids, and HTTP records to match by path/time.")
     parser.add_argument("--path-contains", action="append", default=[], help="e.g. a room or Computer id.")
     parser.add_argument("--before-minutes", type=float, default=10)
     parser.add_argument("--after-minutes", type=float, default=10)
+    parser.add_argument("--max-web-requests", type=int, default=40,
+                        help="Web HTTP records to match to server access logs (failed ones first).")
+    parser.add_argument("--match-slack-seconds", type=float, default=10,
+                        help="Allowed clock/latency gap on top of the request duration when matching.")
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--log-group", default=DEFAULT_GROUP)
     parser.add_argument("--region", default=DEFAULT_REGION)
@@ -140,16 +244,24 @@ def main():
         moment = datetime.fromisoformat(args.question_time.replace("Z", "+00:00"))
         if moment.tzinfo is None:
             raise ValueError("--question-time needs a timezone.")
-        ids = list(args.request_id)
+        since = moment - timedelta(minutes=args.before_minutes)
+        until = moment + timedelta(minutes=args.after_minutes)
+        given = list(args.request_id)
         if args.request_ids_file:
-            ids += [line.strip() for line in Path(args.request_ids_file).read_text().splitlines() if line.strip()]
+            given += [line.strip() for line in Path(args.request_ids_file).read_text().splitlines() if line.strip()]
+        web_ids, web_requests = [], []
         for web_logs in args.web_logs:
-            ids += request_ids_from(web_logs)
-        ids = list(dict.fromkeys(ids))
-        terms = [f"request_id={rid}" for rid in ids] + list(dict.fromkeys(args.path_contains))
-        if not terms:
-            raise ValueError("No request ids found; give --web-logs, --request-id or --path-contains.")
-        bad = [term for term in ids + args.path_contains if not SAFE.fullmatch(term)]
+            web_ids += request_ids_from(web_logs)
+            web_requests += web_requests_from(web_logs)
+        known = list(dict.fromkeys(given + web_ids))
+        anchors = [request for request in pick_anchors(web_requests, int(moment.timestamp() * 1000),
+                                                       int(since.timestamp() * 1000), int(until.timestamp() * 1000),
+                                                       args.max_web_requests)
+                   if SAFE.fullmatch(request["path"])]
+        if not known and not args.path_contains and not anchors:
+            raise ValueError("No request ids or Web HTTP records in the window; give --web-logs, --request-id "
+                             "or --path-contains.")
+        bad = [term for term in known + args.path_contains if not SAFE.fullmatch(term)]
         if bad:
             raise ValueError(f"Unsafe search terms: {bad[:3]}")
         output = Path(args.output_dir).expanduser().resolve()
@@ -157,32 +269,41 @@ def main():
     except (ValueError, OSError) as error:
         print(json.dumps({"ok": False, "error": str(error)}, ensure_ascii=False))
         return 2
-    since = moment - timedelta(minutes=args.before_minutes)
-    until = moment + timedelta(minutes=args.after_minutes)
     command = os.environ.get("AWS_CLI", "aws")
     result = {"question_time": args.question_time,
               "window": {"since": since.astimezone(timezone.utc).isoformat(), "until": until.astimezone(timezone.utc).isoformat()},
-              "log_group": args.log_group, "region": args.region, "request_ids": len(ids),
-              "path_terms": args.path_contains}
+              "log_group": args.log_group, "region": args.region, "path_terms": args.path_contains}
+
     def collect():
-        rows, truncated = [], False
+        rows, truncated, pairs = [], False, []
+        paths = list(dict.fromkeys(anchor["path"] for anchor in anchors))
+        access = []
+        for index in range(0, len(paths), BATCH):
+            batch = run_query(command, args.region, args.log_group, since, until,
+                              access_query(args.container, paths[index:index + BATCH]), args.poll_seconds)
+            truncated = truncated or len(batch) >= LIMIT
+            access += batch
+        if anchors:
+            pairs = correlate(anchors, access, int(args.match_slack_seconds * 1000))
+        ids = list(dict.fromkeys(known + [rid for _, rid in pairs if rid]))
+        terms = [f"request_id={rid}" for rid in ids] + list(dict.fromkeys(args.path_contains))
         for index in range(0, len(terms), BATCH):
             batch = run_query(command, args.region, args.log_group, since, until,
                               terms_query(args.container, terms[index:index + BATCH]), args.poll_seconds)
             truncated = truncated or len(batch) >= LIMIT
             rows += batch
-        return rows, truncated
+        return rows, truncated, pairs, ids
 
     try:
         try:
-            rows, truncated = collect()
+            rows, truncated, pairs, ids = collect()
         except Blocked as blocked:
             if blocked.kind != "login_expired" or args.no_login:
                 raise
             result["login"] = sso_login(command)
             if not result["login"]["ok"]:
                 raise Blocked(f"AWS 登录已过期，自动登录没有完成：{result['login']['reason']}", "login_expired") from None
-            rows, truncated = collect()
+            rows, truncated, pairs, ids = collect()
     except Blocked as blocked:
         print(json.dumps({**result, "status": "blocked", "reason": str(blocked), "reason_kind": blocked.kind},
                          ensure_ascii=False))
@@ -197,15 +318,29 @@ def main():
                         "pod": row.get("kubernetes.pod_name"), "log": row.get("log")})
     namespaces = sorted({r["namespace"] for r in records if r["namespace"]})
     matched = sorted({rid for rid in ids if any(f"request_id={rid}" in (r["log"] or "") for r in records)})
+
+    def web_request(anchor, rid=None):
+        item = {"at": datetime.fromtimestamp(anchor["at"] / 1000, timezone.utc).isoformat(timespec="milliseconds"),
+                "method": anchor["method"], "path": anchor["path"], "status": anchor["status"]}
+        return {**item, "request_id": rid} if rid else item
+
+    correlated = [web_request(anchor, rid) for anchor, rid in pairs if rid]
     metadata = {"type": "metadata", "source": "aws-cloudwatch-insights", **result,
+                "request_ids": len(ids), "request_ids_given": len(given), "request_ids_in_web_logs": len(web_ids),
+                "web_http_requests": len(web_requests), "web_requests_matched": len(correlated),
+                "web_requests_checked": len(pairs),
                 "namespaces": namespaces, "environments": sorted({environment(n) for n in namespaces}),
-                "matched_request_ids": len(matched), "record_count": len(records), "truncated": truncated}
+                "matched_request_ids": len(matched), "record_count": len(records), "truncated": truncated,
+                "correlated_requests": correlated}
     path = output / "server-logs.log"
     path.write_text("\n".join(json.dumps(item, ensure_ascii=False) for item in [metadata, *records]) + "\n",
                     encoding="utf-8")
     status = "empty" if not records else ("partial" if truncated else "captured")
+    # Failed Web requests that never reached tutti-server (e.g. a gateway 429) are evidence too.
+    unreached = [web_request(anchor) for anchor, rid in pairs if not rid and anchor["failed"]]
     print(json.dumps({**metadata, "status": status, "files": [str(path)],
-                      "unmatched_request_ids": [rid for rid in ids if rid not in matched][:20]},
+                      "unmatched_request_ids": [rid for rid in ids if rid not in matched][:20],
+                      "web_failures_not_in_server_logs": unreached[:20]},
                      ensure_ascii=False, indent=2))
     return 0
 
