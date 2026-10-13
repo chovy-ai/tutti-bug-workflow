@@ -1,6 +1,6 @@
 # tutti-bug-workflow
 
-版本：0.2.0。运行方式：Codex 本地会话。三个业务场景以飞书 Bug 管理表中的同一条记录交接，不保留本地档案；公共初始化 Skill 准备配置与依赖。
+版本：0.2.1。运行方式：Codex 本地会话。三个业务场景以飞书 Bug 管理表中的同一条记录交接，不保留本地档案；公共初始化 Skill 准备配置与依赖。
 
 | 入口 | 工作内容 |
 |---|---|
@@ -38,13 +38,15 @@ Agent 会先问你要准备哪个场景：**QA 提 Bug**、**定时分析**、**
 
 ### QA 提 Bug（`bug-investigate`）
 
-**本分支（`tutti-task`）不写飞书 Bug 表**，而是用 `tutti-cli` 在当前 Room 建 Task。只能在 Tutti Room 的 Agent 会话里使用（`tutti-cli task create` 只在 Tutti 托管的 Agent 执行中提供）。不做根因分析，只把当时的现场带全。流程见 [SKILL.md](skills/bug-investigate/SKILL.md)：
+**本分支（`tutti-task`）不写飞书 Bug 表**，而是用 `tutti-cli` 在当前 Room 建 Task。只能在 Tutti Room 的 Agent 会话里使用（`tutti-cli task` 的写入命令只在 Tutti 托管的 Agent 执行中提供），推荐 Native Agent。不做根因分析，只把当时的现场带全。流程见 [SKILL.md](skills/bug-investigate/SKILL.md)：
 
 1. 接收上报，判断所属端、优先级、业务模块，生成 `operation_id`（即 Task ID 与幂等键）。
-2. Web 日志：本机 Chrome WebMCP 读页面日志（`merge_web_logs.py` 合并），不可用时用 QA 导出的诊断包。
-3. 并行：Computer 召回（`collect_computer.py`，后台）与 Server 日志（`collect_server.py`，subagent，按 Web／Computer 日志里的 request id 查 AWS CloudWatch 并识别生产／PPE）。
-4. `tutti-cli artifact publish` 把截图、视频与全部日志发布到当前 Room。
-5. 有缺口（Web 现场、设备、优先级、期望）先一次问完；再 `tutti-cli task create` 建未指派的 `todo` Task，标题一行写清问题，描述含概要、现场核对、关联 ID、环境与版本、附件；`task show` 回读。Task 建好后 CLI 不能修改，由 QA 在任务看板指派跟进人。最后上传本次会话。
+2. `task list` 查重，`task create` 按 QA 描述先建 Task（优先级只能在此时设置），`user list` 找到跟进人后 `task assign`。
+3. Web 日志：本机 Chrome WebMCP 读页面日志（`merge_web_logs.py` 合并），不可用时用 QA 导出的诊断包；并行跑 Computer 召回（`collect_computer.py`，后台）与 Server 日志（`collect_server.py`，subagent，按 Web／Computer 日志里的 request id 查 AWS CloudWatch 并识别生产／PPE）。
+4. `artifact publish` 把截图、视频与全部日志发布到当前 Room；`task edit` 改标题、写全描述（概要、现场核对、关联 ID、环境与版本、附件），`task show` 回读。
+5. 召回完成后再发布、再补描述；缺的一次问完，用户补充后在同一会话里 `task edit`／`assign`／`comment add`。最后上传本次会话。
+
+Computer 版本较旧、只有 `task create` 时，退回「采集完最后一次建好」。
 
 ### 根因与方案（`bug-solution`）
 

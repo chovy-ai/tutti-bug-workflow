@@ -158,8 +158,8 @@ def check_tutti_cli():
                 guide=["QA 提 Bug 要在 Tutti Room 的 Agent 会话里运行：Task 用 `tutti-cli task create` 建在当前 Room，"
                        "这个命令只在 Tutti 的 Agent 执行环境中提供。",
                        "在要登记 Bug 的 Room 里打开 Agent，让它执行 `$tutti-bug-workflow:bug-investigate`；"
-                       "确认 Computer 已更新到支持 `tutti-cli task create` 的版本。"],
-                verify="在 Room Agent 会话中 `tutti-cli task create --help` 可执行")
+                       "确认 Computer 已更新到支持 `tutti-cli task create`／`edit`／`assign` 的版本。"],
+                verify="在 Room Agent 会话中 `tutti-cli task --help` 列出 create、edit、assign")
 
 
 def check_lark(cfg):
