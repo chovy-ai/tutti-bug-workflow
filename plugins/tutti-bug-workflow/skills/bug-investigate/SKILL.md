@@ -99,7 +99,7 @@ python3 scripts/collect_server.py --question-time <question_time> \
   --web-logs <web-logs.log 或诊断包 zip> --output-dir $TMP/server
 ```
 
-Web 日志通常不带 request id，脚本会把失败的 Web 请求按 method、路径、状态码、时间对到服务端访问日志，取回它们的 `request_id` 并拉全这些请求的日志；`request_ids_in_web_logs: 0` 是正常的，看 `web_requests_matched`。`--path-contains <房间或 Computer ID>` 会带回整段时间窗的大量请求，只在结果为 `empty` 或需要整段上下文时再加。
+新版 Web 日志的每条 HTTP 记录都带网关的 request id，脚本直接用它们拉全这些请求的日志（看 `request_ids_in_web_logs`、`matched_request_ids`）；旧版 Web 的记录没有 id，脚本把其中失败的请求按 method、路径、状态码、时间对到服务端访问日志，取回 `request_id`（看 `web_requests_matched`）。`--path-contains <房间或 Computer ID>` 会带回整段时间窗的大量请求，只在结果为 `empty` 或需要整段上下文时再加。
 
 结果里的 `namespaces`／`environments` 告诉你环境：`tutti` 是生产，`lane-ppe-*` 是 PPE；`correlated_requests` 中与故障相关的请求和 `web_failures_not_in_server_logs`（页面失败但没到服务端的请求）写进「问题上下文」。详见 [Server 日志](references/server-logs.md)。
 
@@ -123,7 +123,7 @@ Web 日志通常不带 request id，脚本会把失败的 Web 请求按 method�
 
 ## 5. 收尾
 
-1. 等 Computer 召回完成（读 `$TMP/computer.json`），上传召回包，把召回任务 ID 补进「问题上下文」，再跑一次 `check_collection`。
+1. 等 Computer 召回完成（读 `$TMP/computer.json`），上传召回包，把召回任务 ID 补进「问题上下文」，再跑一次 `check_collection`。`desktopd.log` 里故障时间附近失败的出站请求带有 Server 日志中没有的 `request_id` 时，用 `collect_server.py --request-id <id> --output-dir $TMP/server-computer` 补拉，上传其 `server-logs.log`（见 [Computer 日志里的 request id](references/computer-logs.md#日志里的-request-id)）。
 2. 需要用户提供的东西一次列出，每项说明怎么获取：
 
    | 缺什么 | 怎么请用户提供 |

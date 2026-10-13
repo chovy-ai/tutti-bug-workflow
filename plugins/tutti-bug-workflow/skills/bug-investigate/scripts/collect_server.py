@@ -4,12 +4,14 @@
 tutti-server access logs carry request_id but no user id, so the user's requests are
 found by request ids within a window around question_time:
 
-- given directly, or found in the Web logs (`--web-logs`: web-logs.log or the exported
-  diagnostics zip);
-- matched from the Web logs' HTTP records: Tutti Web usually records no request id, so
-  the failed requests (or, without failures, the ones closest to question_time) are
-  paired with the server access log of the same method, url_path and status nearest in
-  time, and that access log's request_id is used;
+- given directly (`--request-id`, e.g. ones read from the Computer's desktopd.log), or
+  found in the Web logs (`--web-logs`: web-logs.log or the exported diagnostics zip):
+  current Tutti Web records the gateway's x-zk-request-id on every HTTP record
+  (`requestId`, or `requestIds` for folded repeats);
+- matched from the Web logs' HTTP records that carry no request id (older Web
+  versions): the failed requests (or, without failures, the ones closest to
+  question_time) are paired with the server access log of the same method, url_path and
+  status nearest in time, and that access log's request_id is used;
 - plus optional path fragments such as a room or Computer id.
 
 All log lines of the resulting request ids are then pulled, not just the access lines.
@@ -65,8 +67,9 @@ SERVER_PATH = re.compile(r"/v\d+/\S*")
 def web_requests_from(path):
     """HTTP records the page sent to tutti-server, from web-logs.log or a diagnostics zip.
 
-    Tutti Web often has no request id for them (success responses are not tagged and
-    failures may lack x-request-id), so they are matched to server access logs instead.
+    Records that carry their own request id (`requestId`/`requestIds`) are marked
+    `has_id`: their ids are used directly and they are not matched again. Older Tutti
+    Web versions record none, so those are matched to server access logs instead.
     The server logs `url_path` without the `/api/<app>` prefix the page uses.
     """
     requests = []
@@ -90,7 +93,9 @@ def web_requests_from(path):
             except ValueError:
                 continue
         status = details.get("status") if isinstance(details.get("status"), int) else None
-        requests.append({"at": at, "method": str(details.get("method") or "GET").upper(), "path": match.group(0),
+        has_id = any(REQUEST_ID.search(json.dumps(value)) for value in (
+            record.get("requestId"), record.get("requestIds"), details.get("requestId")) if value)
+        requests.append({"at": at, "has_id": has_id, "method": str(details.get("method") or "GET").upper(), "path": match.group(0),
                          "status": status, "duration_ms": details.get("durationMs") or 0,
                          "failed": record.get("level") == "error" or status is None or status >= 400})
     return requests
@@ -133,8 +138,12 @@ def correlate(anchors, rows, slack_ms):
 
 
 def pick_anchors(requests, moment_ms, since_ms, until_ms, limit):
-    """Failed requests in the window first (closest to the incident), else the closest requests."""
-    inside = [request for request in requests if since_ms <= request["at"] <= until_ms]
+    """Failed requests in the window first (closest to the incident), else the closest requests.
+
+    Requests that already carry a request id need no matching and are left out.
+    """
+    inside = [request for request in requests
+              if since_ms <= request["at"] <= until_ms and not request.get("has_id")]
     failed = [request for request in inside if request["failed"]]
     pool = failed or inside
     return sorted(pool, key=lambda request: abs(request["at"] - moment_ms))[:limit]
@@ -327,7 +336,9 @@ def main():
     correlated = [web_request(anchor, rid) for anchor, rid in pairs if rid]
     metadata = {"type": "metadata", "source": "aws-cloudwatch-insights", **result,
                 "request_ids": len(ids), "request_ids_given": len(given), "request_ids_in_web_logs": len(web_ids),
-                "web_http_requests": len(web_requests), "web_requests_matched": len(correlated),
+                "web_http_requests": len(web_requests),
+                "web_requests_with_id": sum(1 for request in web_requests if request["has_id"]),
+                "web_requests_matched": len(correlated),
                 "web_requests_checked": len(pairs),
                 "namespaces": namespaces, "environments": sorted({environment(n) for n in namespaces}),
                 "matched_request_ids": len(matched), "record_count": len(records), "truncated": truncated,

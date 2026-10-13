@@ -37,7 +37,7 @@ Web 端只取页面日志（请求等其他现场由 Tutti Web 记入日志）�
 |---|---|
 | `manifest.json` | 用户、导出时间、首末记录时间、被淘汰次数、页面会话 `sessions[]`、Computer 列表 `computers[]`（`computerId`、平台、版本）、浏览器 UA |
 | `errors.jsonl` | warn 与 error |
-| `logs.jsonl` | 全部记录，含 `requestId`、`computerRefs`、`path` |
+| `logs.jsonl` | 全部记录，含 `requestId`（折叠的重复请求另有 `requestIds`）、`computerRefs`、`path` |
 
 诊断包导出时已脱敏。zip 直接作为 `collect_server.py --web-logs` 的输入（脚本读取 `logs.jsonl` 里的 `requestId`），`manifest.computers[]` 用来定位 Computer。
 
