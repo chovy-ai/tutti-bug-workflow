@@ -29,7 +29,7 @@ tutti-ops schema computer.log-recalls.download-url
 
 ## 环境与认证
 
-管理端入口为 [https://admin.tutti.sh](https://admin.tutti.sh)，用户已确认；已安装的 tutti-ops 0.1.7 会将这个管理端地址归一化为 API origin `https://tutti.sh`，按本机 `dist/config.js` 和实际帮助核对。显式传入 `--admin-url`，复用与该 origin 匹配的 Token。其他环境使用其已确认地址和认证；CLI 请求路径已包含 `/api/desktop`，origin 保留根地址。
+管理端入口为 [https://admin.tutti.sh](https://admin.tutti.sh)，用户已确认；tutti-ops 0.1.7 及以上（已核对 0.1.8）会将这个管理端地址归一化为 API origin `https://tutti.sh`，按本机 `dist/config.js` 和实际帮助核对。显式传入 `--admin-url`，复用与该 origin 匹配的 Token。其他环境使用其已确认地址和认证；CLI 请求路径已包含 `/api/desktop`，origin 保留根地址。
 
 tutti-ops 远端访问需要从 [管理端](https://admin.tutti.sh) 取得 Token。由环境维护方准备，普通 QA 反馈按「QA 只回答现场问题、技术缺口交给维护方」的原则提出必要的现场问题。已有匹配 origin 且有效的 Token 时复用；本机调用成功说明已有 Token 可用，仍需为新使用者准备各自的认证与权限。
 
