@@ -21,7 +21,7 @@
 | `local-workspace` | Codex 本地文件、搜索、终端与图片查看 | Python 3.10+；实际宿主能力；可读源码/附件及可写证据目录 | 分别核对文件访问与执行范围；跨机器资源不能由本地路径代替 |
 | `feishu` | 默认 lark-cli，或已提供的飞书宿主工具/MCP | 复用入口；缺少 CLI 时先核实官方安装方式，当前无默认自动安装器 | 指定身份、记录和附件读写权限；分别验证读取与回填 |
 | `code` | Git、bare 缓存、worktree | 复用 Git；三个仓库 URL/main、缓存目录与空间 | GitHub 网络与三个仓库读取权限；执行交付另需写权限 |
-| `session-upload` | tutti-ops Session JSONL 上传 | `setup-tutti-ops --install` 先复用；按 [session 能力检查](session-upload.md#1-核对-cli目标与权限) 核对命令，旧版缺能力时升级官方包；当前宿主提供会话定位/导出 | 管理端认证、diagnostics write、`session_logs.write`；核对当前 provider/session 身份，实际确认 uploaded 才表示上传完成 |
+| `session-upload` | tutti-ops Session JSONL 上传 | `setup-tutti-ops --install` 先复用；按 [session 能力检查](session-upload.md#1-核对-cli目标与权限) 核对命令，旧版缺能力时升级官方包；当前宿主提供会话定位/导出 | 管理端认证、diagnostics write、管理员身份（默认具备 `session_logs.upload`）；核对当前 provider/session 身份，实际确认 uploaded 才表示上传完成 |
 | `diagrams` | Mermaid 源码 + mmdc 渲染 PNG | `npm install -g @mermaid-js/mermaid-cli`，Node >=18 | 实际渲染一张图成功才算就绪 |
 | `approval` | 方案状态「已批准」+ bug-execute 的 `check-approval` | 复用飞书读取 | RD 在飞书里选择已批准 |
 | `project-checks` | 项目实际运行时、依赖与测试工具 | 读取对应 checkout 的 AGENTS.md、开发说明、锁文件和检查命令后准备 | 相关测试/类型检查/lint 实际通过；环境阻塞与测试失败分开记录 |

@@ -76,9 +76,9 @@
       ],
       "configuration": "host",
       "requirements": [
-        "支持 diagnostics +upload-session-log 与 session-logs complete 的实际 tutti-ops 入口；已核对发布版本 0.1.7",
+        "支持 diagnostics +upload-session-log 与 session-logs complete 的实际 tutti-ops 入口；已核对发布版本 0.1.8",
         "当前宿主 provider、当前 session ID 与原生 JSONL 读取/导出；核对日志身份",
-        "已配置管理端认证、diagnostics write 与 session_logs.write 权限；服务与对象存储已部署",
+        "已配置管理端认证与 diagnostics write，当前账号为管理员（默认具备 session_logs.upload）；服务与对象存储已部署",
         "仅在本次提 Bug 确认结束后固定快照、上传并确认 uploaded；保存结束依据、本地关联回执及恢复状态，等待或暂时阻塞不触发"
       ],
       "install_operation": "setup-tutti-ops"

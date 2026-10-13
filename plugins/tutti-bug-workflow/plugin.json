@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "tutti-bug-workflow",
-  "version": "0.1.50",
+  "version": "0.1.51",
   "description": "在 Codex 本地环境中完成 QA 提 Bug、RD 根因与方案、修复与验证，以飞书 Bug 管理表的同一条记录交接。",
   "extensions": {
     "com.openai": {

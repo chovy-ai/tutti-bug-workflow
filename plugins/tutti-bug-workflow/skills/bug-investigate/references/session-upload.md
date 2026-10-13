@@ -8,7 +8,7 @@ tutti-ops 的会话上传能力与权限由 bug-setup 准备；上传前用 `tut
 
 整条 Bug 的登记与现场采集全部完成后上传一次：记录已建、字段已写、三类现场都有了结果（包括等待中的 Computer 召回已结束），只剩需要用户补充的项也算完成。仍在采集或等待召回时不上传；用户明确结束本次登记时也上传。
 
-**无状态去重**：tutti-ops 不提供查询已上传会话的命令，也不按内容去重，所以「本会话是否已上传、uploadId 是什么」只记在会话上下文中，同一会话只上传一次。上传失败不影响已完成的登记，最终回复如实说明。本任务授权已包含这一收尾操作，无需另向用户确认；用户明确要求不上传时遵循。
+**无状态去重**：tutti-ops 不按内容去重；`diagnostics session-logs list` 只列出已完成的归档且需要管理员 `session_logs.read`（上传默认不含此权限），不能作为去重依据。所以「本会话是否已上传、uploadId 是什么」只记在会话上下文中，同一会话只上传一次。上传失败不影响已完成的登记，最终回复如实说明。本任务授权已包含这一收尾操作，无需另向用户确认；用户明确要求不上传时遵循。
 
 ## 2. 绑定当前 provider 与本会话
 
@@ -39,7 +39,7 @@ tutti-ops --admin-url https://admin.tutti.sh --mode write diagnostics +upload-se
 tutti-ops --admin-url https://admin.tutti.sh --mode write diagnostics +upload-session-log --provider PROVIDER --file SNAPSHOT.jsonl --yes
 ```
 
-dry-run 零网络，不读取文件或验证权限。实际工作流为私有文件副本 → 创建上传记录 → 签名 PUT → complete 确认。仅在退出码成功、`ok=true`、`meta.complete=true`，且 `data.upload` 中 uploadId、provider、fileName、sizeBytes 匹配快照、`status=uploaded` 时记录上传成功。只有创建记录或 PUT 成功不算完成。签名 URL、管理 Token/Cookie 不进入回执或飞书；对象传输由 CLI 隔离认证。
+dry-run 零网络，不读取文件或验证权限。实际工作流为私有文件副本 → 创建上传记录 → 签名 PUT → complete 确认。仅在退出码成功、`ok=true`、`meta.complete=true`，且 `data.upload` 中 uploadId、provider、fileName、sizeBytes 匹配快照、`status=uploaded` 时记录上传成功。只有创建记录或 PUT 成功不算完成。已有 uploadId 但上传或确认失败时 CLI 退出码为 6，stderr 中带 uploadId、失败步骤与恢复指引，按下一节处理。签名 URL、管理 Token/Cookie 不进入回执或飞书；对象传输由 CLI 隔离认证。
 
 把 uploadId 与结果记在会话上下文中；`uploaded`、`partial`、`unknown`、`blocked` 分别如实说明。
 
@@ -47,11 +47,12 @@ dry-run 零网络，不读取文件或验证权限。实际工作流为私有文
 
 - 已返回 uploadId，但 PUT 或确认失败：保存 `partial`、真实失败步骤与回执。先对该 uploadId 执行下方 complete，再核对返回记录。当前独立 complete 的 `meta.complete` 可以为 null；以 `ok=true` 及匹配的 `data.upload.status=uploaded` 判断恢复成功。
 - complete 表明对象尚未上传、缺失或大小不符：先区分上传未完成和确认暂时失败；确认旧对象无法恢复后，才用同一稳定快照重新上传并记录新旧 uploadId 的关系。当前接口没有重签或断点续传能力。
-- 首次申请响应丢失且没有 uploadId：记 `unknown`，通过管理端实际 Session 日志查询入口核对 provider、文件名、字节数和时间，或保存维护侧核对条件。未核实结果前不自动重跑创建链。
-- 认证、权限、服务、文件大小或会话定位受阻：保存错误码和具体恢复条件，按已有 Setup 规则处理可自行恢复的项；真实缺口面向维护方，不要求 QA 提供 Agent 宿主会话文件。文件上限按服务端实际配置核对，保留完整快照，不静默截成分析摘要。
+- 首次申请响应丢失且没有 uploadId：记 `unknown`。当前密钥与管理员具备 `session_logs.read` 时，用下方只读 `session-logs list --provider PROVIDER`（可加 `--page-all`）按 fileName、sizeBytes 与时间核对；list 只含已完成归档，查不到不代表请求未执行。无读取权限时通过管理端 `/session-logs` 页面核对，或保存维护侧核对条件。未核实结果前不自动重跑创建链。
+- 认证、权限、服务、文件大小或会话定位受阻：上传与 complete 只需已登录管理员（默认具备 `session_logs.upload`）及可写密钥，非管理员或只读密钥返回的拒绝属于真实权限缺口；保存错误码和具体恢复条件，按已有 Setup 规则处理可自行恢复的项；真实缺口面向维护方，不要求 QA 提供 Agent 宿主会话文件。文件上限按服务端实际配置核对，保留完整快照，不静默截成分析摘要。
 
 ```sh
 tutti-ops --admin-url https://admin.tutti.sh --mode write diagnostics session-logs complete --upload-id UPLOAD_ID --yes
+tutti-ops --admin-url https://admin.tutti.sh --mode read diagnostics session-logs list --provider PROVIDER
 ```
 
 完成条件：上传已确认（`status=uploaded`），或已如实说明受阻/部分/未知结果与恢复动作。最终反馈简要说明 session 上传结果；上传成功可给出 uploadId，受阻说明影响及下一步，业务处理结果分别报告。
