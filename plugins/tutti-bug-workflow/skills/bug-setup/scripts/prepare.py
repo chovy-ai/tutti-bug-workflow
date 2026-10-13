@@ -150,6 +150,18 @@ def check_command(name, label, scene_hint):
                 verify=f"`{name}` 在 PATH 中可执行")
 
 
+def check_tutti_cli():
+    """QA 提 Bug creates a Room Task with `tutti-cli task create`, which only a Tutti Agent execution provides."""
+    if shutil.which("tutti-cli"):
+        return item("tutti-cli", "Tutti CLI（tutti-cli）", "ok", "可用")
+    return item("tutti-cli", "Tutti CLI（tutti-cli）", "user", "当前环境没有 tutti-cli",
+                guide=["QA 提 Bug 要在 Tutti Room 的 Agent 会话里运行：Task 用 `tutti-cli task create` 建在当前 Room，"
+                       "这个命令只在 Tutti 的 Agent 执行环境中提供。",
+                       "在要登记 Bug 的 Room 里打开 Agent，让它执行 `$tutti-bug-workflow:bug-investigate`；"
+                       "确认 Computer 已更新到支持 `tutti-cli task create` 的版本。"],
+                verify="在 Room Agent 会话中 `tutti-cli task create --help` 可执行")
+
+
 def check_lark(cfg):
     missing = check_command("lark-cli", "飞书 CLI（lark-cli）", "读写 Bug 表")
     if missing:
@@ -356,8 +368,8 @@ def check(root, scenes, include_aws=False):
                   platform.python_version()), check_config(root)]
     cfg = wb.read_json(root / "config.json") if (root / "config.json").is_file() else example()
     items.append(check_node())
-    items += check_lark(cfg)
     if {"solution", "execute"} & scenes:
+        items += check_lark(cfg)
         items += check_repositories(cfg)
         items += check_codex()
     if "solution" in scenes:
@@ -367,6 +379,7 @@ def check(root, scenes, include_aws=False):
     if {"investigate", "execute"} & scenes:
         items += check_chrome()
     if "investigate" in scenes:
+        items.append(check_tutti_cli())
         items += check_tutti_ops(root, cfg)
         items += check_computer_logs(cfg)
     if include_aws:

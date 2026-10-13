@@ -25,7 +25,7 @@
 ```sh
 python3 scripts/collect_server.py --question-time <question_time> \
   --web-logs <web-logs.log 或诊断包 zip> [--request-id <id> ...] [--path-contains <ID> ...] \
-  [--before-minutes 10] [--after-minutes 10] --output-dir $TMP/server
+  [--before-minutes 10] [--after-minutes 10] --output-dir $REPORT/server
 ```
 
 脚本按 20 个一批用 CloudWatch Insights 查询，轮询到完成，按时间排序去重，写出 `server-logs.log`（首行 metadata）。结果里要看的字段：

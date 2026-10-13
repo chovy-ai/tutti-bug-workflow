@@ -14,7 +14,7 @@ description: 准备 tutti-bug-workflow 的运行环境：先让用户选场景�
 用户已经说清楚（「准备 QA 提 Bug 的环境」「我要开定时修复」）就直接用；否则**先问这一个问题**，其他都不用问：
 
 > 要准备哪个场景？
-> 1. **QA 提 Bug**：登记 Bug、自动采集页面／Server／Computer 现场日志
+> 1. **QA 提 Bug**：自动采集页面／Server／Computer 现场日志，在当前 Room 建 Task（需在 Tutti Room 的 Agent 会话里使用）
 > 2. **定时分析**（RD）：每小时分析分给你的 Bug，写根因、修复方式、验收标准和根因图
 > 3. **定时修复**（RD）：每小时修复已批准的 Bug，提 PR、部署 PPE、自验证并回填
 > 4. **全部**
@@ -83,7 +83,7 @@ python3 scripts/prepare.py fix --scene solution --scene execute
 再跑一次 `check`，用一张表交付：每个场景「已就绪／等你操作／等管理员」，以及受影响的能力。
 
 - **定时分析／定时修复**：全部就绪后询问「要现在开启吗？默认跟进人是你（当前飞书登录用户），每小时一轮，处理全部优先级；可以指定跟进人或只处理某个优先级以上」。用户同意后用 `$tutti-bug-workflow:bug-solution`／`$tutti-bug-workflow:bug-execute` 的「定时任务管理」开启，并告诉用户先看一眼当前有几条待处理。
-- **QA 提 Bug**：告诉用户怎么用：「记个 bug：<现象>」，带上截图和跟进人名字即可。
+- **QA 提 Bug**：告诉用户怎么用：在要登记的 Tutti Room 里对 Agent 说「记个 bug：<现象>」，带上截图和跟进人名字即可；Task 建在当前 Room，创建后在任务看板指派跟进人。
 
 ## 默认配置
 

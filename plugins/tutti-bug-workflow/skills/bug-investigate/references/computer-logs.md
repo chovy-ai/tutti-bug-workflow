@@ -89,4 +89,4 @@ Windows 另有 `<state-root>/computer/logs/companion.stderr.log`，以及 `%Prog
 
 两者都记录 method、path（不含 query）、`status_code`、`duration_ms`。同一请求处理过程中其他带 context 的日志也带同一个 `correlation_id`。`desktop.agentexecutor.control_plane_http` 中 `request_id` 同样是网关 id，`client_request_id` 是 desktopd 自己生成、会被网关替换的 id，查不到服务端日志。
 
-故障时间附近失败的 `desktop.outbound_network.api_request`，如果其 `request_id` 不在已拉取的 Server 日志中，用 `collect_server.py --request-id <id> --output-dir $TMP/server-computer` 补拉。
+故障时间附近失败的 `desktop.outbound_network.api_request`，如果其 `request_id` 不在已拉取的 Server 日志中，用 `collect_server.py --request-id <id> --output-dir $REPORT/server-computer` 补拉。

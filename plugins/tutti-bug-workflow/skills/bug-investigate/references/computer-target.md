@@ -26,7 +26,7 @@
 ## 3. 采集
 
 ```sh
-python3 scripts/collect_computer.py --computer-id ID --incident-at <question_time> --output-dir $TMP/computer
+python3 scripts/collect_computer.py --computer-id ID --incident-at <question_time> --output-dir $REPORT/computer
 ```
 
 - **本机**：`tutti-computer status --json` 返回的 `computerId` 与目标一致且配置了 `computer-local.paths` 时，复制这些文件（见 [本地读取](computer-logs.md#本地读取指定文件)）。

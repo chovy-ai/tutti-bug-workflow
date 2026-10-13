@@ -1,10 +1,10 @@
 # 现场材料与附件
 
-每次提 Bug 固定采集三类现场日志：Web（页面日志）、Server（tutti-server 日志）、Computer（召回包）。全部原样上传，不脱敏。文件都是本次会话的临时产物，上传后飞书记录是唯一的事实来源。
+每次提 Bug 固定采集三类现场日志：Web（页面日志）、Server（tutti-server 日志）、Computer（召回包）。全部原样发布到当前 Room，不脱敏。文件放在 Room 目录下的 `$REPORT`（`bug-reports/<operation_id>/`），发布后 Room 里的 Task 与附件是唯一的事实来源。
 
 ## 采集结果状态
 
-每类一个结果，记在会话上下文中，交给 `check_collection.py` 汇报现状：
+每类一个结果，记在会话上下文中，写进描述和最终回复：
 
 | status | 含义 |
 |---|---|
@@ -16,7 +16,7 @@
 
 ## 日志文件与附件数量
 
-全部上传到「截图、视频、日志」（`field_map.attachments`），用 `scripts/feishu.py attach`（同名同大小跳过，上传后回读确认）：
+用 `tutti-cli artifact publish --files '[{"type":"file","path":"<绝对路径>","name":"<名称>","description":"<一句话>"}]' --json` 发布到当前 Room（见 SKILL 第 4 步）。路径必须是 Room 目录内的绝对路径，QA 发来的截图、视频先复制到 `$REPORT`。同一个文件只发布一次；描述的「附件」段按发布时的名称列出：
 
 | 材料 | 上传什么 |
 |---|---|
@@ -25,4 +25,4 @@
 | Server | `collect_server.py` 生成的 `server-logs.log` |
 | Computer | 召回包原件（`*.tar.gz`），不拆包 |
 
-不上传：查询的原始结果、解包后的目录、中间文件。缺失的来源在最终回复里说明。
+不发布：查询的原始结果、解包后的目录、中间文件（它们留在 `$REPORT`，不删除）。缺失的来源写进描述「待 QA 确认」或「现场核对」末尾，并在最终回复里说明。
