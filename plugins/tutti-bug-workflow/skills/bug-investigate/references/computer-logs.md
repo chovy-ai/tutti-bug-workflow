@@ -77,3 +77,16 @@ Windows 另有 `<state-root>/computer/logs/companion.stderr.log`，以及 `%Prog
 5. 对齐请求时间与实际覆盖时间、版本、日志清单、未知时间戳行及 `truncated`。当前召回包包含可获取的 `companion.log`、`desktopd.log`、`runtime-host.log` 和临时目录中的 `tutti-codex-appserver-startup.jsonl`，按时间过滤并合并可识别的轮转文件。清单中的内容校验值与任务返回的整个压缩包校验值按各自作用域使用。部分文件为空或包被截断时，说明受影响的判断。
 
 完成条件：日志包已下载、校验、读取并保存证据，或已记录准确的失败/覆盖缺口与恢复条件。创建任务、得到链接或配置 MCP 名称都不表示已经拿到日志。服务地址、工具或权限缺失交给接入维护人；QA 仅补充无法从现有证据取得的现场信息。
+
+## 日志里的 request id
+
+包含 tutti #2736 的 Computer 版本在 `desktopd.log` 里为请求写两类日志，旧版本没有，读不到时照常按时间与状态事件核对：
+
+| 事件 | 方向 | 关联字段 |
+|---|---|---|
+| `desktop.local_api.request` | Web → desktopd 本地接口 | `correlation_id`：Web 发来的 `X-Tutti-Request-ID`，与 Web 日志中该请求的 `requestId` 相同 |
+| `desktop.outbound_network.api_request` | desktopd → tutti-server | `request_id`：网关分配的 `x-zk-request-id`，在 tutti-server 日志中可查；`correlation_id`：触发它的 Web 请求 |
+
+两者都记录 method、path（不含 query）、`status_code`、`duration_ms`。同一请求处理过程中其他带 context 的日志也带同一个 `correlation_id`。`desktop.agentexecutor.control_plane_http` 中 `request_id` 同样是网关 id，`client_request_id` 是 desktopd 自己生成、会被网关替换的 id，查不到服务端日志。
+
+故障时间附近失败的 `desktop.outbound_network.api_request`，如果其 `request_id` 不在已拉取的 Server 日志中，用 `collect_server.py --request-id <id> --output-dir $TMP/server-computer` 补拉。

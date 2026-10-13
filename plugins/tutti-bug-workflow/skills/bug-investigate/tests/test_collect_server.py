@@ -134,6 +134,35 @@ class CollectServerTests(unittest.TestCase):
         from_zip = self.server("--web-logs", str(archive), env=env)
         self.assertEqual([item["request_id"] for item in from_zip["correlated_requests"]], [rid_ok])
 
+    def test_web_requests_with_ids_are_used_directly_not_matched(self):
+        # Current Tutti Web records the gateway id on every HTTP record; folded repeats keep all of them.
+        rid_own = "20261013T094940Z-88888888-2222-3333-4444-555555555555"
+        rid_folded = "20261013T094941Z-99999999-2222-3333-4444-555555555555"
+        rid_guess = "20261013T094940Z-aaaaaaaa-2222-3333-4444-555555555555"
+        rows = [
+            {"@timestamp": "2026-10-10 09:49:40.400", "kubernetes.namespace_name": "tutti", "kubernetes.pod_name": "p",
+             "log": f"INFO request_id={rid_own} log_type=api_access method=POST status_code=500 url_path=/v2/rooms/r1/messages"},
+            {"@timestamp": "2026-10-10 09:49:40.410", "kubernetes.namespace_name": "tutti", "kubernetes.pod_name": "p",
+             "log": f"INFO request_id={rid_guess} log_type=api_access method=POST status_code=500 url_path=/v2/rooms/r1/messages"},
+        ]
+        base = 1791625770000  # 2026-10-10T09:49:30Z
+        log = self.base / "web-logs.log"
+        log.write_text("\n".join(json.dumps(item) for item in [
+            {"type": "metadata"},
+            {"occurredAtUnixMs": base + 10000, "kind": "http", "level": "error", "source": "web-http-transport",
+             "requestId": rid_own, "requestIds": [rid_own, rid_folded],
+             "details": {"method": "POST", "url": "https://tutti.sh/api/desktop/v2/rooms/r1/messages", "status": 500}},
+        ]) + "\n")
+        env = {**self.env, "FAKE_AWS_ROWS": json.dumps(rows)}
+        result = self.server("--web-logs", str(log), env=env)
+        self.assertEqual(result["status"], "captured")
+        self.assertEqual((result["request_ids_in_web_logs"], result["web_http_requests"],
+                          result["web_requests_with_id"], result["web_requests_checked"]), (2, 1, 1, 0))
+        self.assertEqual(result["correlated_requests"], [])
+        logs = (self.base / "out/server-logs.log").read_text()
+        self.assertIn(rid_own, logs)
+        self.assertNotIn(rid_guess, logs)  # no time-based guess for a record that has its own id
+
 
 if __name__ == "__main__":
     unittest.main()
