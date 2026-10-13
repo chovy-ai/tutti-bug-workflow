@@ -1,12 +1,13 @@
 # Task 字段与写入规则
 
-提 Bug 用 `tutti-cli task create` 在当前 Room 建一个 Task，采集后用 `task edit` 改标题、写全描述，`task assign` 指派跟进人。Task 只有下面几个可写字段，其余内容都写进描述。
+提 Bug 用 `tutti-cli task create` 在当前 Room 建一个 Task，采集后用 `task edit` 改标题、写全描述并用 `--file` 挂上现场附件，`task assign` 指派跟进人。Task 只有下面几个可写字段，其余内容都写进描述。
 
 | 参数 | Task 字段 | 怎么填 |
 |---|---|---|
 | `--operation-id` | Task ID／幂等键 | 第 1 步生成的 `operation_id`（UUID），重试时不变 |
 | `--title` | 标题 | 一行「类别：现象（触发条件／关键对照）」，见下；`task edit --title` 可改 |
 | `--description`／`--description-file` | 描述 | 建单时写 QA 原话；采集后 `task edit --description-file` 整段替换为下面的结构 |
+| `task edit --file`（可重复） | 附件 | 截图、视频与全部日志，上传为 Task 私有附件、嵌在描述末尾；描述是整段替换，每次 `task edit` 都带上全部附件，见 [现场材料与附件](registration-logs.md) |
 | `--priority` | 优先级 | 建单时按下表从 QA 定级映射；**CLI 改不了**，之后只能在任务看板改 |
 | `task assign --user-id` | 负责人 | 跟进人的 Room 成员 userId（`tutti-cli user list --json`）；只更新负责人，不启动 Agent |
 | `--project-id` | Project | 一般不填；QA 明确要求挂到当前 Room 的某个 Project 时才填 |
@@ -102,11 +103,11 @@ QA 定级：P1（或「待 QA 确认」）
 
 页面链接：<出问题页面的完整 URL>
 
-附件（已发布到本 Room）
+附件（已挂在本 Task）
 - Web 日志：web-logs.log
 - Server 日志：server-logs.log
 - Computer 日志：<召回包文件名>
-- 截图 1、录屏 1
+- 截图、录屏：<文件名>
 
 待 QA 确认
 - <还在等 QA 回复的问题；没有就省略本段>

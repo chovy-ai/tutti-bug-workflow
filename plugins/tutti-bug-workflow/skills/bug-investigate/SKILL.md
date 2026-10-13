@@ -1,11 +1,11 @@
 ---
 name: bug-investigate
-description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下这个问题」等都算）：每次调用都走完全程——固定采集当时的现场日志（Web 页面日志、tutti-server 日志、Computer 日志），用 `tutti-cli task create` 在当前 Room 建 Task，把日志发布到 Room，再用 `task edit` 补全上下文、`task assign` 指派跟进人；不做根因分析，只有遇到自己无法解决的卡点才向用户提问。
+description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下这个问题」等都算）：每次调用都走完全程——固定采集当时的现场日志（Web 页面日志、tutti-server 日志、Computer 日志），用 `tutti-cli task create` 在当前 Room 建 Task，再用 `task edit --file` 补全上下文并把截图和日志作为 Task 附件上传、`task assign` 指派跟进人；不做根因分析，只有遇到自己无法解决的卡点才向用户提问。
 ---
 
 # QA 提 Bug
 
-你负责把一次上报变成当前 Room 里一个**上下文完整**的 Task，交给 RD 排查：建 Task、采集当时的全部现场、发布日志、补全描述、指派跟进人。**不分析根因，不读代码**；时间花在把现场带全上。
+你负责把一次上报变成当前 Room 里一个**上下文完整**的 Task，交给 RD 排查：建 Task、采集当时的全部现场、把现场作为附件挂到 Task、补全描述、指派跟进人。**不分析根因，不读代码**；时间花在把现场带全上。
 
 **只能在 Tutti Room 的 Agent 会话里运行。** Task 由 `tutti-cli task create` 在**当前 Room** 创建，这个命令只在 Tutti 托管的 Agent 执行中可用（Native 或 VM Agent），创建者是这台 Computer 当前登录的 Account。开始前运行 `tutti-cli task --help`：命令不存在，或执行时报 `task creation is available only inside a managed Agent execution`，说明不在 Tutti Agent 会话里，直接告诉用户「请在要登记 Bug 的 Room 里，让 Agent 执行这条上报」，不要改用别的建单方式。用 **Native Agent**（跑在 QA 本机的 Computer 上）：采集要用本机的 Chrome（WebMCP）、AWS CLI、tutti-ops 和本插件，VM Agent 里没有这些；只能用 VM Agent 时照常建 Task，取不到的现场按卡点记录。
 
@@ -19,9 +19,11 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 **尽量并行。** Web 日志先采（它给出要对到服务端的请求和 Computer 线索），随后三件事同时进行：Computer 召回用后台进程跑，Server 日志交给 subagent 查，主 agent 整理上下文。宿主不支持 subagent 时，Server 也用后台进程跑。
 
-**先建 Task，再补全。** 第 2 步按 QA 的描述先建好 Task，采集完用 `tutti-cli task edit` 改标题、写全描述，用 `task assign` 指派跟进人。**优先级只能在创建时设置**，CLI 不能修改，建单时就要定好。所有写操作都带 `--operation-id`，结果不确定时用同一个 ID 和相同输入重试；CLI 不会自动重试。
+**先建 Task，再补全。** 第 2 步按 QA 的描述先建好 Task，采集完用 `tutti-cli task edit` 改标题、写全描述，用 `task assign` 指派跟进人。**优先级只能在创建时设置**，CLI 不能修改，建单时就要定好。所有写操作都带 `--operation-id`，结果不确定时用同一个 ID 和相同输入重试；CLI 不会自动重试。带 `--file` 的写入例外：每次上传都会生成新的附件，结果不确定时先 `task show`（评论看 `task timeline`）核对，确实没生效再换一个新的操作 ID 重跑，不用同一个 ID 配不同的附件。
 
-**Computer 版本较旧时退回「最后一次建好」。** `tutti-cli task --help` 里只有 `create`、没有 `edit`／`assign` 时，不能先建后改：先采集、发布，有缺口先一次问完，最后一次把标题、完整描述、优先级建好；跟进人请 QA 在任务看板指派。
+**现场附件直接挂在 Task 上。** `task edit`、`task comment add` 的 `--file <路径>` 可重复，把本机文件上传为 Task 的私有附件，只有 Room 成员能下载，本地房间和云端房间都能用（VM Agent 读的是 VM 里的文件）。附件嵌在描述（或评论）里：`task edit` 整段替换描述，**没有再次带上的附件会从描述里消失**，所以每次 `task edit` 都要带上到目前为止的全部附件。限制和命名见 [现场材料与附件](references/registration-logs.md)。
+
+**Computer 版本较旧时退回「最后一次建好」。** `tutti-cli task --help` 里只有 `create`、没有 `edit`／`assign` 时，不能先建后改：先采集、发布，有缺口先一次问完，最后一次把标题、完整描述、优先级建好；跟进人请 QA 在任务看板指派。`tutti-cli task edit --help` 里没有 `--file` 时，附件退回用 `tutti-cli artifact publish` 发布到当前 Room（见 [旧版 Computer](references/registration-logs.md#旧版-computer)）。
 
 **登录过期就当场重新登录，不停下来问。** 认证失效不是卡点：
 
@@ -31,9 +33,9 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 自动登录的同时在对话里说一句「AWS 登录已过期，已在浏览器打开授权页，点一下允许即可」，然后继续等待，不结束本轮。只有等了 10 分钟仍没完成、没有配置 SSO，或者 tutti-ops Token 失效（需要在管理端重新创建，见 `$tutti-bug-workflow:bug-setup`），才写进最终回复，并写清用户要做的一步。
 
-**不脱敏。** 现场日志原样采集、原样发布。
+**不脱敏。** 现场日志原样采集、原样上传。
 
-**无状态。** `operation_id`、`question_time`、采集结果都记在本次会话上下文中。日志、截图等放在当前 Room 目录下的 `bug-reports/<operation_id>/`（下称 `$REPORT`，用绝对路径；`tutti-cli artifact publish` 只接受 Room 目录内的文件）。对外唯一的事实来源是 Room 里的 Task。脚本路径相对本 Skill 目录（`skills/bug-investigate/`），都输出一段 JSON。工具安装与认证由 `$tutti-bug-workflow:bug-setup` 负责，已有权限内的读取、召回、发布，以及建 Task、编辑、指派、评论属于本任务授权，无需逐项再问。
+**无状态。** `operation_id`、`question_time`、采集结果都记在本次会话上下文中。日志、截图等放在当前 Room 目录下的 `bug-reports/<operation_id>/`（下称 `$REPORT`，用绝对路径）。`--file` 能读取本机任意路径，统一放这里是为了旧版退回 `artifact publish` 时也能用（它只接受 Room 目录内的文件）。对外唯一的事实来源是 Room 里的 Task。脚本路径相对本 Skill 目录（`skills/bug-investigate/`），都输出一段 JSON。工具安装与认证由 `$tutti-bug-workflow:bug-setup` 负责，已有权限内的读取、召回、上传附件，以及建 Task、编辑、指派、评论属于本任务授权，无需逐项再问。
 
 写最终回复前逐项自查，任何一项没有结果且不是卡点，就回去做完：
 
@@ -43,10 +45,10 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 | 跟进人 | 已 `task assign --user-id` 指派；或已在回复中请用户指定 |
 | 标题 | 一行写清「类别：现象（触发条件／关键对照）」；没看过现场的人单看这一行也能明白哪里不对，说的是 QA 报的问题 |
 | 优先级 | 建单时按定义映射成 Task 优先级；拿不准时用 `none`，在描述「待 QA 确认」和回复里问，QA 确认后在任务看板修改 |
-| Web 日志 | `web-logs.log` 或 QA 导出包已发布；或写明缺什么、怎么提供 |
+| Web 日志 | `web-logs.log` 或 QA 导出包已挂到 Task；或写明缺什么、怎么提供 |
 | Server 日志 | `captured`／`empty`／`blocked`（附原因）；登录过期已自动重新登录并重试过 |
-| Computer 日志 | 召回已完成并发布；或写明受阻原因、待用户确认的设备 |
-| 附件 | QA 的截图／视频与全部日志已用 `tutti-cli artifact publish` 发布，描述的「附件」段列出了它们 |
+| Computer 日志 | 召回已完成，召回包已挂到 Task；或写明受阻原因、待用户确认的设备 |
+| 附件 | QA 的截图／视频与全部日志已随最后一次 `task edit --file` 挂到 Task，`task show` 回读描述里附件一个不少，「附件」段列出了它们；旧版 Computer 已用 `artifact publish` 发布 |
 | 描述 | 以「概要」「现场核对」开头，回复里提到的每条发现都在这两段里；环境与版本、页面链接、关联 ID 齐全 |
 | 会话上传 | 全部完成后已上传一次 |
 
@@ -118,27 +120,21 @@ python3 scripts/collect_server.py --question-time <question_time> \
 结果里的 `namespaces`／`environments` 告诉你环境：`tutti` 是生产，`lane-ppe-*` 是 PPE；`correlated_requests` 中与故障相关的请求和 `web_failures_not_in_server_logs`（页面失败但没到服务端的请求）写进「问题上下文」。详见 [Server 日志](references/server-logs.md)。
 
 
-## 4. 发布附件与补全描述
+## 4. 上传附件与补全描述
 
-1. 按 [现场材料与附件](references/registration-logs.md)，把 QA 的截图／视频（先复制到 `$REPORT`）和已有的日志在一次调用里发布到当前 Room：
-   ```sh
-   tutti-cli artifact publish --message "Bug 现场：<标题>" --files '[
-     {"type":"file","path":"<$REPORT>/web/web-logs.log","name":"Web 日志","description":"提问前 10 分钟的页面日志"},
-     {"type":"file","path":"<$REPORT>/server/server-logs.log","name":"Server 日志","description":"tutti-server 相关请求日志"},
-     {"type":"file","path":"<$REPORT>/screenshot-1.png","name":"截图 1"}
-   ]' --json
-   ```
-   Computer 召回还没结束时先发布已有的，召回完成后再发布召回包。发布失败时保留文件，写清原因，继续。
-2. 按 [Task 字段](references/report-fields.md) 把描述写到 `$REPORT/description.txt`，确认了新的触发条件或对照时一并改标题：
+1. 按 [现场材料与附件](references/registration-logs.md) 整理要挂的文件：QA 的截图／视频（复制到 `$REPORT`）和已有的日志，记下这份附件清单，后面每次 `task edit` 都用它。
+2. 按 [Task 字段](references/report-fields.md) 把描述写到 `$REPORT/description.txt`（「附件」段按文件名列出），确认了新的触发条件或对照时一并改标题。描述和全部附件在一次 `task edit` 里提交：
    ```sh
    tutti-cli task edit --task-id <taskId> --title "<标题>" --description-file <$REPORT>/description.txt \
+     --file <$REPORT>/web/web-logs.log --file <$REPORT>/server/server-logs.log --file <$REPORT>/screenshot-1.png \
      --operation-id <新 UUID> --json
-   tutti-cli task show --task-id <taskId> --json     # 回读核对
+   tutti-cli task show --task-id <taskId> --json     # 回读标题、描述和附件
    ```
+   Computer 召回还没结束时先带上已有的文件，召回完成后在第 5 步再提交一次。上传失败时 Task 不会被修改：按报错修正（文件名重复、空文件、超过 500 MiB、HTML／SVG 等）后重跑；修不了的文件从清单里去掉，在描述「现场核对」末尾写一句缺什么，继续。
 
 ## 5. 收尾
 
-1. 等 Computer 召回完成（读 `$REPORT/computer.json`），发布召回包，把召回任务 ID 和附件名补进 `description.txt`，再 `task edit` 一次。`desktopd.log` 里故障时间附近失败的出站请求带有 Server 日志中没有的 `request_id` 时，用 `collect_server.py --request-id <id> --output-dir $REPORT/server-computer` 补拉并发布（见 [Computer 日志里的 request id](references/computer-logs.md#日志里的-request-id)）。
+1. 等 Computer 召回完成（读 `$REPORT/computer.json`），把召回包加进附件清单，召回任务 ID 和附件名补进 `description.txt`，再带上**全部** `--file` 执行一次 `task edit`，`task show` 回读。`desktopd.log` 里故障时间附近失败的出站请求带有 Server 日志中没有的 `request_id` 时，用 `collect_server.py --request-id <id> --output-dir $REPORT/server-computer` 补拉，结果复制成 `server-logs-computer.log` 再加进清单（同一次调用里文件名不能重复；见 [Computer 日志里的 request id](references/computer-logs.md#日志里的-request-id)）。
 2. 需要用户提供的东西一次列出，每项说明怎么获取：
 
    | 缺什么 | 怎么请用户提供 |
@@ -149,6 +145,6 @@ python3 scripts/collect_server.py --question-time <question_time> \
    | 优先级（拿不准时） | 「这条按 P1（明显 Bug，对应 high）合适吗？」，附一句判断理由；确认后请 QA 在任务看板修改 |
    | 期望（没说清，或现场事实与 QA 的说法不一致时） | 把 QA 的说法和查到的事实并列，请 QA 确认期望，例如「你说是同一份文件，记录里三条内容各不相同：期望只显示最新一份，还是保留历史但标出版本？」 |
 
-   登录过期按上面的规则当场自动恢复，不列在这里；真正的工具缺失、权限不足才写进回复交给维护方。用户补充后在同一会话里继续：补采、发布、`task edit` 更新描述、`task assign` 指派；不再建第二个 Task。补充较多、不适合改写描述时，用 `tutti-cli task comment add --task-id <taskId> --text-file <文件> --operation-id <新 UUID> --json` 记一条评论。
+   登录过期按上面的规则当场自动恢复，不列在这里；真正的工具缺失、权限不足才写进回复交给维护方。用户补充后在同一会话里继续：补采后带全部附件 `task edit` 更新描述、`task assign` 指派；不再建第二个 Task。补充较多、不适合改写描述，或只是追加文件时，用评论，评论可以只附文件：`tutti-cli task comment add --task-id <taskId> [--text-file <文件>] --file <路径> --operation-id <新 UUID> --json`。
 3. 按开头的自查表逐项确认；全部完成后按 [会话上传](references/session-upload.md) 上传本次会话一次。
-4. 最终回复：Task 标题与 ID、所在 Room、优先级、跟进人、环境、已发布的现场附件、缺失项及需要用户提供的内容。
+4. 最终回复：Task 标题与 ID、所在 Room、优先级、跟进人、环境、已挂到 Task 的附件、缺失项及需要用户提供的内容。
