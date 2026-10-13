@@ -1,16 +1,17 @@
 # Task 字段与写入规则
 
-提 Bug 用 `tutti-cli task create` 在当前 Room 建一个 Task。Task 只有下面几个可写字段，其余内容都写进描述；建好后 CLI 不能修改，只能由人在 Tutti 里编辑。
+提 Bug 用 `tutti-cli task create` 在当前 Room 建一个 Task，采集后用 `task edit` 改标题、写全描述，`task assign` 指派跟进人。Task 只有下面几个可写字段，其余内容都写进描述。
 
 | 参数 | Task 字段 | 怎么填 |
 |---|---|---|
 | `--operation-id` | Task ID／幂等键 | 第 1 步生成的 `operation_id`（UUID），重试时不变 |
-| `--title` | 标题 | 一行「类别：现象（触发条件／关键对照）」，见下 |
-| `--description` | 描述 | 概要、现场核对、期望与复现、关联 ID、分类、环境与版本、页面链接、附件，见下 |
-| `--priority` | 优先级 | 按下表从 QA 定级映射 |
+| `--title` | 标题 | 一行「类别：现象（触发条件／关键对照）」，见下；`task edit --title` 可改 |
+| `--description`／`--description-file` | 描述 | 建单时写 QA 原话；采集后 `task edit --description-file` 整段替换为下面的结构 |
+| `--priority` | 优先级 | 建单时按下表从 QA 定级映射；**CLI 改不了**，之后只能在任务看板改 |
+| `task assign --user-id` | 负责人 | 跟进人的 Room 成员 userId（`tutti-cli user list --json`）；只更新负责人，不启动 Agent |
 | `--project-id` | Project | 一般不填；QA 明确要求挂到当前 Room 的某个 Project 时才填 |
 
-创建者是这台 Computer 当前登录的 Account；状态固定为 `todo`，不指派，也不会自动启动 Agent。分析根因、修复方案和验收不在本 Skill 写。
+创建者是这台 Computer 当前登录的 Account；新建为 `todo`、未指派，不会自动启动 Agent。本 Skill 不改状态，不关闭、不删除 Task。分析根因、修复方案和验收不在本 Skill 写。
 
 ## 优先级
 
@@ -20,7 +21,7 @@
 | P1（明显 Bug） | `high` |
 | P2（非核心 Bug） | `medium` |
 | P3 | `low` |
-| 拿不准且 QA 让先建 | `none`，描述「待 QA 确认」里写倾向和理由 |
+| 拿不准 | `none`，描述「待 QA 确认」里写倾向和理由，QA 确认后在任务看板修改 |
 
 QA 的原始定级同时写进描述的「分类」段，便于对照。
 
@@ -45,7 +46,7 @@ RD 在任务看板里只看得到这一行，要让人不点开也知道「什�
 |---|---|
 | 房间任务：同一路径文件更新后右侧显示3个同名产物（历史内容不同，未区分版本） | 房间任务：在任务里让 Agent 连续修改 guess_number.py 两次后，右侧产出文件出现 3 个同名 guess_number.py，看不出哪个是最新的（期望同一个文件只显示最新一份） |
 
-Task 建好后不能再用 CLI 改标题，所以在采集完成后再定标题：先按用户描述起草，确认了新的触发条件或对照就补进去。标题最长 512 字。
+建单时（第 2 步）还没有日志，先按用户描述写；采集完成后（第 4 步）如果确认了新的触发条件或对照，用 `task edit --title` 改成上面的样子。标题最长 512 字。
 
 ## 环境与版本（描述中的一段）
 
@@ -93,7 +94,7 @@ request id：<出错或关键的几条>
 所属端：Mac／Windows／Web
 业务模块：<功能名称>
 QA 定级：P1（或「待 QA 确认」）
-建议跟进人：<姓名>（Task 未指派，请在看板指派）
+跟进人：<姓名>（已指派；未指派时写「待指定」）
 上报人：<QA 姓名>
 
 环境与版本
@@ -108,7 +109,7 @@ QA 定级：P1（或「待 QA 确认」）
 - 截图 1、录屏 1
 
 待 QA 确认
-- <没问到或 QA 让先建时的缺口；没有就省略本段>
+- <还在等 QA 回复的问题；没有就省略本段>
 ```
 
 规则：

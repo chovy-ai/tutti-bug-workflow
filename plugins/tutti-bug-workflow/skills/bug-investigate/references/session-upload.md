@@ -26,7 +26,7 @@ provider 表示产生会话记录的 Agent 宿主，例如 Codex 或 Claude Code
 
 ## 3. 生成快照
 
-1. 确认 Task 已建好（或已按 SKILL 第 5 步问完、用户明确结束），再读取当前会话日志，复制到会话临时目录，例如 `$TMP/session-task-<operation_id>-<session_id>.jsonl`，文件名便于管理端按 Task 追溯。保留 provider 原生 JSONL 结构，文件权限 0600。
+1. 确认 Task 已建好、描述已补全（只剩需要用户补充的项也算），再读取当前会话日志，复制到会话临时目录，例如 `$TMP/session-task-<operation_id>-<session_id>.jsonl`，文件名便于管理端按 Task 追溯。保留 provider 原生 JSONL 结构，文件权限 0600。
 2. CLI 只复制文件并上传，不解析 JSONL、不自动脱敏，也不会自动寻找当前 session。发现实际凭证时对快照脱敏，原会话不改写。快照只包含当时已落盘的记录，不包含之后的最终回复。
 3. 只上传这一份快照；当前 CLI 请求只接受 provider 和文件，Task 与会话的对应关系体现在文件名里，不虚构关联字段。
 
