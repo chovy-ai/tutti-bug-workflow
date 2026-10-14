@@ -4,20 +4,22 @@ Task 补全后（第 4 步的 `task edit` 成功、`task show` 回读无误）�
 
 ## 选 Agent 和模型
 
-先 Codex，其次 Claude Code。`tutti-cli agent list --room-id <roomId> --json` 里只看 `availability.status` 是 `available`、`ownership` 是 `self`、`referenceOnly` 为 `false` 的 Agent（`requestable` 要先授权，不选），按下面的顺序逐个试，第一个找得到合适模型的就用它：
+先 Codex，其次 Claude Code。`tutti-cli agent list --room-id <roomId> --json` 里去掉 `referenceOnly` 为 `true`（历史引用）和 `availability.status` 为 `unavailable` 的，其余都是候选，按下面的顺序逐个试，第一个找得到合适模型、`task run` 被受理的就用它：
 
 | 顺序 | Agent | 模型（`--model`） | `--reasoning-effort` |
 |---|---|---|---|
 | 1 | `providerId` 为 `codex` | `gpt-6.1-sol`，没有再用 `gpt-6-astra` | `high` |
 | 2 | `providerId` 为 `claude-code` | Opus 5.5 | `high` |
 
-- 同一类 Agent 有多个时：`computerId` 等于该 Room 的 `nativeComputerId`（`find_room.py` 返回的 `room.nativeComputerId`）且 `executionEnvironment` 为 `native` 的优先（在房主本机运行，能用本机的 git 登录拉私有仓库），其次同一台 Computer 的 `managed_vm`，再其次其他 Computer。所有 Codex 都试过、都没有合适模型，才轮到 Claude Code。
+- 能不能执行由服务端判断，目录里的 `ownership` 和 `availability` 只用来排先后，不用来排除：`ownership` 为 `self`（自己的）和 `shared`（已共享给你的）在前，`availability.status` 为 `available` 在 `checking` 前；`requestable`（目录说要先授权，`reason` 常见 `sharing_required`）排在同类最后，前面的都不行时照样试，被拒再换下一个。目录结果可能和实际共享状态不一致，不要因此跳过，也不要据此推断「当时没共享」之类的结论。
+- 同一类 Agent 有多个时，在上面的先后之内：`computerId` 等于该 Room 的 `nativeComputerId`（`find_room.py` 返回的 `room.nativeComputerId`）且 `executionEnvironment` 为 `native` 的优先（在房主本机运行，能用本机的 git 登录拉私有仓库），其次同一台 Computer 的 `managed_vm`，再其次其他 Computer。所有 Codex 都试过、都没有合适模型，才轮到 Claude Code。
 - 每个候选先运行 `tutti-cli agent models --room-id <roomId> --agent-target-id <id> --json`，在 `models[]` 里找模型，`--model` 传 `value` 原值（可能带连接前缀）：
   - Codex：`value` 等于或以 `gpt-6.1-sol`／`gpt-6-astra` 结尾；
   - Claude Code：`label` 或 `description` 写明 Opus 5.5，或 `value` 含 `opus-5-5`。`opus`、`opus[1m]` 这类别名只有 `label` 写的是 Opus 5.5 才算，写的是其他版本（如 Opus 4.7）不算。
 - 选中的模型要支持 `high`：看 `reasoningOptionsByModel.<value>.options`，没有这一项时看 `reasoningEfforts`。
-- `agent models` 报 403 等错误时跳过这个 Agent，试下一个。
-- 全部候选都没有合适的就不发，写进最终回复：「房间里没有可用的 Codex（gpt-6.1-sol／gpt-6-astra）或 Claude Code（Opus 5.5），未自动分析」。不换成其他模型或其他 Agent 类型。
+- `agent models` 报 403 等错误时跳过这个 Agent，试下一个，记下报错原文。
+- 全部候选都没有合适的就不发，写进最终回复：「房间里没有可用的 Codex（gpt-6.1-sol／gpt-6-astra）或 Claude Code（Opus 5.5），未自动分析」，并逐个列出试过的 Agent、目录里的 `ownership`／`availability`（含 `reason`）和报错或拒绝原文。不换成其他模型或其他 Agent 类型。
+- 向用户说明为什么没发时只陈述这些原始结果，不推断原因（如「Agent 当时没共享」「权限没生效」）；用户的说法和目录结果对不上时，两边都照写，标成待确认。
 
 ## 发出指令
 
@@ -35,7 +37,7 @@ tutti-cli task run --room-id <roomId> --task-id <taskId> --agent-target-id <agen
 |---|---|
 | `accepted` + `invocationId` | 发送成功，这一步结束：记下 Agent、模型、`invocationId`、`commentId`，立刻继续后面的步骤 |
 | `pending`（退出码 0，执行还没受理） | 还不算成功：隔 15 秒用**同一个 `--operation-id`、同样的参数和同一份指令文件**重跑，最多 3 次。同 ID 重跑会复用那条评论、重放执行请求，不会重复触发；变成 `accepted` 就算成功。3 次后仍是 `pending`，最终回复里写「已发出，Agent 尚未受理，请在 Task 里查看」 |
-| `rejected`（退出码 1，带 `rejectionCode`） | 这个组合发不出去：按上面的顺序换下一个模型或候选 Agent，用**新的** `--operation-id` 再发（被拒的结果不会改变，新 ID 会再发一条评论）。全部被拒就写进最终回复，带上每次的拒绝原因 |
+| `rejected`（退出码 1，带 `rejectionCode`） | 这个组合发不出去：按上面的顺序换下一个模型或候选 Agent，用**新的** `--operation-id` 再发（被拒的结果不会改变，新 ID 会再发一条评论）。全部被拒就写进最终回复，带上每次的 `rejectionCode` 原文 |
 | 超时、断网、没拿到回执 | 用同一个 `--operation-id` 和相同输入重跑一次，按新回执处理 |
 | 参数错误、HTTP 错误 | 按报错修正（模型值、推理强度不被接受时换下一个模型）后用新的 `--operation-id` 再发 |
 

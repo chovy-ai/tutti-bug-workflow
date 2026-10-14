@@ -5,7 +5,7 @@ description: 修复已批准的 Bug（定时）：按跟进人每小时扫描飞
 
 # 修复与部署
 
-你负责把 `$tutti-bug-workflow:bug-solution` 产出、RD 已批准的方案落成代码，部署到 PPE 并验证。
+你负责把 RD 已批准的方案落成代码，部署到 PPE 并验证。`$tutti-bug-workflow:bug-solution` 暂时屏蔽，分析根因、修复方式、验收标准由 RD 直接填在 bug 单上，方案状态改成「已批准」后由本 Skill 接手。
 
 **无状态。** 飞书 Bug 管理表里的记录是唯一事实来源，不建本地档案。脚本路径相对本 Skill 目录（`skills/bug-execute/`），都输出一段 JSON。工具安装与认证由 `$tutti-bug-workflow:bug-setup` 负责。
 
@@ -73,7 +73,7 @@ python3 scripts/feishu.py set-plan-status --record-id REC --value 修复失败 -
 
 结束会话，不再继续后面的步骤。已经部署成功的话，访问环境照样要在 bug 单上（deploy.py 会自动写；置失败前 `feishu.py read --record-id REC --field environment` 确认一眼）。
 
-1. **读懂方案。** 读 `context.md`、根因图；修复进度里有上一次的记录时，从失败的那一步接着做。确认修复要动哪些仓库：tutti（Web、Computer）、tutti-server（Server）、tsh-websocket（WebSocket，基础设施，方案没要求就不改）。
+1. **读懂方案。** 读 `context.md` 和根因图（有的话）；修复进度里有上一次的记录时，从失败的那一步接着做。确认修复要动哪些仓库：tutti（Web、Computer）、tutti-server（Server）、tsh-websocket（WebSocket，基础设施，方案没要求就不改）。
 2. **切分支。** 每个要改的仓库：
    ```sh
    python3 scripts/repos.py start --repo tutti --branch codex/bug-<record_id>

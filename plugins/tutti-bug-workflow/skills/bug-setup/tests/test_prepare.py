@@ -109,7 +109,6 @@ class PrepareTests(unittest.TestCase):
         self.assertIn("bug_report", config)
         self.assertTrue((self.data / "config.before-prepare.json").is_file())
 
-    @unittest.skip("bug-solution/bug-execute 暂时屏蔽，setup 不再提供这两个场景")
     def test_logins_and_permissions_come_back_as_guided_user_steps(self):
         self.install("node", "npm", "npx", "lark-cli", "git", "codex", "mmdc", "gh")
         self.tools.update(lark_logged_in=False, gh_scopes="'repo'", push=["tutti"], git_helper=False)
@@ -126,31 +125,28 @@ class PrepareTests(unittest.TestCase):
         self.assertEqual(items["execute-schedule"]["status"], "optional")
         self.assertNotIn("mmdc", items)
 
-    @unittest.skip("bug-solution/bug-execute 暂时屏蔽，setup 不再提供这两个场景")
     def test_all_scenes_ready_with_schedules(self):
-        self.install("node", "npm", "npx", "lark-cli", "git", "codex", "mmdc", "gh", "tutti-ops", "tutti-cli")
-        self.tools.update(gh_scopes="'repo', 'workflow'")
-        for name in ("com.tutti.bug-solution.ou_me.plist", "com.tutti.bug-execute.ou_me.plist"):
-            (self.agents / name).write_text("<plist/>")
+        self.install("node", "npm", "npx", "lark-cli", "git", "codex", "gh", "tutti-ops", "tutti-cli")
+        self.tools.update(gh_scopes="'repo', 'workflow'", node="v24.14.0")
+        (self.agents / "com.tutti.bug-execute.ou_me.plist").write_text("<plist/>")
         report, items = self.prepare("fix", "all")
-        self.assertEqual(set(report["scenes"]), {"investigate", "solution", "execute"})
-        self.assertEqual(items["mmdc"]["status"], "ok")
-        self.assertEqual(items["solution-schedule"]["status"], "ok")
+        self.assertEqual(set(report["scenes"]), {"investigate", "execute"})
+        self.assertNotIn("mmdc", items)  # only bug-solution renders diagrams, and it is paused
+        self.assertNotIn("solution-schedule", items)
+        self.assertEqual(items["execute-schedule"]["status"], "ok")
         self.assertEqual(report["summary"]["user"], 0, report)
         self.assertEqual(report["summary"]["fix"], 0, report)
         self.assertTrue(report["ready"])
 
-    def test_only_reporting_can_be_prepared_while_rd_scenes_are_paused(self):
+    def test_solution_scene_stays_paused(self):
         self.install("node", "npm", "npx")
-        report, items = self.prepare("check", "all")
-        self.assertEqual(set(report["scenes"]), {"investigate"})
+        report, items = self.prepare("check", "investigate")
         self.assertNotIn("lark-auth", items)
         self.assertFalse(any(name.endswith("-schedule") for name in items))
-        for scene in ("solution", "execute"):
-            result = subprocess.run([sys.executable, str(SCRIPT), "check", "--scene", scene,
-                                     "--data-dir", str(self.data)], capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 2)
-            self.assertIn("invalid choice", result.stderr)
+        result = subprocess.run([sys.executable, str(SCRIPT), "check", "--scene", "solution",
+                                 "--data-dir", str(self.data)], capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("invalid choice", result.stderr)
 
 
 if __name__ == "__main__":

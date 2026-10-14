@@ -31,8 +31,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import workbench as wb  # noqa: E402
 
 SCENES = {"investigate": "QA 提 Bug", "solution": "定时分析根因与方案", "execute": "定时修复与部署"}
-# bug-solution and bug-execute are paused (moved to disabled-skills/); add them back here to re-enable.
-ENABLED_SCENES = ("investigate",)
+# bug-solution is paused (moved to disabled-skills/); add "solution" back here to re-enable it.
+ENABLED_SCENES = ("investigate", "execute")
 NPM_PACKAGES = {"lark-cli": "@larksuite/cli", "codex": "@openai/codex", "mmdc": "@mermaid-js/mermaid-cli",
                 "tutti-ops": "@tutti-os/tutti-ops-cli", "tutti-cli": "@tutti-os/tutti-cli"}
 SCHEDULE_PREFIX = {"solution": "com.tutti.bug-solution.", "execute": "com.tutti.bug-execute."}

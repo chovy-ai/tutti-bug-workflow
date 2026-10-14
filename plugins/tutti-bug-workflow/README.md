@@ -1,11 +1,12 @@
 # tutti-bug-workflow
 
-版本：0.3.1。运行方式：Codex 本地会话。目前只开放 QA 提 Bug 和环境准备两个 Skill；RD 的根因分析（bug-solution）和修复（bug-execute）暂时屏蔽，源码移到 [disabled-skills/](disabled-skills/README.md)，插件不加载。
+版本：0.4.0。运行方式：Codex 本地会话。开放 QA 提 Bug、修复与部署和环境准备三个 Skill；RD 的定时根因分析（bug-solution）暂时屏蔽，源码移到 [disabled-skills/](disabled-skills/README.md)，插件不加载，期间方案由 RD 直接填在飞书 bug 单上。
 
 | 入口 | 工作内容 |
 |---|---|
 | `$tutti-bug-workflow:bug-investigate` | QA 提 Bug：带全现场日志与上下文，用全局 tutti-cli 在指定 Room 建 Task（不写飞书表），不分析根因 |
-| `$tutti-bug-workflow:bug-setup` | 准备提 Bug 环境：自动检查、安装 tutti-cli 与 tutti-ops、补默认配置，一步步引导登录和授权 |
+| `$tutti-bug-workflow:bug-execute` | 修复与部署（定时）：每小时按跟进人修复飞书 Bug 表里方案已批准的 Bug，提 PR 到 main，部署 PPE（server 泳道 → ws 泳道 → 前端预览 → Computer canary），验证，进度写回 bug 单 |
+| `$tutti-bug-workflow:bug-setup` | 准备环境：选场景（QA 提 Bug／定时修复），自动检查、安装、补默认配置，一步步引导登录和授权，可直接开启定时修复 |
 
 ## 首次使用
 
@@ -13,16 +14,16 @@
 
 > 使用 $tutti-bug-workflow:bug-setup 帮我准备环境
 
-目前只准备 **QA 提 Bug** 一个场景，不用选：
+Agent 会先问你要准备哪个场景：**QA 提 Bug**、**定时修复与部署**，或**全部**。之后：
 
-1. **检查**：`skills/bug-setup/scripts/prepare.py check --scene investigate` 逐项实际验证：Node.js、tutti-cli 安装与登录、tutti-ops Token、本机 Chrome 连接、本机 Computer 日志。
-2. **能做的直接做**：`prepare.py fix` 补齐默认配置（已有值不动，原文件备份），用 npm 把 tutti-cli（Node.js 24+）装成或升级到最新版，安装缺少的 tutti-ops。
-3. **一步步引导**：需要你本人做的（`tutti-cli login`、管理端创建 Token、Chrome 点允许、找管理员要权限），一次一项给出步骤和可复制的命令，你回复「已完成」后 Agent 复查。
-4. **收尾**：汇总已就绪／等你／等管理员，告诉你怎么提 Bug。
+1. **检查**：`skills/bug-setup/scripts/prepare.py check --scene …` 逐项实际验证。QA 提 Bug：Node.js、tutti-cli 安装与登录、tutti-ops Token、本机 Chrome 连接、本机 Computer 日志；定时修复：飞书登录与 Bug 表、三个仓库、Codex 登录、GitHub 登录与推送／部署权限、本机 Chrome 连接、定时任务。
+2. **能做的直接做**：`prepare.py fix` 补齐默认配置（已有值不动，原文件备份），用 npm 把 tutti-cli（Node.js 24+）装成或升级到最新版，安装缺少的 tutti-ops、lark-cli、codex，用 Homebrew 安装 gh。
+3. **一步步引导**：需要你本人做的（`tutti-cli login`、飞书授权、`gh auth login`、`codex login`、管理端创建 Token、Chrome 点允许、找管理员要权限），一次一项给出步骤和可复制的命令，你回复「已完成」后 Agent 复查。
+4. **收尾**：汇总已就绪／等你／等管理员；QA 提 Bug 告诉你怎么用，定时修复询问是否开启（默认跟进人是你，每小时一轮，不限优先级）。
 
 只想先看看要准备什么：「使用 $tutti-bug-workflow:bug-setup，只列出准备情况」。
 
-默认配置（tutti-ops 管理端、本机 Computer 日志路径等）都已内置，不需要你提供，见 [Setup Skill](skills/bug-setup/SKILL.md#默认配置)。数据目录默认 `~/.local/share/bug-workbench`（可用 `BUG_WORKBENCH_DATA` 覆盖），配置与运行记录都在这里，插件更新不影响。单项工具命令（`workbench.py doctor`、`setup-tutti-ops`、`configure-tutti-token`）仍可直接使用，见 [准备与授权教程](skills/bug-setup/references/setup-user-guide.md)。
+默认配置（Bug 表与字段、三个仓库、定时修复、PPE 部署、tutti-ops 管理端、本机 Computer 日志路径等）都已内置，不需要你提供，见 [Setup Skill](skills/bug-setup/SKILL.md#默认配置)。数据目录默认 `~/.local/share/bug-workbench`（可用 `BUG_WORKBENCH_DATA` 覆盖），配置与运行记录都在这里，插件更新不影响。单项工具命令（`workbench.py doctor`、`setup-tutti-ops`、`configure-tutti-token`）仍可直接使用，见 [准备与授权教程](skills/bug-setup/references/setup-user-guide.md)。
 
 ## QA 提 Bug（`bug-investigate`）
 
@@ -35,13 +36,9 @@
 5. 用 `task run` 把分析指令交给该 Room 的 Agent（Codex 优先，用 gpt-6.1-sol 或 gpt-6-astra；其次 Claude Code 用 Opus 5.5；推理强度 high）：指令里带上 Bug 表现和关键现场线索，要求拉代码分析根因、先弄清模块整体设计再出方案、画修复前后的工作流程图，结果回复在 Task 评论里。指令模板见 [交给 Room Agent 分析](skills/bug-investigate/references/rd-analysis.md)。
 6. 缺的一次问完，用户补充后带上全部文件再 `task edit` 一次；CLI 不能指派，请 QA 在任务看板指派跟进人。最后上传本次会话。
 
-## 暂时屏蔽：RD 根因分析与修复
+## 飞书 Bug 管理表
 
-bug-solution、bug-execute 暂时不随插件加载，源码和测试原样保留在 [disabled-skills/](disabled-skills/README.md)，恢复方式见该目录的 README。下面是它们原来的工作方式，供恢复时参考。
-
-### 飞书 Bug 管理表
-
-三个场景共用 [Bug 管理表（视图「新框架（一期）」）](https://ccn53rwonxso.feishu.cn/base/CEHMbNF8Zavq5wsAO3ecrpQ6nPc?table=tblieImZwMnvZ8My&view=vewoD2kiPo)，每个场景只写自己负责的字段，「状态」由人工流转。「方案状态」串起后两个场景：空／未处理／已驳回 → 定时分析 → 待评审 → RD 选已批准或已驳回（写驳回意见，重新分析）→ 定时修复 → 修复中 → 已部署待验收／修复失败。字段与职责见 [字段与职责](skills/bug-setup/references/report-fields.md)。
+修复场景使用 [Bug 管理表（视图「新框架（一期）」）](https://ccn53rwonxso.feishu.cn/base/CEHMbNF8Zavq5wsAO3ecrpQ6nPc?table=tblieImZwMnvZ8My&view=vewoD2kiPo)，每个场景只写自己负责的字段，「状态」由人工流转。「方案状态」串起后两个场景：空／未处理／已驳回 → 定时分析 → 待评审 → RD 选已批准或已驳回（写驳回意见，重新分析）→ 定时修复 → 修复中 → 已部署待验收／修复失败。字段与职责见 [字段与职责](skills/bug-setup/references/report-fields.md)。
 
 | 场景 | 写入的字段 |
 |---|---|
@@ -49,7 +46,20 @@ bug-solution、bug-execute 暂时不随插件加载，源码和测试原样保�
 | bug-solution | 分析根因、根因图（PNG）、修复方式、验收标准；方案状态置「待评审」 |
 | bug-execute | 方案状态（修复中／已部署待验收／修复失败）、修复进度、访问环境、一句话解释原因、关联 PR、验证结果、修复截图 |
 
-### 根因与方案（`bug-solution`）
+bug-solution 暂时屏蔽期间，「分析根因」「修复方式」「验收标准」由 RD 直接填写，「根因图」可空；方案状态改成「已批准」后由 bug-execute 接手。
+
+## 修复与部署（`bug-execute`）
+
+定时修复，流程见 [SKILL.md](skills/bug-execute/SKILL.md)、[定时任务](skills/bug-execute/references/schedule.md) 与 [PPE 部署](skills/bug-execute/references/deploy.md)：
+
+1. 对 agent 说「给张三开定时修复」，`schedule.py install` 为该跟进人装一个本机 launchd 任务，每小时一轮。
+2. 每轮 `scan.py`：遗留的「修复中」标为修复失败；方案状态为「已批准」的 Bug 逐条置「修复中」，各起一个 `codex exec` 会话（本机运行，不进 sandbox）。
+3. 会话：从最新 main 切 `codex/bug-<record_id>`（重试时接着原分支）→ 修复、测试 → 推送、提 PR 到 main → 部署 PPE：先 tutti-server `deploy-lane`（泳道 `ppe-bug-<record_id>`，关闭连接器授权），涉及 ws 时 tsh-websocket `deploy-lane`（同一泳道；新泳道需人工先建 ws 基础设施），再 tutti `platform-web-preview`（指向该泳道），涉及 Computer 时在分支上发 `Computer Canary`，部署成功后把前端预览链接（只改 Computer 时为 canary 发布页）回填到「访问环境」，点开即可体验 → 用本机 Chrome（chrome-devtools MCP）打开预览链接按验收标准自验证，涉及 UI 的每条用例截图上传到「修复截图」 → 写验证结果，方案状态置「已部署待验收」；任何一步失败置「修复失败」。每一步写进「修复进度」。
+4. 泳道不自动销毁，需要时让 agent 用 `deploy.py destroy-lane` 销毁。
+
+## 暂时屏蔽：根因与方案（`bug-solution`）
+
+bug-solution 暂时不随插件加载，源码和测试原样保留在 [disabled-skills/](disabled-skills/README.md)，恢复方式见该目录的 README。下面是它原来的工作方式，供恢复时参考。
 
 定时分析，流程见 [SKILL.md](disabled-skills/bug-solution/SKILL.md) 与 [定时任务](disabled-skills/bug-solution/references/schedule.md)：
 
@@ -58,18 +68,9 @@ bug-solution、bug-execute 暂时不随插件加载，源码和测试原样保�
 3. 每条 Bug 一个 `codex exec` 会话（本机运行，不进 sandbox），运行目录里备好 `context.md`（记录全部字段，被驳回时含驳回意见和上一版）、附件和代码 SHA；会话写「分析根因」「修复方式」「验收标准」，渲染流程图、架构图 PNG 上传「根因图」，最后把方案状态置「待评审」。写入带守卫，RD 已评审的不覆盖。
 4. RD 在飞书评审：选「已批准」进入 bug-execute，选「已驳回」并写驳回意见，下一轮重新分析。
 
-### 修复与部署（`bug-execute`）
-
-定时修复，流程见 [SKILL.md](disabled-skills/bug-execute/SKILL.md)、[定时任务](disabled-skills/bug-execute/references/schedule.md) 与 [PPE 部署](disabled-skills/bug-execute/references/deploy.md)：
-
-1. 对 agent 说「给张三开定时修复」，`schedule.py install` 为该跟进人装一个本机 launchd 任务，每小时一轮。
-2. 每轮 `scan.py`：遗留的「修复中」标为修复失败；方案状态为「已批准」的 Bug 逐条置「修复中」，各起一个 `codex exec` 会话（本机运行，不进 sandbox）。
-3. 会话：从最新 main 切 `codex/bug-<record_id>`（重试时接着原分支）→ 修复、测试 → 推送、提 PR 到 main → 部署 PPE：先 tutti-server `deploy-lane`（泳道 `ppe-bug-<record_id>`，关闭连接器授权），涉及 ws 时 tsh-websocket `deploy-lane`（同一泳道；新泳道需人工先建 ws 基础设施），再 tutti `platform-web-preview`（指向该泳道），涉及 Computer 时在分支上发 `Computer Canary`，部署成功后把前端预览链接（只改 Computer 时为 canary 发布页）回填到「访问环境」，点开即可体验 → 用本机 Chrome（chrome-devtools MCP）打开预览链接按验收标准自验证，涉及 UI 的每条用例截图上传到「修复截图」 → 写验证结果，方案状态置「已部署待验收」；任何一步失败置「修复失败」。每一步写进「修复进度」。
-4. 泳道不自动销毁，需要时让 agent 用 `deploy.py destroy-lane` 销毁。
-
 ## 已提供的能力
 
-- 两个可发现的 Skills：bug-investigate（QA 提 Bug）和 bug-setup（环境准备）。
+- 三个可发现的 Skills：bug-investigate（QA 提 Bug）、bug-execute（修复与部署）和 bug-setup（环境准备）。
 - 幂等初始化、环境检查、私有目录下的固定版本 npm CLI 安装。
 - setup 复用已有 tutti-ops，缺少时按 `npm install -g @tutti-os/tutti-ops-cli` 全局安装，记录实际版本和入口；根据已安装命令的帮助与 schema 读取 Computer。
 - 从实际配置生成便携 MCP 配置与旧版 Codex 兼容配置。
@@ -94,7 +95,7 @@ QA 提 Bug 用全局 tutti-cli 在指定 Room 建 Task。Web 日志使用 QA 导
 
 ```sh
 python3 PLUGIN_SOURCE/scripts/validate_plugin.py
-for skill in skills/bug-investigate skills/bug-setup disabled-skills/bug-solution disabled-skills/bug-execute; do
+for skill in skills/bug-investigate skills/bug-setup skills/bug-execute disabled-skills/bug-solution; do
   python3 -m unittest discover -s PLUGIN_SOURCE/$skill/tests -t PLUGIN_SOURCE/$skill/tests
 done
 ```

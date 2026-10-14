@@ -1,6 +1,6 @@
 # 工作流
 
-> **目前只开放 `bug-investigate`。** `bug-solution`、`bug-execute` 暂时屏蔽（移到插件的 `disabled-skills/`，插件不再加载）。下面关于这两个场景和飞书表交接的内容留作恢复时参考。
+> **目前开放 `bug-investigate` 和 `bug-execute`。** `bug-solution` 暂时屏蔽（移到插件的 `disabled-skills/`，插件不再加载），期间分析根因、修复方式、验收标准由 RD 直接填在飞书 bug 单上，方案状态改成「已批准」后由 bug-execute 接手。下面关于 bug-solution 的内容留作恢复时参考。
 
 | 场景 | 面向 | 交付 | 写入的字段 |
 |---|---|---|---|
