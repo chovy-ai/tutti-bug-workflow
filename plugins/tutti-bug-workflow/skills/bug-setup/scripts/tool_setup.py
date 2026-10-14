@@ -9,6 +9,8 @@ import sys
 import workbench
 
 ROOT = Path(__file__).resolve().parents[1]
+# bug-solution and bug-execute are paused (moved to disabled-skills/); add them back here to re-enable.
+ENABLED_SCENES = ("investigate",)
 
 
 def configuration_status(kind, cfg):
@@ -29,11 +31,6 @@ def configuration_status(kind, cfg):
         source = next((s for s in cfg.get("log_sources", [])
                        if isinstance(s, dict) and s.get("name") == name), {})
         configured = workbench.log_source_configured(source, cfg)
-    elif kind == "aws-cli":
-        value = cfg.get("aws_cli", {})
-        configured = bool(isinstance(value, dict) and value.get("region"))
-        return {"status": "configured" if configured else "pending_configuration",
-                "scope": "CLI settings only; account, log groups and permissions are not checked"}
     elif kind == "source-only":
         return {"status": "source_generation", "rendering": "not_checked"}
     else:
@@ -59,9 +56,6 @@ def installation_plan(tool, root, cfg):
     installer = item.get("installer")
     if name == "tutti-ops" and installer not in (None, workbench.TUTTI_OPS_INSTALLER):
         return {"status": "review_custom_configuration"}
-    if name == "aws" and installer is not None and (
-            not isinstance(installer, dict) or installer.get("type") != "aws-official"):
-        return {"status": "review_custom_configuration"}
     command = [sys.executable, str(ROOT / "scripts/workbench.py"), operation,
                "--data-dir", str(root), "--install"]
     return {"status": "available", "argv": command, "executed": False}
@@ -69,7 +63,7 @@ def installation_plan(tool, root, cfg):
 
 def build_report(scene, include, root, cfg, config=None):
     catalog = workbench.read_json(ROOT / "config/tool-profiles.json")
-    scenes = list(catalog["scenes"]) if scene == "all" else [scene]
+    scenes = list(ENABLED_SCENES) if scene == "all" else [scene]
     applicable = [t for t in catalog["tools"]
                   if set(scenes) & set(t["required_in"] + t["conditional_in"])]
     unknown = set(include) - {t["id"] for t in applicable}
@@ -97,7 +91,7 @@ def build_report(scene, include, root, cfg, config=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--scene", choices=("investigate", "solution", "execute", "all"), required=True)
+    parser.add_argument("--scene", choices=(*ENABLED_SCENES, "all"), required=True)
     parser.add_argument("--include", action="append", default=[], metavar="TOOL_ID",
                         help="Select a conditional tool; repeat for several tools.")
     parser.add_argument("--data-dir")

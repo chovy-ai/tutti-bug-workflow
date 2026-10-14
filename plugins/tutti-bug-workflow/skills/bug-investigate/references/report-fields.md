@@ -1,19 +1,19 @@
 # Task 字段与写入规则
 
-提 Bug 用 `tutti-cli task create` 在当前 Room 建一个 Task，采集后用 `task edit` 改标题、写全描述，`task assign` 指派跟进人，排查线索和日志记在一条评论里。Task 只有下面几个可写字段。
+提 Bug 用全局 `tutti-cli`（账号登录版）的 `task create --room-id` 在指定 Room 建一个 Task，采集后用 `task edit` 改标题、写全描述，截图、`排查线索.txt` 和全部日志作为附件挂在描述上。Task 字段只能写下面几个，不能指派、改优先级；根因分析用 `task run` 交给 Room Agent（见 [交给 Room Agent 分析](rd-analysis.md)）。
 
 | 参数 | Task 字段 | 怎么填 |
 |---|---|---|
+| `--room-id` | 所在 Room | `find_room.py` 按 Room ID／链接、房间名或用户名从 `tutti-cli room list` 里找到的 ID；每条 `task` 命令都要带 |
 | `--operation-id` | Task ID／幂等键 | 第 1 步生成的 `operation_id`（UUID），重试时不变 |
 | `--title` | 标题 | 一行「类别：现象（触发条件／关键对照）」，见下；`task edit --title` 可改 |
-| `--description`／`--description-file` | 描述 | 建单时写 QA 原话；采集后 `task edit --description-file` 整段替换为下面的「描述」，只写 Bug 表现 |
-| `task edit --file`（可重复） | 描述里的附件 | 只放 QA 的截图、录屏；描述是整段替换，每次 `task edit` 都带上它们 |
-| `task comment add --text-file --file` | 排查线索评论 | 关联 ID、版本、日志里核对到的事实，以及全部日志文件，见下方「排查线索」 |
+| `--description`（建单）／`--description-file`（编辑） | 描述 | 建单时写 QA 原话；采集后 `task edit --description-file` 整段替换为下面的「描述」，只写 Bug 表现。`task create` 只接受 `--description` |
+| `task edit --file`（可重复） | 描述里的附件 | QA 的截图、录屏，`排查线索.txt`，全部日志；描述是整段替换，每次带附件的 `task edit` 都带上全部文件 |
 | `--priority` | 优先级 | 建单时按下表从 QA 定级映射；**CLI 改不了**，之后只能在任务看板改 |
-| `task assign --user-id` | 负责人 | 跟进人的 Room 成员 userId（`tutti-cli user list --json`）；只更新负责人，不启动 Agent |
-| `--project-id` | Project | 一般不填；QA 明确要求挂到当前 Room 的某个 Project 时才填 |
+| —— | 负责人 | **CLI 不能指派**：请 QA 在任务看板指派；QA 提到的人写进 `排查线索.txt`「建议跟进人」 |
+| `--project-id` | Project | 一般不填；QA 明确要求挂到该 Room 的某个 Project 时才填 |
 
-创建者是这台 Computer 当前登录的 Account；新建为 `todo`、未指派，不会自动启动 Agent。本 Skill 不改状态，不关闭、不删除 Task。分析根因、修复方案和验收不在本 Skill 写。
+创建者是 `tutti-cli login` 登录的账号（`whoami`）；新建为 `todo`、未指派，不会自动启动 Agent。本 Skill 不改状态，不关闭、不删除 Task。分析根因、修复方案和验收不在本 Skill 写。
 
 ## 优先级
 
@@ -25,7 +25,7 @@
 | P3 | `low` |
 | 拿不准 | `none`，描述「待 QA 确认」里写倾向和理由，QA 确认后在任务看板修改 |
 
-QA 的原始定级写进「排查线索」评论，便于对照。
+QA 的原始定级写进 `排查线索.txt`，便于对照。
 
 ## 标题
 
@@ -62,39 +62,31 @@ QA 的原始定级写进「排查线索」评论，便于对照。
 发生时间：2026-10-13 20:52（北京时间）
 环境：生产／PPE · Mac／Windows／Web · <Agent 名称>
 
-截图、录屏见下方附件；日志和排查线索见评论。
+截图、录屏见下方附件；日志和排查线索见附件「排查线索.txt」和各日志文件。
 
 待 QA 确认
 - <还在等 QA 回复的问题；没有就省略本段>
 ```
 
-描述里**不写**：日志里的时间戳和字段、request id、Turn／Session／Computer 等各种 ID、版本号、模型名、请求状态码、「现场核对」「登记说明」、采集过程和自我说明。这些都放进「排查线索」评论。
+描述里**不写**：日志里的时间戳和字段、request id、Turn／Session／Computer 等各种 ID、版本号、模型名、请求状态码、「现场核对」「登记说明」、采集过程和自我说明。这些都放进 `排查线索.txt`。
 
 规则：
 
 - **问题、实际、期望照 QA 的意思写。** 可以精简措辞，不改意思，不补 QA 没说的期望。QA 没说清期望时写「期望：待 QA 确认」，并在第 5 步问。
 - 查到的事实和 QA 的说法不一致、会改变问题的含义时（例如 QA 说「同一份文件」，数据显示三份内容不同），在「待 QA 确认」里用一句大白话把两种说法并列，在第 5 步问 QA。
-- 报错只照抄**界面上用户看到的文字**；日志里的原始错误（如 `provider_model_capacity`）写进排查线索。
+- 报错只照抄**界面上用户看到的文字**；日志里的原始错误（如 `provider_model_capacity`）写进 `排查线索.txt`。
 - 没有的项省略，不要编造。
 
-## 排查线索（评论）
+## 排查线索（附件）
 
-采集完后，用一条评论把 RD 排查需要的东西一次记全，全部日志文件挂在这条评论上（评论只追加，不会替换描述）：
-
-```sh
-tutti-cli task comment add --task-id <taskId> --text-file <$REPORT>/clues.txt \
-  --file <$REPORT>/web/web-logs.log --file <$REPORT>/server/server-logs.log \
-  --operation-id <新 UUID> --json
-```
-
-`clues.txt` 也是纯文本，按下面的顺序写，每条一行、带来源和时间，不写过程：
+RD 排查需要的东西一次写进 `$REPORT/排查线索.txt`，和截图、日志一起在 `task edit` 里用 `--file` 挂上（命令见 SKILL 第 4 步）。纯文本，按下面的顺序写，每条一行、带来源和时间，不写过程：
 
 ```
 排查线索（现场事实，不是根因结论）
 
 日志核对
-- <时间> <来源：Web／Server／Computer> <报错原文或关键字段>（request id）
-- <时间> <method 路径> → <状态码>（request id）；页面失败但没到服务端的请求单独列出
+- <时间> <来源：Web／Computer> <报错原文或关键字段>（request id）
+- <时间> <method 路径> → <状态码>（request id）；旧版 Web 没有 id 的只写前面几项
 - <成功／失败的对照、设置或版本差异>
 - 缺了哪一类现场、为什么（没有就省略）
 
@@ -104,12 +96,12 @@ tutti-cli task comment add --task-id <taskId> --text-file <$REPORT>/clues.txt \
 会话：<sessionId>
 Computer：<computerId>（<名称>）
 Agent：<agentTargetId>
-request id：<出错或关键的几条>
+request id：<出错或关键的几条，RD 用它查 tutti-server 日志>
 召回任务：<taskId>
+建 Task 账号：<whoami 的 name（userId）>
 
 环境与版本
-环境：生产（namespace tutti）／PPE（lane-ppe-xxx）
-tutti-server：<service.version>
+环境：生产／PPE（lane-ppe-xxx）
 Computer：<computerVersion>（macOS arm64）
 Web：<页面版本>
 浏览器：<UA>
@@ -120,9 +112,13 @@ Web：<页面版本>
 业务模块：<功能名称>
 QA 定级：P1（或「待 QA 确认」）
 上报人：<QA 姓名>
+建议跟进人：<QA 提到的人；没有就省略>
+
+附件
+- <文件名>：<一句话说明，如「web-logs.log：问题前 10 分钟的页面日志」>
 ```
 
-Computer 召回在评论之后才完成时，再发一条评论，附召回包和补充的几行线索即可，不改写前一条。
+现场后到（召回晚完成、QA 补了诊断包）时，在这个文件里补几行，再带上全部文件 `task edit` 一次。
 
 - 在回复里告诉用户的每一条发现，都必须能在描述或排查线索里找到；回复里说「已建 Task」之前先用 `tutti-cli task show` 回读确认。
-- 只记录核对过的事实并标注来源；推测写成「待确认：……」，不写根因结论（根因由 bug-solution 分析）。
+- 只记录核对过的事实并标注来源；推测写成「待确认：……」，不写根因结论（根因由 Room Agent 分析，见 [交给 Room Agent 分析](rd-analysis.md)）。

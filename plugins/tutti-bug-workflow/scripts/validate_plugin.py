@@ -7,7 +7,8 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-SCENES = {"bug-investigate", "bug-solution", "bug-execute", "bug-setup"}
+# bug-solution and bug-execute are paused in disabled-skills/ and must not be loaded.
+SCENES = {"bug-investigate", "bug-setup"}
 
 
 def main():
@@ -46,12 +47,12 @@ def main():
                 or identifier in identifiers or not (required | conditional)
                 or (required | conditional) - scene_names or required & conditional
                 or not tool.get("requirements") or not isinstance(tool.get("commands"), list)
-                or tool.get("install_operation") not in (None, "setup-tutti-ops", "setup-aws-cli")):
+                or tool.get("install_operation") not in (None, "setup-tutti-ops")):
             errors.append(f"Invalid tool definition: {identifier}")
         identifiers.add(identifier)
     actual = {p.parent.name for p in (ROOT / "skills").glob("*/SKILL.md")}
     if actual != SCENES:
-        errors.append("Expected three business scenes and one setup skill.")
+        errors.append("Expected only bug-investigate and bug-setup under skills/.")
     for name in actual:
         file = ROOT / "skills" / name / "SKILL.md"
         body = file.read_text()

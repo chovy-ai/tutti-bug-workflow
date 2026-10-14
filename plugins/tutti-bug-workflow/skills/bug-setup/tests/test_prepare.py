@@ -49,7 +49,7 @@ class PrepareTests(unittest.TestCase):
         report, items = self.prepare("check", "investigate")
         self.assertEqual(set(report["scenes"]), {"investigate"})
         self.assertEqual((items["config"]["status"], items["tutti-ops"]["status"]), ("fix", "fix"))
-        self.assertEqual(items["tutti-cli"]["status"], "user")  # only inside a Tutti Agent execution
+        self.assertEqual(items["tutti-cli"]["status"], "user")  # the global account CLI needs Node 24+
         self.assertNotIn("codex", items)  # not part of this scene
         self.assertNotIn("lark-cli", items)  # QA files a Room Task, not a Feishu record
         self.tools["tutti_token"] = False
@@ -62,6 +62,35 @@ class PrepareTests(unittest.TestCase):
         self.assertIn("admin-tokens", items["tutti-ops-auth"]["guide"][0])
         self.assertEqual(items["chrome-devtools"]["status"], "host")
         self.assertFalse(report["ready"])
+
+    def test_global_tutti_cli_installs_on_node_24_then_needs_login(self):
+        self.install("node", "npm", "npx")
+        self.tools.update(node="v24.14.0", tutti_cli_logged_in=False)
+        _, items = self.prepare("check", "investigate")
+        self.assertEqual((items["tutti-cli"]["status"], items["tutti-cli"]["fix"]), ("fix", "npm:tutti-cli"))
+        _, items = self.prepare("fix", "investigate")
+        self.assertEqual(items["tutti-cli"]["status"], "user")
+        self.assertIn("tutti-cli login", items["tutti-cli"]["guide"][0])
+        self.tools["tutti_cli_logged_in"] = True
+        _, items = self.prepare("check", "investigate")
+        self.assertEqual(items["tutti-cli"]["status"], "ok")
+        self.tools["tutti_cli_rooms"] = False  # an older build without room list / task run is upgraded
+        _, items = self.prepare("check", "investigate")
+        self.assertEqual((items["tutti-cli"]["status"], items["tutti-cli"]["fix"]), ("fix", "npm:tutti-cli"))
+        self.assertIn("room list", items["tutti-cli"]["detail"])
+
+    def test_setup_upgrades_tutti_cli_to_the_latest_release(self):
+        self.install("node", "npm", "npx", "tutti-cli")
+        self.tools.update(node="v24.14.0", tutti_cli_version="0.1.0", tutti_cli_latest="0.2.0")
+        _, items = self.prepare("check", "investigate")
+        self.assertEqual((items["tutti-cli"]["status"], items["tutti-cli"]["fix"]), ("fix", "npm:tutti-cli"))
+        self.assertIn("0.2.0", items["tutti-cli"]["detail"])
+        report, items = self.prepare("fix", "investigate")
+        self.assertIn("已安装 @tutti-os/tutti-cli@latest", report["fixed"])
+        self.assertEqual(items["tutti-cli"]["status"], "ok")
+        self.tools.update(npm_offline=True, tutti_cli_latest="0.3.0")  # npm unreachable: keep what is installed
+        _, items = self.prepare("check", "investigate")
+        self.assertEqual(items["tutti-cli"]["status"], "ok")
 
     def test_defaults_fill_gaps_but_keep_existing_values(self):
         self.data.mkdir()
@@ -80,6 +109,7 @@ class PrepareTests(unittest.TestCase):
         self.assertIn("bug_report", config)
         self.assertTrue((self.data / "config.before-prepare.json").is_file())
 
+    @unittest.skip("bug-solution/bug-execute 暂时屏蔽，setup 不再提供这两个场景")
     def test_logins_and_permissions_come_back_as_guided_user_steps(self):
         self.install("node", "npm", "npx", "lark-cli", "git", "codex", "mmdc", "gh")
         self.tools.update(lark_logged_in=False, gh_scopes="'repo'", push=["tutti"], git_helper=False)
@@ -96,6 +126,7 @@ class PrepareTests(unittest.TestCase):
         self.assertEqual(items["execute-schedule"]["status"], "optional")
         self.assertNotIn("mmdc", items)
 
+    @unittest.skip("bug-solution/bug-execute 暂时屏蔽，setup 不再提供这两个场景")
     def test_all_scenes_ready_with_schedules(self):
         self.install("node", "npm", "npx", "lark-cli", "git", "codex", "mmdc", "gh", "tutti-ops", "tutti-cli")
         self.tools.update(gh_scopes="'repo', 'workflow'")
@@ -108,6 +139,18 @@ class PrepareTests(unittest.TestCase):
         self.assertEqual(report["summary"]["user"], 0, report)
         self.assertEqual(report["summary"]["fix"], 0, report)
         self.assertTrue(report["ready"])
+
+    def test_only_reporting_can_be_prepared_while_rd_scenes_are_paused(self):
+        self.install("node", "npm", "npx")
+        report, items = self.prepare("check", "all")
+        self.assertEqual(set(report["scenes"]), {"investigate"})
+        self.assertNotIn("lark-auth", items)
+        self.assertFalse(any(name.endswith("-schedule") for name in items))
+        for scene in ("solution", "execute"):
+            result = subprocess.run([sys.executable, str(SCRIPT), "check", "--scene", scene,
+                                     "--data-dir", str(self.data)], capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("invalid choice", result.stderr)
 
 
 if __name__ == "__main__":
