@@ -79,6 +79,19 @@ class PrepareTests(unittest.TestCase):
         self.assertEqual((items["tutti-cli"]["status"], items["tutti-cli"]["fix"]), ("fix", "npm:tutti-cli"))
         self.assertIn("room list", items["tutti-cli"]["detail"])
 
+    def test_setup_upgrades_tutti_cli_to_the_latest_release(self):
+        self.install("node", "npm", "npx", "tutti-cli")
+        self.tools.update(node="v24.14.0", tutti_cli_version="0.1.0", tutti_cli_latest="0.2.0")
+        _, items = self.prepare("check", "investigate")
+        self.assertEqual((items["tutti-cli"]["status"], items["tutti-cli"]["fix"]), ("fix", "npm:tutti-cli"))
+        self.assertIn("0.2.0", items["tutti-cli"]["detail"])
+        report, items = self.prepare("fix", "investigate")
+        self.assertIn("已安装 @tutti-os/tutti-cli@latest", report["fixed"])
+        self.assertEqual(items["tutti-cli"]["status"], "ok")
+        self.tools.update(npm_offline=True, tutti_cli_latest="0.3.0")  # npm unreachable: keep what is installed
+        _, items = self.prepare("check", "investigate")
+        self.assertEqual(items["tutti-cli"]["status"], "ok")
+
     def test_defaults_fill_gaps_but_keep_existing_values(self):
         self.data.mkdir()
         (self.data / "config.json").write_text(json.dumps({

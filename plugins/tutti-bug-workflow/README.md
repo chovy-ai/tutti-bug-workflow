@@ -1,6 +1,6 @@
 # tutti-bug-workflow
 
-版本：0.3.0。运行方式：Codex 本地会话。目前只开放 QA 提 Bug 和环境准备两个 Skill；RD 的根因分析（bug-solution）和修复（bug-execute）暂时屏蔽，源码移到 [disabled-skills/](disabled-skills/README.md)，插件不加载。
+版本：0.3.1。运行方式：Codex 本地会话。目前只开放 QA 提 Bug 和环境准备两个 Skill；RD 的根因分析（bug-solution）和修复（bug-execute）暂时屏蔽，源码移到 [disabled-skills/](disabled-skills/README.md)，插件不加载。
 
 | 入口 | 工作内容 |
 |---|---|
@@ -16,7 +16,7 @@
 目前只准备 **QA 提 Bug** 一个场景，不用选：
 
 1. **检查**：`skills/bug-setup/scripts/prepare.py check --scene investigate` 逐项实际验证：Node.js、tutti-cli 安装与登录、tutti-ops Token、本机 Chrome 连接、本机 Computer 日志。
-2. **能做的直接做**：`prepare.py fix` 补齐默认配置（已有值不动，原文件备份），用 npm 安装缺少的 tutti-cli（Node.js 24+）和 tutti-ops。
+2. **能做的直接做**：`prepare.py fix` 补齐默认配置（已有值不动，原文件备份），用 npm 把 tutti-cli（Node.js 24+）装成或升级到最新版，安装缺少的 tutti-ops。
 3. **一步步引导**：需要你本人做的（`tutti-cli login`、管理端创建 Token、Chrome 点允许、找管理员要权限），一次一项给出步骤和可复制的命令，你回复「已完成」后 Agent 复查。
 4. **收尾**：汇总已就绪／等你／等管理员，告诉你怎么提 Bug。
 

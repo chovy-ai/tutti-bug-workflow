@@ -41,7 +41,7 @@ python3 scripts/prepare.py check --scene investigate
 python3 scripts/prepare.py fix --scene investigate
 ```
 
-它会：用默认配置补齐数据目录的 `config.json`（只补缺的项，已有值不动，原文件备份为 `config.before-prepare.json`）；用 npm 安装缺少的 tutti-ops、tutti-cli（需 Node.js 24+）。tutti-cli 的安装、登录与 PATH 冲突处理见 [Tutti CLI](references/tutti-cli.md)。然后自动复查。
+它会：用默认配置补齐数据目录的 `config.json`（只补缺的项，已有值不动，原文件备份为 `config.before-prepare.json`）；用 npm 安装缺少的 tutti-ops；tutti-cli（需 Node.js 24+）每次都和 npm 上的最新版比对，没装或不是最新就运行 `npm install -g @tutti-os/tutti-cli@latest`。tutti-cli 的安装、登录与 PATH 冲突处理见 [Tutti CLI](references/tutti-cli.md)。然后自动复查。
 
 `fix_errors` 里的失败先自己处理：npm 全局目录没有写权限时改用 nvm 的 Node；网络失败重试一次；仍然不行就转成 `user` 项，写清原因和用户要做的事。
 

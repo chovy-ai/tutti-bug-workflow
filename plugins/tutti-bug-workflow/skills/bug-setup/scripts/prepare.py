@@ -156,19 +156,27 @@ def check_tutti_cli():
     """QA 提 Bug creates the Room Task with the global account CLI (@tutti-os/tutti-cli, Node 24+)."""
     label = "Tutti CLI（tutti-cli，账号登录版）"
     code, out = run(["tutti-cli", "--help"]) if shutil.which("tutti-cli") else (127, "")
+    detail = None
     if code or any(f"tutti-cli {command}" not in out for command in ("login", "room list", "task run")):
         detail = ("未安装" if not shutil.which("tutti-cli") else
                   "PATH 里的 tutti-cli 不是账号登录版（没有 login 命令）" if "tutti-cli login" not in out else
                   "版本过旧，没有 room list／task run（按房间名查房间、交给 Room Agent 分析根因）")
+    elif shutil.which("npm"):
+        # Always run the latest release; when npm cannot be reached keep the installed one.
+        latest_code, latest = run(["npm", "view", "@tutti-os/tutti-cli", "version"])
+        current = run(["tutti-cli", "--version"])[1].strip()
+        if latest_code == 0 and latest.strip() and current != latest.strip():
+            detail = f"当前 {current or '未知版本'}，npm 最新 {latest.strip()}"
+    if detail:
         version = run(["node", "--version"])[1].strip()
         major = re.match(r"v(\d+)\.", version)
         if major and int(major[1]) >= 24 and shutil.which("npm"):
-            return item("tutti-cli", label, "fix", f"{detail}，将运行 npm install -g @tutti-os/tutti-cli",
+            return item("tutti-cli", label, "fix", f"{detail}，将运行 npm install -g @tutti-os/tutti-cli@latest",
                         fix="npm:tutti-cli")
         return item("tutti-cli", label, "user", f"{detail}；需要 Node.js 24+（当前：{version or '未安装'}）",
                     guide=["QA 提 Bug 用全局安装的 tutti-cli 以你的 Tutti 账号在指定 Room 建 Task，它要求 Node.js 24 及以上。",
                            "用 nvm：`nvm install 24 && nvm use 24`（或 `brew install node`），然后回复「已完成」，"
-                           "Agent 会运行 `npm install -g @tutti-os/tutti-cli`。"],
+                           "Agent 会运行 `npm install -g @tutti-os/tutti-cli@latest`。"],
                     verify="`tutti-cli --help` 列出 login、room list、task create 与 task run")
     code, out = run(["tutti-cli", "whoami", "--json"])
     if code == 0:
@@ -418,10 +426,11 @@ def apply_fix(root, fix):
         name = fix[4:]
         if name == "tutti-ops":
             return f"tutti-ops：{wb.ensure_tutti_ops(root, install=True)['action']}"
-        code, out = run(["npm", "install", "-g", NPM_PACKAGES[name]], timeout=600)
+        package = NPM_PACKAGES[name] + ("@latest" if name == "tutti-cli" else "")
+        code, out = run(["npm", "install", "-g", package], timeout=600)
         if code:
-            raise ValueError(f"npm install -g {NPM_PACKAGES[name]} 失败：{out.strip()[-400:]}")
-        return f"已安装 {NPM_PACKAGES[name]}"
+            raise ValueError(f"npm install -g {package} 失败：{out.strip()[-400:]}")
+        return f"已安装 {package}"
     if fix == "brew:gh":
         code, out = run(["brew", "install", "gh"], timeout=900)
         if code:
