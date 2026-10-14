@@ -57,7 +57,13 @@ if name == "tutti-ops":
 if name == "tutti-cli":
     if args == ["--help"]:
         out("Tutti CLI — account login, Rooms and Tasks\n  tutti-cli login [--no-browser] [--json]\n"
-            + ("  tutti-cli room list [--type all|local|cloud] [--json]\n  tutti-cli task run --room-id ID --task-id UUID"
+            + ("  tutti-cli room list [--type all|local|cloud] [--json]\n"
+               "  tutti-cli task comment --room-id ID --task-id UUID\n"
+               "                  (--content TEXT | --content-file PATH|-)\n"
+               + ("                  [--file PATH] [--room-file /room/PATH] [--json]\n"
+                  if tools.get("tutti_cli_comment_files", True) else "                  [--json]\n")
+               + "  tutti-cli task run --room-id ID --task-id UUID\n"
+               "                  [--file PATH] [--room-file /room/PATH] [--json]\n"
                if tools.get("tutti_cli_rooms", True) else ""))
     if args == ["--version"]:
         marker = Path(sys.argv[0]).parent / ".tutti-cli-version"

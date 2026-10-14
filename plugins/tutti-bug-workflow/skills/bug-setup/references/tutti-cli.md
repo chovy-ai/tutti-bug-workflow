@@ -12,7 +12,7 @@ python3 scripts/prepare.py check --scene investigate   # 看 tutti-cli 一项
 
 ```sh
 node --version                 # 需要 v24 及以上
-tutti-cli --help               # 必须列出 login、whoami、room list、task create／edit／show
+tutti-cli --help               # 必须列出 login、whoami、room list、task create／edit／show，task comment 带 --file
 tutti-cli whoami --json        # 返回账号即已登录
 ```
 
@@ -20,7 +20,7 @@ tutti-cli whoami --json        # 返回账号即已登录
 
 | 情况 | 处理 |
 |---|---|
-| Node.js ≥ 24，没装、不是 npm 上的最新版（`tutti-cli --version` 对比 `npm view @tutti-os/tutti-cli version`）、缺少 `room list`／`task run` 或 PATH 里是 Agent 版 | `prepare.py fix` 自动运行 `npm install -g @tutti-os/tutti-cli@latest`，不用征求同意；npm 查不到最新版本（断网）时保留已装的版本 |
+| Node.js ≥ 24，没装、不是 npm 上的最新版（`tutti-cli --version` 对比 `npm view @tutti-os/tutti-cli version`）、缺少 `room list`／`task run`、`task comment` 不支持 `--file`，或 PATH 里是 Agent 版 | `prepare.py fix` 自动运行 `npm install -g @tutti-os/tutti-cli@latest`，不用征求同意；npm 查不到最新版本（断网）时保留已装的版本 |
 | Node.js < 24 | 转成用户项：`nvm install 24 && nvm use 24 && nvm alias default 24`（或 `brew install node`），用户回复「已完成」后再 `fix` |
 | npm 全局目录没有写权限 | 改用 nvm 的 Node 再装，不用 `sudo` |
 | 用 nvm 且有多个 Node 版本 | 全局包按 Node 版本分开装：确认 `nvm alias default` 指向装了 tutti-cli 的那个版本，否则新终端里找不到 |
@@ -39,4 +39,4 @@ Agent 后台运行 `tutti-cli login`：它在本机打开 Tutti 登录页并等�
 
 ## 能力边界
 
-有 `login`／`whoami`／`logout`、`room list [--type all|local|cloud] [--all]`、`agent list`／`agent models` 和 `task create`／`edit`／`show`／`comment`／`run`。`room list` 分页列出当前账号能访问的房间（本地／云端、ID、名称），bug-investigate 用 `--all` 读全后按 Room ID、房间名或用户名找房间；`agent list`／`agent models` 列出 Room 里的 Agent 和可选模型，`task run` 把指令作为 Task 评论交给指定 Agent 执行，bug-investigate 用它把根因分析交给 Room 里的 Agent（Codex 优先，其次 Claude Code）。每条 `task`、`agent` 命令显式带 `--room-id`。不能列出 Task、指派或修改优先级；排查线索写成附件，跟进人在任务看板指派。
+有 `login`／`whoami`／`logout`、`room list [--type all|local|cloud] [--all]`、`agent list`／`agent models` 和 `task create`／`edit`／`show`／`comment`／`run`。`room list` 分页列出当前账号能访问的房间（本地／云端、ID、名称），bug-investigate 用 `--all` 读全后按 Room ID、房间名或用户名找房间；`agent list`／`agent models` 列出 Room 里的 Agent 和可选模型，`task run` 把指令作为 Task 评论交给指定 Agent 执行，bug-investigate 用它把根因分析交给 Room 里的 Agent（Codex 优先，其次 Claude Code）；`task comment --file` 把本机文件作为评论附件上传，bug-execute 用它把验证截图随修复回复发到 Task。每条 `task`、`agent` 命令显式带 `--room-id`。不能列出 Task、指派或修改优先级；排查线索写成附件，跟进人在任务看板指派。

@@ -76,22 +76,24 @@ python3 scripts/repos.py remove --path <worktree>
 
 ## 7. 自验证
 
-部署成功后自己按方案里的验收要点逐条验证，完整流程见 [部署后自验证](references/verify.md)：用 `chrome-devtools` MCP 连接本机 Chrome（用它的 tutti.sh 登录态），只操作自己新开的标签页；涉及 UI 的用例每条都要截图，存到运行目录。任何必需用例失败，或涉及 UI 却没能截图（Chrome 不可用、未登录）→ 判失败。
+部署成功后自己按方案里的验收要点逐条验证，完整流程见 [部署后自验证](references/verify.md)：用 `chrome-devtools` MCP 连接本机 Chrome（用它的 tutti.sh 登录态），只操作自己新开的标签页；涉及 UI 的用例每条都要截图，存到运行目录，回复时作为评论附件上传。任何必需用例失败，或涉及 UI 却没能截图（Chrome 不可用、未登录）→ 判失败。
 
 ## 8. 回复到 Task
 
 先写「一句话原因」：`gh pr diff` 看这次 PR 实际改了什么，用一句话告诉 QA 和产品这个 Bug 为什么会出现。讲原因不讲改法，不用类名、函数名、接口名、错误码；单行、最好 50 字以内；实际修的和方案里的根因不一样时，按 PR 写。例：「切换房间时顶部标题没跟着刷新，一直显示上一个房间的名字」。
 
-按 [验证模板](assets/verification.md) 写 `$RUN/reply.txt`，发到 Task：
+按 [验证模板](assets/verification.md) 写 `$RUN/reply.txt`，连同这次的全部截图（`fix-*`、`before-*`）作为附件发到 Task：
 
 ```sh
 tutti-cli task comment --room-id <roomId> --task-id <taskId> --content-file <$RUN>/reply.txt \
+  --file <$RUN>/fix-<短 ID>-1-<时间>.png --file <$RUN>/before-<短 ID>-1-<时间>.png \
   --operation-id <新 UUID> --json
 ```
 
-- 回执 `status: posted` 才算发出；超时或没拿到回执时用同一个 `--operation-id` 和同一份文件重试一次。
+- 每张截图一个 `--file`，附件显示的就是文件名，回复正文按文件名引用，不写本机路径。
+- 回执 `status: posted` 才算发出；超时或没拿到回执时用同一个 `--operation-id`、同一份文件和同一组附件重试一次。重试返回 `COMMENT_IDEMPOTENCY_CONFLICT` 说明第一次已经发出（重新上传的附件 ID 不同），不再重发。
+- 附件上传失败时评论不会发出：按报错修正（文件名重复、空文件、超过 500 MiB）后重发；`--file` 不被支持说明 `tutti-cli` 过旧，按 `$tutti-bug-workflow:bug-setup` 升级后重发。
 - 只发评论，不带 `--agent-target-id`，不触发任何 Agent；不改 Task 的标题、描述和附件（`task edit` 带附件会整段替换描述，可能弄丢 QA 的附件）。
-- 截图留在运行目录，回复里写文件名和本机路径；评论不能带附件。
 - **失败时也要回复**：写清卡在哪一步、错误信息和链接，已部署成功的一端照样给出体验链接。
 
 最后在对话里给用户一行结论：一句话原因、PR、体验链接、验证结果，以及 Task 回复是否已发出。

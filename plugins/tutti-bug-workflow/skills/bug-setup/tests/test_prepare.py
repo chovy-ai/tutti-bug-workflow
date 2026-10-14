@@ -77,6 +77,10 @@ class PrepareTests(unittest.TestCase):
         _, items = self.prepare("check", "investigate")
         self.assertEqual((items["tutti-cli"]["status"], items["tutti-cli"]["fix"]), ("fix", "npm:tutti-cli"))
         self.assertIn("room list", items["tutti-cli"]["detail"])
+        self.tools.update(tutti_cli_rooms=True, tutti_cli_comment_files=False)  # comments cannot carry screenshots
+        _, items = self.prepare("check", "investigate")
+        self.assertEqual((items["tutti-cli"]["status"], items["tutti-cli"]["fix"]), ("fix", "npm:tutti-cli"))
+        self.assertIn("task comment", items["tutti-cli"]["detail"])
 
     def test_setup_upgrades_tutti_cli_to_the_latest_release(self):
         self.install("node", "npm", "npx", "tutti-cli")
