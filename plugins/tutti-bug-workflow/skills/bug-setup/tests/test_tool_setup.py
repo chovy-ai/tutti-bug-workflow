@@ -30,7 +30,7 @@ class ToolSetupTests(unittest.TestCase):
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return json.loads(result.stdout)
 
-    @unittest.skip("bug-solution/bug-execute 暂时屏蔽，setup 不再提供这两个场景")
+    @unittest.skip("bug-solution 暂时屏蔽，setup 不再提供这个场景")
     def test_solution_is_not_blocked_by_unrelated_logging_or_validation_tools(self):
         before = self.config.read_bytes()
         report = self.invoke("solution")
@@ -83,7 +83,6 @@ class ToolSetupTests(unittest.TestCase):
         self.assertFalse(result["installation_performed"])
         self.assertFalse((self.data / "tools").exists())
 
-    @unittest.skip("bug-solution/bug-execute 暂时屏蔽，setup 不再提供这两个场景")
     def test_configured_browser_does_not_claim_login_or_business_validation(self):
         cfg = json.loads(self.config.read_text())
         cfg["validation"] = {"url": "http://127.0.0.1:8123/preview", "environment": "synthetic",
@@ -111,8 +110,10 @@ class ToolSetupTests(unittest.TestCase):
         ids = [t["id"] for t in report["tools"]]
         self.assertEqual(len(ids), len(set(ids)))
         self.assertFalse(next(t for t in report["tools"] if t["id"] == "web-logs")["selected"])
-        self.assertFalse(next(t for t in report["tools"] if t["id"] == "browser-validation")["selected"])
-        self.assertTrue({"feishu", "code", "diagrams", "deployment"}.isdisjoint(ids))  # RD scenes are paused
+        self.assertTrue(next(t for t in report["tools"] if t["id"] == "browser-validation")["selected"])
+        self.assertTrue({"feishu", "code", "deployment"} <= set(ids))
+        self.assertNotIn("diagrams", ids)  # only bug-solution needs it, and it is paused
+        self.assertNotIn("session-upload", {t["id"] for t in self.invoke("execute")["tools"]})
 
 
 if __name__ == "__main__":

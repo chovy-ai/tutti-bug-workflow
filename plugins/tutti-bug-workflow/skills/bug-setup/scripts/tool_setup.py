@@ -9,8 +9,8 @@ import sys
 import workbench
 
 ROOT = Path(__file__).resolve().parents[1]
-# bug-solution and bug-execute are paused (moved to disabled-skills/); add them back here to re-enable.
-ENABLED_SCENES = ("investigate",)
+# bug-solution is paused (moved to disabled-skills/); add "solution" back here to re-enable it.
+ENABLED_SCENES = ("investigate", "execute")
 
 
 def configuration_status(kind, cfg):

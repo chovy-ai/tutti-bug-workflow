@@ -7,8 +7,8 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-# bug-solution and bug-execute are paused in disabled-skills/ and must not be loaded.
-SCENES = {"bug-investigate", "bug-setup"}
+# bug-solution is paused in disabled-skills/ and must not be loaded.
+SCENES = {"bug-investigate", "bug-execute", "bug-setup"}
 
 
 def main():
@@ -52,7 +52,7 @@ def main():
         identifiers.add(identifier)
     actual = {p.parent.name for p in (ROOT / "skills").glob("*/SKILL.md")}
     if actual != SCENES:
-        errors.append("Expected only bug-investigate and bug-setup under skills/.")
+        errors.append("Expected only bug-investigate, bug-execute and bug-setup under skills/.")
     for name in actual:
         file = ROOT / "skills" / name / "SKILL.md"
         body = file.read_text()

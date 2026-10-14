@@ -30,7 +30,7 @@ Bug 管理表（base `CEHMbNF8Zavq5wsAO3ecrpQ6nPc`，表「Bug 管理」，视�
 
 ## 只读的字段
 
-分析根因、根因图、修复方式、验收标准由 bug-solution 写；状态、修复版本、指派人由人工维护。
+分析根因、根因图、修复方式、验收标准由 bug-solution 写（bug-solution 暂时屏蔽，期间由 RD 直接填写，根因图可空）；状态、修复版本、指派人由人工维护。
 
 ## 扫描条件
 

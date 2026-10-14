@@ -14,7 +14,7 @@ plugins/tutti-bug-workflow/
     assets/       本 Skill 使用的模板、图片
     config/       本 Skill 专用的配置（如有）
     tests/        本 Skill 脚本的测试
-  disabled-skills/ 暂时屏蔽、插件不加载的 Skill（bug-solution、bug-execute），恢复方式见其 README
+  disabled-skills/ 暂时屏蔽、插件不加载的 Skill（bug-solution），恢复方式见其 README
   scripts/        插件级：插件校验
   config/         插件级：运行配置模板 workbench.example.json
   plugin.json, .codex-plugin/, mcp.json, .mcp.json, README.md
@@ -32,7 +32,7 @@ plugins/tutti-bug-workflow/
 
 ```sh
 cd plugins/tutti-bug-workflow
-for skill in skills/bug-investigate skills/bug-setup disabled-skills/bug-solution disabled-skills/bug-execute; do
+for skill in skills/bug-investigate skills/bug-setup skills/bug-execute disabled-skills/bug-solution; do
   python3 -m unittest discover -s $skill/tests -t $skill/tests
 done
 python3 scripts/validate_plugin.py

@@ -4,7 +4,7 @@
 
 ## 场景边界
 
-> **目前只开放 `investigate`。** `solution`、`execute` 对应的 bug-solution、bug-execute 暂时屏蔽（移到插件的 `disabled-skills/`，插件不再加载），`prepare.py` 与 `tool_setup.py` 只接受 `--scene investigate` 或 `all`（等同 `investigate`）。下面关于这两个场景的内容留作恢复时参考。
+> **目前开放 `investigate` 和 `execute`。** `solution` 对应的 bug-solution 暂时屏蔽（移到插件的 `disabled-skills/`，插件不再加载），`prepare.py` 与 `tool_setup.py` 只接受 `--scene investigate`、`execute` 或 `all`（等同前两个）。下面关于 `solution` 的内容留作恢复时参考。
 
 | 场景 | 每次需要的工具 | 按实际任务启用 |
 |---|---|---|
@@ -41,7 +41,7 @@
 
 ## 工具 Setup 的顺序
 
-1. **选择场景**：目前只有 `investigate`（`all` 等同于它）。按问题实际链路选择日志来源；条件工具不会因为出现在目录中就自动安装。
+1. **选择场景**：根据任务选 `investigate` 或 `execute`；未指定时用 `all` 展示全目录。按问题实际链路选择日志来源；条件工具不会因为出现在目录中就自动安装。
 2. **输出准备清单**：运行下面的只读命令。每个必需工具都选中，条件工具用 `--include` 启用。无配置时先用 Setup 梳理模式说明缺口；执行模式才初始化配置。
 3. **安装与复用**：已授权进行工具准备时，对选中的工具执行已有准备入口。当前自动准备入口只有 tutti-ops（tutti-cli 由 `prepare.py fix` 安装）；其他工具列出已核实的方法或待决策提供方。保存入口、版本和安装结果，自定义入口先核对。先完成全部选中工具的安装和可执行检查；失败项处理或记录具体阻塞后，立即进入下一阶段。
 4. **立即进入授权**：安装阶段结束后自动开始，无需再次询问是否授权。已确定的飞书、仓库、浏览器、Computer、Tutti CLI、验证环境分别按对应来源准备。复用有效认证；发现缺口时按 [主动补齐授权](setup-user-guide.md#主动补齐授权) 修复配置、发起登录并给出真实入口；本人完成后接续登录、复查目标访问。用户明确跳过时才延期；MCP 按实际选择接入。
@@ -54,6 +54,9 @@
 ```sh
 # QA：按已确认链路选择 Web 与远端 Computer 日志
 python3 PLUGIN_SOURCE/skills/bug-setup/scripts/tool_setup.py --scene investigate --include web-logs --include computer-directory --include remote-computer
+
+# 执行：公共/测试/浏览器能力，加上选定的 PR 与部署方式
+python3 PLUGIN_SOURCE/skills/bug-setup/scripts/tool_setup.py --scene execute --include github-delivery --include deployment
 
 # 先展示全目录；条件工具保持未启用
 python3 PLUGIN_SOURCE/skills/bug-setup/scripts/tool_setup.py --scene all
