@@ -46,7 +46,7 @@
     },
     {
       "id": "tutti-task",
-      "label": "在当前 Room 建 Task、编辑与指派，并发布现场附件",
+      "label": "用全局 tutti-cli（账号登录版）在指定 Room 建 Task、编辑并上传现场附件",
       "required_in": [
         "investigate"
       ],
@@ -56,9 +56,10 @@
       ],
       "configuration": "host",
       "requirements": [
-        "在 Tutti Room 的 Agent 会话中运行（Native 或 VM Agent）",
-        "Computer 版本支持 `tutti-cli task create`／`edit`／`assign`／`list`、`user list` 与 `artifact publish`",
-        "Computer 当前登录的 Account 有该 Room 的 Task 创建、编辑与指派权限"
+        "全局安装 npm 包 @tutti-os/tutti-cli（Node.js 24+），`tutti-cli --help` 列出 login 与 task create／edit／show",
+        "`tutti-cli login` 已登录，`tutti-cli whoami --json` 返回 QA 的账号",
+        "该账号是目标 Room 的成员；Room ID 取自 Room 链接，每条 task 命令带 --room-id",
+        "CLI 不能指派、评论、改优先级：排查线索作为附件，跟进人在任务看板指派"
       ],
       "install_operation": null
     },

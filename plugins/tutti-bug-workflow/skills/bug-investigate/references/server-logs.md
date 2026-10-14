@@ -37,7 +37,7 @@ python3 scripts/collect_server.py --question-time <question_time> \
 | `correlated_requests` | 对上的请求：时间、method、路径、状态码、`request_id` |
 | `web_failures_not_in_server_logs` | 页面上失败、但 tutti-server 访问日志里没有的请求（常见是网关限流 429、网络中断）：说明请求没到服务端 |
 
-- `status: captured`：取到日志；`namespaces`／`environments` 写进「环境与版本」，`service.version` 写进版本信息；把 `correlated_requests` 里与故障相关的请求（时间、路径、状态码、`request_id`）和 `web_failures_not_in_server_logs` 写进「问题上下文」，RD 据此直接定位。
+- `status: captured`：取到日志；`namespaces`／`environments` 和 `service.version` 写进排查线索的「环境与版本」（描述里只写生产／PPE）；把 `correlated_requests` 里与故障相关的请求（时间、路径、状态码、`request_id`）和 `web_failures_not_in_server_logs` 写进排查线索的「日志核对」，RD 据此直接定位。
 - `status: empty`：时间窗内没有匹配。Web 日志自带的 id 也查不到日志时，先核对 `question_time` 时区和时间窗；看 `web_requests_checked`：为 0 且 `web_requests_with_id` 也为 0，说明 Web 日志在时间窗内没有发往 tutti-server 的请求（核对 `question_time` 时区、页面是否已刷新）；不为 0 但都没对上，多半是请求没到服务端（看 `web_failures_not_in_server_logs`）或时间偏了，放宽 `--before-minutes`／`--after-minutes` 再试一次，仍为空再加 `--path-contains`。
 - AWS SSO 登录过期：脚本自动运行 `aws sso login`（本机弹出浏览器，用户点「允许」），成功后重试，结果带 `login: {triggered: true, ok: true}`。无人值守时加 `--no-login`。
 - `status: blocked`：`reason_kind: login_expired` 表示自动登录也没完成（10 分钟没授权、没有配置 SSO），写清用户要做的一步；其他是权限或网络问题，写进回复交给维护方，不让用户找日志。

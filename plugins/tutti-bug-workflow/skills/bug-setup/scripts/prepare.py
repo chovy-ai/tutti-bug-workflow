@@ -32,7 +32,7 @@ import workbench as wb  # noqa: E402
 
 SCENES = {"investigate": "QA 提 Bug", "solution": "定时分析根因与方案", "execute": "定时修复与部署"}
 NPM_PACKAGES = {"lark-cli": "@larksuite/cli", "codex": "@openai/codex", "mmdc": "@mermaid-js/mermaid-cli",
-                "tutti-ops": "@tutti-os/tutti-ops-cli"}
+                "tutti-ops": "@tutti-os/tutti-ops-cli", "tutti-cli": "@tutti-os/tutti-cli"}
 SCHEDULE_PREFIX = {"solution": "com.tutti.bug-solution.", "execute": "com.tutti.bug-execute."}
 SCRIPT = Path(__file__).resolve()
 
@@ -151,15 +151,32 @@ def check_command(name, label, scene_hint):
 
 
 def check_tutti_cli():
-    """QA 提 Bug creates a Room Task with `tutti-cli task create`, which only a Tutti Agent execution provides."""
-    if shutil.which("tutti-cli"):
-        return item("tutti-cli", "Tutti CLI（tutti-cli）", "ok", "可用")
-    return item("tutti-cli", "Tutti CLI（tutti-cli）", "user", "当前环境没有 tutti-cli",
-                guide=["QA 提 Bug 要在 Tutti Room 的 Agent 会话里运行：Task 用 `tutti-cli task create` 建在当前 Room，"
-                       "这个命令只在 Tutti 的 Agent 执行环境中提供。",
-                       "在要登记 Bug 的 Room 里打开 Agent，让它执行 `$tutti-bug-workflow:bug-investigate`；"
-                       "确认 Computer 已更新到支持 `tutti-cli task create`／`edit`／`assign` 的版本。"],
-                verify="在 Room Agent 会话中 `tutti-cli task --help` 列出 create、edit、assign")
+    """QA 提 Bug creates the Room Task with the global account CLI (@tutti-os/tutti-cli, Node 24+)."""
+    label = "Tutti CLI（tutti-cli，账号登录版）"
+    code, out = run(["tutti-cli", "--help"]) if shutil.which("tutti-cli") else (127, "")
+    if code or "tutti-cli login" not in out:
+        detail = "未安装" if not shutil.which("tutti-cli") else "PATH 里的 tutti-cli 不是账号登录版（没有 login 命令）"
+        version = run(["node", "--version"])[1].strip()
+        major = re.match(r"v(\d+)\.", version)
+        if major and int(major[1]) >= 24 and shutil.which("npm"):
+            return item("tutti-cli", label, "fix", f"{detail}，将运行 npm install -g @tutti-os/tutti-cli",
+                        fix="npm:tutti-cli")
+        return item("tutti-cli", label, "user", f"{detail}；需要 Node.js 24+（当前：{version or '未安装'}）",
+                    guide=["QA 提 Bug 用全局安装的 tutti-cli 以你的 Tutti 账号在指定 Room 建 Task，它要求 Node.js 24 及以上。",
+                           "用 nvm：`nvm install 24 && nvm use 24`（或 `brew install node`），然后回复「已完成」，"
+                           "Agent 会运行 `npm install -g @tutti-os/tutti-cli`。"],
+                    verify="`tutti-cli --help` 列出 login、whoami 与 task create")
+    code, out = run(["tutti-cli", "whoami", "--json"])
+    if code == 0:
+        try:
+            user = json.loads(out[out.index("{"):])
+        except ValueError:
+            user = {}
+        return item("tutti-cli", label, "ok", f"已登录：{user.get('name') or user.get('userId') or '未知账号'}")
+    return item("tutti-cli", label, "user", f"未登录或登录已过期：{out.strip()[-200:]}",
+                guide=["在终端运行 `tutti-cli login`，浏览器会打开 Tutti 登录页，用要建 Bug 的账号完成登录（需是目标 Room 的成员）。",
+                       "登录完成后回复「已完成」。"],
+                verify="`tutti-cli whoami --json` 返回账号")
 
 
 def check_lark(cfg):

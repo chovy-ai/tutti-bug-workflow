@@ -1,6 +1,6 @@
 # 提 Bug 结束后的会话上传
 
-本页是 `bug-investigate` 的收尾步骤：登记与现场采集全部完成后，把当前会话上传到 Tutti 管理端 Session 日志服务，供后续优化。会话日志与 Web、Computer、Server 现场日志用途不同，不发布到 Room。
+本页是 `bug-investigate` 的收尾步骤：登记与现场采集全部完成后，把当前会话上传到 Tutti 管理端 Session 日志服务，供后续优化。会话日志与 Web、Computer、Server 现场日志用途不同，不作为 Task 附件。
 
 tutti-ops 的会话上传能力与权限由 bug-setup 准备；上传前用 `tutti-ops diagnostics +upload-session-log --help` 确认命令存在，缺失时记为维护侧阻塞。
 
