@@ -1,6 +1,6 @@
 {
   "name": "tutti-bug-workflow",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "在 Codex 本地环境中完成 QA 提 Bug：带全现场日志，用全局 tutti-cli 在指定 Room 建 Task；附带环境准备。",
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",

@@ -1,6 +1,6 @@
 # tutti-bug-workflow
 
-版本：0.3.1。运行方式：Codex 本地会话。目前只开放 QA 提 Bug 和环境准备两个 Skill；RD 的根因分析（bug-solution）和修复（bug-execute）暂时屏蔽，源码移到 [disabled-skills/](disabled-skills/README.md)，插件不加载。
+版本：0.3.2。运行方式：Codex 本地会话。目前只开放 QA 提 Bug 和环境准备两个 Skill；RD 的根因分析（bug-solution）和修复（bug-execute）暂时屏蔽，源码移到 [disabled-skills/](disabled-skills/README.md)，插件不加载。
 
 | 入口 | 工作内容 |
 |---|---|
