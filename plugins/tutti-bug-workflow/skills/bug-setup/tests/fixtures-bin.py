@@ -13,7 +13,7 @@ tools = json.loads(os.environ.get("FAKE_TOOLS", "{}"))
 log = Path(os.environ["FAKE_TOOLS_LOG"])
 log.write_text(log.read_text() + json.dumps([name, *args]) + "\n" if log.exists() else json.dumps([name, *args]) + "\n")
 PACKAGES = {"@larksuite/cli": "lark-cli", "@openai/codex": "codex", "@mermaid-js/mermaid-cli": "mmdc",
-            "@tutti-os/tutti-ops-cli": "tutti-ops"}
+            "@tutti-os/tutti-ops-cli": "tutti-ops", "@tutti-os/tutti-cli": "tutti-cli"}
 
 
 def out(value):
@@ -61,5 +61,13 @@ if name == "tutti-ops":
         out({"ok": tools.get("tutti_token", True)})
     if args[:2] == ["computer", "--help"]:
         out("computer commands")
+if name == "tutti-cli":
+    if args == ["--help"]:
+        out("Tutti CLI — account login and Room Tasks\n  tutti-cli login [--no-browser] [--json]")
+    if args[:1] == ["whoami"]:
+        if tools.get("tutti_cli_logged_in", True):
+            out({"userId": "1", "name": "QA", "email": "qa@example.com"})
+        print("tutti-cli: No readable CLI session; run tutti-cli login", file=sys.stderr)
+        sys.exit(1)
 print(f"unsupported {name} {args}", file=sys.stderr)
 sys.exit(1)

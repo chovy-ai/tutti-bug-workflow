@@ -49,7 +49,7 @@ class PrepareTests(unittest.TestCase):
         report, items = self.prepare("check", "investigate")
         self.assertEqual(set(report["scenes"]), {"investigate"})
         self.assertEqual((items["config"]["status"], items["tutti-ops"]["status"]), ("fix", "fix"))
-        self.assertEqual(items["tutti-cli"]["status"], "user")  # only inside a Tutti Agent execution
+        self.assertEqual(items["tutti-cli"]["status"], "user")  # the global account CLI needs Node 24+
         self.assertNotIn("codex", items)  # not part of this scene
         self.assertNotIn("lark-cli", items)  # QA files a Room Task, not a Feishu record
         self.tools["tutti_token"] = False
@@ -62,6 +62,18 @@ class PrepareTests(unittest.TestCase):
         self.assertIn("admin-tokens", items["tutti-ops-auth"]["guide"][0])
         self.assertEqual(items["chrome-devtools"]["status"], "host")
         self.assertFalse(report["ready"])
+
+    def test_global_tutti_cli_installs_on_node_24_then_needs_login(self):
+        self.install("node", "npm", "npx")
+        self.tools.update(node="v24.14.0", tutti_cli_logged_in=False)
+        _, items = self.prepare("check", "investigate")
+        self.assertEqual((items["tutti-cli"]["status"], items["tutti-cli"]["fix"]), ("fix", "npm:tutti-cli"))
+        _, items = self.prepare("fix", "investigate")
+        self.assertEqual(items["tutti-cli"]["status"], "user")
+        self.assertIn("tutti-cli login", items["tutti-cli"]["guide"][0])
+        self.tools["tutti_cli_logged_in"] = True
+        _, items = self.prepare("check", "investigate")
+        self.assertEqual(items["tutti-cli"]["status"], "ok")
 
     def test_defaults_fill_gaps_but_keep_existing_values(self):
         self.data.mkdir()

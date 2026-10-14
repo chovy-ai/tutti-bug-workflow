@@ -6,7 +6,7 @@
 
 | 场景 | 每次需要的工具 | 按实际任务启用 |
 |---|---|---|
-| `investigate`：QA 提 Bug，记录现场 | 本地文件/搜索/终端/图片查看、Room Task 创建与附件上传（`tutti-cli task … --file`）、提 Bug 结束后的 session 上传 | Web 日志、Computer 目录、本地或远端 Computer 日志、Server/Tutti CLI 与 AWS 日志；必要的测试或浏览器复现 |
+| `investigate`：QA 提 Bug，记录现场 | 本地文件/搜索/终端/图片查看、Room Task 创建与附件上传（全局 `tutti-cli task … --room-id --file`，账号登录版）、提 Bug 结束后的 session 上传 | Web 日志、Computer 目录、本地或远端 Computer 日志、Server/Tutti CLI 与 AWS 日志；必要的测试或浏览器复现 |
 | `solution`：RD 根因与方案（定时） | 共享的本地/飞书能力、Git 与全局代码检出、mmdc 渲染 PNG、codex CLI 与 launchd 定时任务 | 需要补现场时交回提 Bug 场景 |
 | `execute`：修复与部署（定时） | 共享的本地/飞书/Git 能力、gh（推送、PR、触发部署工作流）、codex CLI 与 launchd、项目测试/类型检查/lint、浏览器验收与证据保存 | 排查或验证需要的日志来源 |
 
@@ -20,6 +20,7 @@
 |---|---|---|---|
 | `local-workspace` | Codex 本地文件、搜索、终端与图片查看 | Python 3.10+；实际宿主能力；可读源码/附件及可写证据目录 | 分别核对文件访问与执行范围；跨机器资源不能由本地路径代替 |
 | `feishu` | 默认 lark-cli，或已提供的飞书宿主工具/MCP | 复用入口；缺少 CLI 时先核实官方安装方式，当前无默认自动安装器 | 指定身份、记录和附件读写权限；分别验证读取与回填 |
+| `tutti-task` | 全局 `tutti-cli`（npm `@tutti-os/tutti-cli`，账号登录版） | Node.js 24+；`prepare.py fix` 运行 `npm install -g @tutti-os/tutti-cli`；PATH 里同名的 Agent 版没有 `login`，不能复用，见 [Tutti CLI](tutti-cli.md) | `tutti-cli login` 浏览器登录，`whoami --json` 返回 QA 账号；该账号是目标 Room 成员；不试建 Task |
 | `code` | Git、bare 缓存、worktree | 复用 Git；三个仓库 URL/main、缓存目录与空间 | GitHub 网络与三个仓库读取权限；执行交付另需写权限 |
 | `session-upload` | tutti-ops Session JSONL 上传 | `setup-tutti-ops --install` 先复用；按 [session 能力检查](session-upload.md#1-核对-cli目标与权限) 核对命令，旧版缺能力时升级官方包；当前宿主提供会话定位/导出 | 管理端认证、diagnostics write、`session_logs.write`；核对当前 provider/session 身份，实际确认 uploaded 才表示上传完成 |
 | `diagrams` | Mermaid 源码 + mmdc 渲染 PNG | `npm install -g @mermaid-js/mermaid-cli`，Node >=18 | 实际渲染一张图成功才算就绪 |

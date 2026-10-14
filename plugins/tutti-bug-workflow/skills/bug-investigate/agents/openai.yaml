@@ -1,4 +1,4 @@
 interface:
   display_name: "QA 提 Bug"
-  short_description: "记 Bug 即走完全程：带全现场（Web/Server/Computer），在当前 Room 建 Task 并挂上日志附件"
-  default_prompt: "使用 $tutti-bug-workflow:bug-investigate 处理这条 QA 上报：固定采集当时的全部现场（Web 页面日志、tutti-server 日志、Computer 日志），用 tutti-cli task create 在当前 Room 建一个 Task，再用 tutti-cli task edit --file 补全上下文并把全部现场原样作为 Task 附件上传；不分析根因。一步接一步连续执行，能并行的并行，耗时操作等它完成，只有自己无法解决的卡点才问用户。"
+  short_description: "记 Bug 即走完全程：带全现场（Web/Server/Computer），用全局 tutti-cli 在指定 Room 建 Task 并挂上日志附件"
+  default_prompt: "使用 $tutti-bug-workflow:bug-investigate 处理这条 QA 上报：固定采集当时的全部现场（Web 页面日志、tutti-server 日志、Computer 日志），用全局安装的 tutti-cli（账号登录版）task create --room-id 在 QA 指定的 Room 建一个 Task，再用 tutti-cli task edit --file 补全描述，并把截图、排查线索.txt 和全部现场日志原样作为 Task 附件上传；不分析根因。一步接一步连续执行，能并行的并行，耗时操作等它完成，只有自己无法解决的卡点才问用户。"
