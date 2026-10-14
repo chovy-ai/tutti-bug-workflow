@@ -102,11 +102,11 @@ python3 scripts/prepare.py fix --scene solution --scene execute
 | 定时任务跟进人 | 当前飞书登录用户；不限优先级 |
 | tutti-ops 管理端 | `https://admin.tutti.sh` |
 | 本机 Computer 日志 | `~/.tutti-amp/computer/logs/` 下的 companion、desktopd、runtime-host 日志，以及 `${TMPDIR}/tutti-codex-appserver-startup.jsonl` |
-| AWS | 当前凭证链，区域 `us-east-1`（只在选 AWS 日志时用） |
+| AWS | 当前凭证链，区域 `us-east-1`（只在 bug-execute 选 AWS 日志时用；提 Bug 不需要） |
 
 ## 可选与参考
 
-- **AWS 服务端日志**：用户明确要用时加 `--include aws`，安装与登录见 [AWS CLI](references/aws-cli.md)。
+- **AWS 服务端日志**：提 Bug 不需要（只记 request id）；修复时用户明确要用才加 `--include aws`，安装与登录见 [AWS CLI](references/aws-cli.md)。
 - 单项工具命令仍可直接用：`scripts/workbench.py doctor`、`setup-tutti-ops --install`、`configure-tutti-token --admin-url https://admin.tutti.sh`、`setup-aws-cli --install|--check-auth`、`configure-mcp`。
 - 引导话术与各入口的授权细节：[易懂的准备与授权流程](references/setup-user-guide.md)。
 - 各能力的背景：[Web 日志](references/web-logs.md)、[tutti-ops 获取日志](references/tutti-ops-computer-logs.md)、[Computer 日志](references/computer-logs.md)、[提 Bug 后的会话上传](references/session-upload.md)、[代码缓存](references/repository-cache.md)、[工具目录](references/tool-setup.md)、[工作流与交接](references/workflow.md)。

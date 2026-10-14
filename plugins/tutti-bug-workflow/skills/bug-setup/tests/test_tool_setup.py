@@ -68,7 +68,7 @@ class ToolSetupTests(unittest.TestCase):
         tools = {t["id"]: t for t in self.invoke("investigate", "--include", "remote-computer")["tools"]}
         self.assertTrue(tools["remote-computer"]["selected"])
         self.assertEqual(tools["remote-computer"]["install_plan"]["status"], "review_custom_configuration")
-        self.assertFalse(tools["aws-logs"]["selected"])
+        self.assertNotIn("aws-logs", tools)  # QA 提 Bug only records request ids
         self.assertEqual(self.config.read_bytes(), before)
         self.assertFalse((self.data / "tools").exists())
 

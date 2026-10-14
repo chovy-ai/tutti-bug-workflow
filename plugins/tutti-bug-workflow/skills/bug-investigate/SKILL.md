@@ -1,6 +1,6 @@
 ---
 name: bug-investigate
-description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下这个问题」等都算）：每次调用都走完全程——固定采集当时的现场日志（Web 页面日志、tutti-server 日志、Computer 日志），用全局安装的 `tutti-cli`（账号登录版）以 QA 的账号在指定 Room 建 Task，再用 `task edit` 把标题改成一句话简介、描述写清 Bug 表现，截图、排查线索文件和全部日志作为附件挂上；不做根因分析，只有遇到自己无法解决的卡点才向用户提问。
+description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下这个问题」等都算）：每次调用都走完全程——固定采集当时的现场日志（Web 页面日志、Computer 日志），记下相关请求的 request id 供 RD 之后查服务端日志，用全局安装的 `tutti-cli`（账号登录版）以 QA 的账号在指定 Room 建 Task，再用 `task edit` 把标题改成一句话简介、描述写清 Bug 表现，截图、排查线索文件和全部日志作为附件挂上；不做根因分析，只有遇到自己无法解决的卡点才向用户提问。
 ---
 
 # QA 提 Bug
@@ -24,7 +24,9 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 - 耗时操作在本轮内等它完成：Computer 远端召回最长约 25 分钟，期间并行做其他步骤，不把控制权交还给用户。
 - 某一项卡住时记下原因，继续其他能做的；全部做完或全部卡住才写最终回复。
 
-**尽量并行。** Web 日志先采（它给出要对到服务端的请求和 Computer 线索），随后三件事同时进行：Computer 召回用后台进程跑，Server 日志交给 subagent 查，主 agent 整理上下文。宿主不支持 subagent 时，Server 也用后台进程跑。
+**尽量并行。** Web 日志先采（它给出失败请求的 request id 和 Computer 线索），随后 Computer 召回用后台进程跑，主 agent 同时整理上下文。
+
+**不查服务端日志。** Web 和 Computer 日志里的请求都带网关的 request id（`x-zk-request-id`），提 Bug 时只把相关请求和它们的 request id 记进排查线索，RD 排查时再按 id 去查 tutti-server 日志；本 Skill 不用 AWS、不拉 Server 日志。
 
 **先建 Task，再补全。** 第 2 步按 QA 的描述先建好 Task，采集完用 `tutti-cli task edit` 改标题、写全描述并挂上附件。**优先级只能在创建时设置**，CLI 不能修改，建单时就要定好。所有写操作都带 `--operation-id`，结果不确定时用同一个 ID 和相同输入重试；CLI 不会自动重试。带 `--file` 的写入例外：每次上传都会生成新的附件，结果不确定时先 `task show` 核对，确实没生效再换一个新的操作 ID 重跑，不用同一个 ID 配不同的附件。
 
@@ -36,10 +38,9 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 | 入口 | 怎么自动恢复 |
 |---|---|
-| AWS（Server 日志） | `collect_server.py` 遇到 SSO 过期会自己运行 `aws sso login`，浏览器在本机弹出，用户在浏览器里点「允许」即可，脚本随后重试。结果里 `login.ok` 为 true 就照常继续 |
 | Tutti 账号（建 Task） | `whoami` 或 `task` 命令报 `No readable CLI session`、401、`run tutti-cli login` 时，后台运行 `tutti-cli login`：浏览器打开 Tutti 登录页，用户用自己的账号登录即可（最长等 5 分钟）。完成后 `whoami --json` 确认账号，再重跑刚才的命令；写操作仍按上面的规则判断能不能用同一个操作 ID |
 
-自动登录的同时在对话里说一句「AWS（或 Tutti）登录已过期，已在浏览器打开登录页，完成登录即可」，然后继续等待，不结束本轮。只有等了 10 分钟仍没完成、没有配置 SSO，或者 tutti-ops Token 失效（需要在管理端重新创建，见 `$tutti-bug-workflow:bug-setup`），才写进最终回复，并写清用户要做的一步。
+自动登录的同时在对话里说一句「Tutti 登录已过期，已在浏览器打开登录页，完成登录即可」，然后继续等待，不结束本轮。只有等了 10 分钟仍没完成，或者 tutti-ops Token 失效（需要在管理端重新创建，见 `$tutti-bug-workflow:bug-setup`），才写进最终回复，并写清用户要做的一步。
 
 **不脱敏。** 现场日志原样采集、原样上传。
 
@@ -54,7 +55,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 | 标题 | 一句话简介「功能：现象」，20–40 字，没有错误码、ID 和括号补充；说的是 QA 报的问题 |
 | 优先级 | 建单时按定义映射成 Task 优先级；拿不准时用 `none`，在描述「待 QA 确认」和回复里问，QA 确认后在任务看板修改 |
 | Web 日志 | `web-logs.log` 或 QA 导出包已挂到 Task；或写明缺什么、怎么提供 |
-| Server 日志 | `captured`／`empty`／`blocked`（附原因）；登录过期已自动重新登录并重试过 |
+| request id | `web_requests.py` 列出的失败请求（没有失败时取问题时间附近的几条）和 Computer 日志里失败出站请求的 request id 已写进 `排查线索.txt` |
 | Computer 日志 | 召回已完成，召回包已挂到 Task；或写明受阻原因、待用户确认的设备 |
 | 附件 | 最后一次 `task edit` 带上了 QA 的截图／视频、`排查线索.txt` 和全部日志；`task show` 回读描述里的 `uploadedFile` 一个不少 |
 | 描述 | 只有问题、复现步骤、实际、期望、频率、发生时间、环境一行（和待 QA 确认），没有日志字段、ID、版本号 |
@@ -108,19 +109,17 @@ python3 scripts/collect_computer.py --computer-id ID --incident-at <question_tim
 
 有多个候选或没有线索时记为 `pending`，第 5 步请用户确认设备，确认后再跑。
 
-### 3.3 Server 日志（subagent）
+### 3.3 请求与 request id（主 agent）
 
-拿到 Web 日志后交给一个 subagent（给它下面的命令和输出路径，只让它回传结果 JSON）；不支持 subagent 时用后台进程：
+拿到 Web 日志后列出页面发往 tutti-server 的请求：
 
 ```sh
-python3 scripts/collect_server.py --question-time <question_time> \
-  --web-logs <web-logs.log 或诊断包 zip> --output-dir $REPORT/server
+python3 scripts/web_requests.py --web-logs <web-logs.log 或诊断包 zip> --question-time <question_time>
 ```
 
-新版 Web 日志的每条 HTTP 记录都带网关的 request id，脚本直接用它们拉全这些请求的日志（看 `request_ids_in_web_logs`、`matched_request_ids`）；旧版 Web 的记录没有 id，脚本把其中失败的请求按 method、路径、状态码、时间对到服务端访问日志，取回 `request_id`（看 `web_requests_matched`）。`--path-contains <房间或 Computer ID>` 会带回整段时间窗的大量请求，只在结果为 `empty` 或需要整段上下文时再加。
+`failed_requests`（失败的请求，带时间、method、路径、状态码、`request_ids`）全部写进排查线索的「日志核对」和「关联 ID」；没有失败时用 `nearest_requests`（问题时间附近的几条）里和问题相关的。`without_request_id` 不为 0 说明是旧版 Web，那几条只记时间、method、路径、状态码。不去查服务端日志。
 
-结果里的 `namespaces`／`environments` 告诉你环境：`tutti` 是生产，`lane-ppe-*` 是 PPE；`correlated_requests` 中与故障相关的请求和 `web_failures_not_in_server_logs`（页面失败但没到服务端的请求）写进排查线索的「日志核对」。详见 [Server 日志](references/server-logs.md)。
-
+环境按页面链接和 QA 的说法判断：`tutti.sh` 是生产，PPE 写泳道名；拿不准写「待 QA 确认」。
 
 ## 4. 补全描述与排查线索
 
@@ -131,11 +130,11 @@ python3 scripts/collect_server.py --question-time <question_time> \
    tutti-cli task edit --room-id <roomId> --task-id <taskId> --title "<标题>" \
      --description-file <$REPORT>/description.txt \
      --file <$REPORT>/screenshot-1.png --file <$REPORT>/排查线索.txt \
-     --file <$REPORT>/web/web-logs.log --file <$REPORT>/server/server-logs.log \
+     --file <$REPORT>/web/web-logs.log \
      --file <$REPORT>/computer/<召回包>.tar.gz --operation-id <新 UUID> --json
    tutti-cli task show --room-id <roomId> --task-id <taskId> --json   # 回读标题、描述和附件
    ```
-   `desktopd.log` 里故障时间附近失败的出站请求带有 Server 日志中没有的 `request_id` 时，先用 `collect_server.py --request-id <id> --output-dir $REPORT/server-computer` 补拉，结果复制成 `server-logs-computer.log` 一起挂上（同一次调用里文件名不能重复；见 [Computer 日志里的 request id](references/computer-logs.md#日志里的-request-id)）。
+   召回包里 `desktopd.log` 故障时间附近失败的出站请求（`desktop.outbound_network.api_request`）的 `request_id` 也写进排查线索（见 [Computer 日志里的 request id](references/computer-logs.md#日志里的-request-id)）。
 
 上传失败时 Task 不会被修改：按报错修正（文件名重复、空文件、超过 500 MiB、HTML／SVG 等）后重跑；修不了的文件去掉，在排查线索里写一句缺什么，继续。
 

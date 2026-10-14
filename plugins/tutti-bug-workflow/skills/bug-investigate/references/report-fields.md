@@ -85,8 +85,8 @@ CLI 没有评论，RD 排查需要的东西一次写进 `$REPORT/排查线索.tx
 排查线索（现场事实，不是根因结论）
 
 日志核对
-- <时间> <来源：Web／Server／Computer> <报错原文或关键字段>（request id）
-- <时间> <method 路径> → <状态码>（request id）；页面失败但没到服务端的请求单独列出
+- <时间> <来源：Web／Computer> <报错原文或关键字段>（request id）
+- <时间> <method 路径> → <状态码>（request id）；旧版 Web 没有 id 的只写前面几项
 - <成功／失败的对照、设置或版本差异>
 - 缺了哪一类现场、为什么（没有就省略）
 
@@ -96,13 +96,12 @@ CLI 没有评论，RD 排查需要的东西一次写进 `$REPORT/排查线索.tx
 会话：<sessionId>
 Computer：<computerId>（<名称>）
 Agent：<agentTargetId>
-request id：<出错或关键的几条>
+request id：<出错或关键的几条，RD 用它查 tutti-server 日志>
 召回任务：<taskId>
 建 Task 账号：<whoami 的 name（userId）>
 
 环境与版本
-环境：生产（namespace tutti）／PPE（lane-ppe-xxx）
-tutti-server：<service.version>
+环境：生产／PPE（lane-ppe-xxx）
 Computer：<computerVersion>（macOS arm64）
 Web：<页面版本>
 浏览器：<UA>

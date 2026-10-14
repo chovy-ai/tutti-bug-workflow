@@ -249,7 +249,6 @@
       "label": "Tutti CLI 服务端日志与证据补采",
       "required_in": [],
       "conditional_in": [
-        "investigate",
         "execute"
       ],
       "commands": [
@@ -269,7 +268,6 @@
       "label": "AWS CLI 服务端日志",
       "required_in": [],
       "conditional_in": [
-        "investigate",
         "execute"
       ],
       "commands": [

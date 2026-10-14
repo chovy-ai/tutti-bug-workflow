@@ -6,7 +6,7 @@
 
 | 场景 | 每次需要的工具 | 按实际任务启用 |
 |---|---|---|
-| `investigate`：QA 提 Bug，记录现场 | 本地文件/搜索/终端/图片查看、Room Task 创建与附件上传（全局 `tutti-cli task … --room-id --file`，账号登录版）、提 Bug 结束后的 session 上传 | Web 日志、Computer 目录、本地或远端 Computer 日志、Server/Tutti CLI 与 AWS 日志；必要的测试或浏览器复现 |
+| `investigate`：QA 提 Bug，记录现场 | 本地文件/搜索/终端/图片查看、Room Task 创建与附件上传（全局 `tutti-cli task … --room-id --file`，账号登录版）、提 Bug 结束后的 session 上传 | Web 日志、Computer 目录、本地或远端 Computer 日志；必要的测试或浏览器复现 |
 | `solution`：RD 根因与方案（定时） | 共享的本地/飞书能力、Git 与全局代码检出、mmdc 渲染 PNG、codex CLI 与 launchd 定时任务 | 需要补现场时交回提 Bug 场景 |
 | `execute`：修复与部署（定时） | 共享的本地/飞书/Git 能力、gh（推送、PR、触发部署工作流）、codex CLI 与 launchd、项目测试/类型检查/lint、浏览器验收与证据保存 | 排查或验证需要的日志来源 |
 

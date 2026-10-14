@@ -42,7 +42,7 @@ Agent 会先问你要准备哪个场景：**QA 提 Bug**、**定时分析**、**
 
 1. 接收上报，判断所属端、优先级、业务模块，生成 `operation_id`（即 Task ID 与幂等键）。
 2. `task list` 查重，`task create` 按 QA 描述先建 Task（优先级只能在此时设置），`user list` 找到跟进人后 `task assign`。
-3. Web 日志：本机 Chrome WebMCP 读页面日志（`merge_web_logs.py` 合并），不可用时用 QA 导出的诊断包；并行跑 Computer 召回（`collect_computer.py`，后台）与 Server 日志（`collect_server.py`，subagent，按 Web／Computer 日志里的 request id 查 AWS CloudWatch 并识别生产／PPE）。
+3. Web 日志：本机 Chrome WebMCP 读页面日志（`merge_web_logs.py` 合并），不可用时用 QA 导出的诊断包；并行跑 Computer 召回（`collect_computer.py`，后台）；`web_requests.py` 列出失败请求及其 request id（`x-zk-request-id`），连同 Computer 日志里失败出站请求的 request id 写进排查线索。提 Bug 不查服务端日志、不依赖 AWS，RD 排查时再按 request id 查。
 4. `task edit` 把标题改成一句话 Bug 简介，描述只写 Bug 表现（问题、复现步骤、实际、期望），用 `--file` 挂上截图、录屏；`task show` 回读。日志核对、关联 ID、环境与版本写进一条「排查线索」评论，全部日志用 `task comment add --file` 挂在这条评论上（Task 私有附件，本地和云端房间都可用）。
 5. 召回完成后另发一条评论附召回包；缺的一次问完，用户补充后在同一会话里 `task edit`／`assign`／`comment add`。最后上传本次会话。
 
@@ -94,7 +94,7 @@ QA 提 Bug 用全局 tutti-cli 在指定 Room 建 Task；定时分析与定时�
 
 本地执行仍可能把选取的代码、日志片段和工具输出提交给模型。共享源码和分发包不包含真实业务数据或凭证。
 
-服务端日志判断必需或建议补／可辅助后，在本轮立即调用实际Tutti CLI或已确认AWS来源的AWS CLI，先保存易失证据，挂到排查线索评论并写进线索；不会停在建议或等待QA追问。成功访问记录不能用HTTP失败归因空结果代替。详见 [服务端日志](skills/bug-investigate/references/server-logs.md)。
+提 Bug 不拉服务端日志：Web 与 Computer 日志里的请求都带网关 request id，记进排查线索，RD 排查时再按 id 查 tutti-server 日志。
 
 ## 验证插件源码
 
