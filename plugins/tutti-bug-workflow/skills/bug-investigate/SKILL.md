@@ -47,6 +47,8 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 自动登录的同时在对话里说一句「Tutti 登录已过期，已在浏览器打开登录页，完成登录即可」，然后继续等待，不结束本轮。只有等了 10 分钟仍没完成，或者 tutti-ops Token 失效（需要在管理端重新创建，见 `$tutti-bug-workflow:bug-setup`），才写进最终回复，并写清用户要做的一步。
 
+**只说有证据的事实。** 对用户的每一句说明（包括解释某一步为什么失败、为什么没发出去）都要有命令输出、日志或代码作证，照原样转述返回的字段和报错；没证实的写成「待确认：……」，不把接口返回的状态当成真实情况来推断原因（例如目录返回 `requestable` 不等于「当时没共享」）。用户的说法和查到的结果对不上时，两边并列写出，以待确认处理，不替任何一方下结论。
+
 **不脱敏。** 现场日志原样采集、原样上传。
 
 **无状态。** `operation_id`、`question_time`、采集结果都记在本次会话上下文中。日志、截图等放在数据目录（默认 `~/.local/share/bug-workbench`，可用 `BUG_WORKBENCH_DATA` 改）下的 `bug-reports/<operation_id>/`（下称 `$REPORT`，用绝对路径）。对外唯一的事实来源是 Room 里的 Task。脚本路径相对本 Skill 目录（`skills/bug-investigate/`），都输出一段 JSON。工具安装与认证由 `$tutti-bug-workflow:bug-setup` 负责，已有权限内的读取、召回、上传附件，以及建 Task、编辑属于本任务授权，无需逐项再问。
