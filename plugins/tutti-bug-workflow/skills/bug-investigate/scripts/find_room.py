@@ -2,7 +2,7 @@
 """Pick the Room a bug is filed in, from what the QA said: a Room ID, a Room/Task link,
 a Room name, or a person's name (Rooms are usually named after their owner).
 
-Reads the logged-in account's Room directory with `tutti-cli room list --json` (or
+Reads the logged-in account's Room directory with `tutti-cli room list --all --json` (or
 --rooms-file for tests). IDs and links must match a Room in the directory. Names are
 matched case-insensitively against Room names, local Rooms first and cloud Rooms only
 when no local Room matches; an exact name beats a partial match.
@@ -31,7 +31,7 @@ def directory(rooms_file):
     if rooms_file:
         text = Path(rooms_file).read_text(encoding="utf-8")
     else:
-        result = subprocess.run(["tutti-cli", "room", "list", "--json"],
+        result = subprocess.run(["tutti-cli", "room", "list", "--all", "--json"],
                                 capture_output=True, text=True, timeout=60, check=False)
         if result.returncode:
             raise ValueError((result.stderr or result.stdout).strip()[-300:] or "tutti-cli room list failed")

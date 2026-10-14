@@ -32,7 +32,8 @@
 2. `find_room.py` 用 `tutti-cli room list` 按 QA 给的 Room ID／链接、房间名或用户名找房间（本地房间优先，多个候选时请 QA 选），`task create --room-id` 按 QA 描述先建 Task（优先级只能在此时设置）。
 3. Web 日志：本机 Chrome WebMCP 读页面日志（`merge_web_logs.py` 合并），不可用时用 QA 导出的诊断包；并行跑 Computer 召回（`collect_computer.py`，后台）；`web_requests.py` 列出失败请求及其 request id（`x-zk-request-id`），连同 Computer 日志里失败出站请求的 request id 写进排查线索。提 Bug 不查服务端日志、不依赖 AWS，RD 排查时再按 request id 查。
 4. 现场齐了以后一次 `task edit`：标题改成一句话 Bug 简介，描述只写 Bug 表现（问题、复现步骤、实际、期望），截图、`排查线索.txt`（日志核对、关联 ID、环境与版本）和全部日志用 `--file` 作为 Task 私有附件挂上；`task show` 回读。
-5. 缺的一次问完，用户补充后带上全部文件再 `task edit` 一次；CLI 不能指派，请 QA 在任务看板指派跟进人。最后上传本次会话。
+5. 用 `task run` 把分析指令交给该 Room 的 Codex Agent（优先 gpt-6.1-sol，其次 gpt-6-astra，推理强度 high）：指令里带上 Bug 表现和关键现场线索，要求拉代码分析根因、先弄清模块整体设计再出方案、画修复前后的工作流程图，结果回复在 Task 评论里。指令模板见 [交给 Room Agent 分析](skills/bug-investigate/references/rd-analysis.md)。
+6. 缺的一次问完，用户补充后带上全部文件再 `task edit` 一次；CLI 不能指派，请 QA 在任务看板指派跟进人。最后上传本次会话。
 
 ## 暂时屏蔽：RD 根因分析与修复
 

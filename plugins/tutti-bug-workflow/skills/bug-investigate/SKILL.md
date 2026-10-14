@@ -1,18 +1,18 @@
 ---
 name: bug-investigate
-description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下这个问题」等都算）：每次调用都走完全程——固定采集当时的现场日志（Web 页面日志、Computer 日志），记下相关请求的 request id 供 RD 之后查服务端日志，用全局安装的 `tutti-cli`（账号登录版）以 QA 的账号在指定 Room 建 Task，再用 `task edit` 把标题改成一句话简介、描述写清 Bug 表现，截图、排查线索文件和全部日志作为附件挂上；不做根因分析，只有遇到自己无法解决的卡点才向用户提问。
+description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下这个问题」等都算）：每次调用都走完全程——固定采集当时的现场日志（Web 页面日志、Computer 日志），记下相关请求的 request id 供 RD 之后查服务端日志，用全局安装的 `tutti-cli`（账号登录版）以 QA 的账号在指定 Room 建 Task，再用 `task edit` 把标题改成一句话简介、描述写清 Bug 表现，截图、排查线索文件和全部日志作为附件挂上，最后用 `task run` 把组织好的分析指令交给该 Room 的 Codex Agent（优先 gpt-6.1-sol high，其次 gpt-6-astra high）分析根因、出方案、画修复前后流程图并回复在 Task 里；自己不做根因分析，只有遇到自己无法解决的卡点才向用户提问。
 ---
 
 # QA 提 Bug
 
-你负责把一次上报变成指定 Room 里一个**上下文完整**的 Task，交给 RD 排查：建 Task、采集当时的全部现场、把现场作为附件挂到 Task、补全描述。**不分析根因，不读代码**；时间花在把现场带全上。
+你负责把一次上报变成指定 Room 里一个**上下文完整**的 Task，交给 RD 排查：建 Task、采集当时的全部现场、把现场作为附件挂到 Task、补全描述，再把根因分析交给 Room 里的 Agent。**自己不分析根因，不读代码**；时间花在把现场带全、把分析指令写清楚上。
 
 **用全局安装的 `tutti-cli` 建 Task。** 它是 npm 包 `@tutti-os/tutti-cli`（Node.js 24+），以本机 `tutti-cli login` 登录的 Tutti 账号直接调用 Tutti 服务，不依赖 Computer 或 Room Agent，在 QA 本机的 Codex／Claude Code 里就能跑；创建者就是这个账号，权限按它在目标 Room 的成员身份判断。开始前运行 `tutti-cli --help` 和 `tutti-cli whoami --json`：
 
 - `--help` 里没有 `login`：没装，或 PATH 里先找到的是 Computer 自带的 Agent 版 `tutti-cli`。改用 `"$(npm prefix -g)/bin/tutti-cli"`；仍没有就按 `$tutti-bug-workflow:bug-setup` 安装，不改用别的建单方式。
 - `whoami` 报未登录或会话失效：按下面「登录过期」自动恢复。
 
-它只有 `login`／`whoami`／`logout`、`room list` 和 `task create`／`edit`／`show`：**没有查重列表、指派、评论、改优先级**，每条 `task` 命令都要显式带 `--room-id`。排查线索因此写成一个文本文件，和日志一起作为附件挂在描述上（见下）；跟进人请 QA 在任务看板指派。
+它有 `login`／`whoami`／`logout`、`room list`、`agent list`／`models` 和 `task create`／`edit`／`show`／`comment`／`run`：**没有查重列表、指派、改优先级**，每条 `task` 和 `agent` 命令都要显式带 `--room-id`。排查线索写成一个文本文件，和日志一起作为附件挂在描述上（见下）；跟进人请 QA 在任务看板指派。
 
 **先查房间，再定 Room。** 用 `scripts/find_room.py --query "<QA 给的线索>"` 在当前账号的房间列表（`tutti-cli room list --json`）里找要建单的 Room，线索可以是：
 
@@ -66,6 +66,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 | 附件 | 最后一次 `task edit` 带上了 QA 的截图／视频、`排查线索.txt` 和全部日志；`task show` 回读描述里的 `uploadedFile` 一个不少 |
 | 描述 | 只有问题、复现步骤、实际、期望、频率、发生时间、环境一行（和待 QA 确认），没有日志字段、ID、版本号 |
 | 排查线索 | `排查线索.txt` 记下日志核对、关联 ID、环境与版本、分类；回复里提到的每条发现都在描述或这个文件里 |
+| 根因分析 | 已按 [交给 Room Agent 分析](references/rd-analysis.md) 用 `task run` 发出分析指令，回执 `accepted`／`pending`，记下 Agent 和模型；或写明为什么没发（没有可用的 Codex Agent／模型、被拒） |
 | 会话上传 | 全部完成后已上传一次 |
 
 ## 1. 接收
@@ -144,6 +145,8 @@ python3 scripts/web_requests.py --web-logs <web-logs.log 或诊断包 zip> --que
 
 上传失败时 Task 不会被修改：按报错修正（文件名重复、空文件、超过 500 MiB、HTML／SVG 等）后重跑；修不了的文件去掉，在排查线索里写一句缺什么，继续。
 
+4. **交给 Room Agent 分析根因。** Task 回读无误后，按 [交给 Room Agent 分析](references/rd-analysis.md) 选该 Room 的 Codex Agent 和模型（优先 `gpt-6.1-sol`，其次 `gpt-6-astra`，推理强度都用 `high`），用模板把 Bug 表现和关键现场线索组织成 `$REPORT/rd-analysis.txt`，`tutti-cli task run` 发出。指令要求 Agent 拉代码分析根因、先弄清模块整体设计再出方案、画修复前后的工作流程图，结果回复在 Task 的评论线程里。只发不等，回执 `accepted`／`pending` 就继续第 5 步。现场有缺项（召回在等设备、QA 还没给诊断包）时也照常发，缺什么写进指令的现场线索。
+
 ## 5. 收尾
 
 1. 第 4 步提交时还有现场没到（召回在等设备确认、QA 还没给 Web 诊断包）：到齐后补进 `排查线索.txt`，再 `task edit` 一次，**带上全部文件**（之前挂过的也要再带，否则会从 Task 上消失）。
@@ -160,4 +163,4 @@ python3 scripts/web_requests.py --web-logs <web-logs.log 或诊断包 zip> --que
 
    登录过期按上面的规则当场自动恢复，不列在这里；真正的工具缺失、权限不足才写进回复交给维护方。用户补充后在同一会话里继续：更新 `description.txt`／`排查线索.txt`，带上全部文件 `task edit` 一次；不再建第二个 Task。
 3. 按开头的自查表逐项确认；全部完成后按 [会话上传](references/session-upload.md) 上传本次会话一次。
-4. 最终回复：房间名、Task 标题与链接（`https://tutti.sh/platform/room/<roomId>?surface=task-board&task=<taskId>`）、建单账号、优先级、请 QA 指派跟进人、环境、已挂上的截图和日志、缺失项及需要用户提供的内容。
+4. 最终回复：房间名、Task 标题与链接（`https://tutti.sh/platform/room/<roomId>?surface=task-board&task=<taskId>`）、建单账号、优先级、请 QA 指派跟进人、环境、已挂上的截图和日志、根因分析交给了哪个 Agent 和模型（结果会回复在 Task 评论里）、缺失项及需要用户提供的内容。

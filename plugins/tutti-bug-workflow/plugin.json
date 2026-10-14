@@ -8,7 +8,7 @@
       "interface": {
         "displayName": "tutti-bug-workflow",
         "shortDescription": "QA 提 Bug 与环境准备",
-        "longDescription": "QA 提 Bug：每次调用都走完全程，采集当时的 Web 页面日志和 Computer 日志，把相关请求的 request id 记进排查线索，用全局 tutti-cli（账号登录版）以 QA 的账号在指定 Room 建 Task，截图、排查线索和日志作为附件上传；不分析根因。Room 按 Room ID、房间名或用户名从本地房间里找。提 Bug 不拉 Server 日志，RD 排查时再按 request id 查。bug-setup 只准备提 Bug 场景：自动安装 tutti-cli 与 tutti-ops、补默认配置，一步步引导 tutti-cli 登录、tutti-ops Token 和 Chrome 授权并复查。RD 根因分析与修复两个场景暂时屏蔽，插件不加载。",
+        "longDescription": "QA 提 Bug：每次调用都走完全程，采集当时的 Web 页面日志和 Computer 日志，把相关请求的 request id 记进排查线索，用全局 tutti-cli（账号登录版）以 QA 的账号在指定 Room 建 Task，截图、排查线索和日志作为附件上传；再用 task run 把组织好的分析指令交给该 Room 的 Codex Agent（优先 gpt-6.1-sol high，其次 gpt-6-astra high），由它拉代码分析根因、按模块设计出方案、画修复前后流程图并回复在 Task 里。Room 按 Room ID、房间名或用户名从本地房间里找。提 Bug 不拉 Server 日志，RD 排查时再按 request id 查。bug-setup 只准备提 Bug 场景：自动安装 tutti-cli 与 tutti-ops、补默认配置，一步步引导 tutti-cli 登录、tutti-ops Token 和 Chrome 授权并复查。RD 根因分析与修复两个场景暂时屏蔽，插件不加载。",
         "category": "Productivity",
         "capabilities": [
           "Read",
