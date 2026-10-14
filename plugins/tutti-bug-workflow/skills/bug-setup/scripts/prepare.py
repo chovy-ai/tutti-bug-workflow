@@ -154,8 +154,10 @@ def check_tutti_cli():
     """QA 提 Bug creates the Room Task with the global account CLI (@tutti-os/tutti-cli, Node 24+)."""
     label = "Tutti CLI（tutti-cli，账号登录版）"
     code, out = run(["tutti-cli", "--help"]) if shutil.which("tutti-cli") else (127, "")
-    if code or "tutti-cli login" not in out:
-        detail = "未安装" if not shutil.which("tutti-cli") else "PATH 里的 tutti-cli 不是账号登录版（没有 login 命令）"
+    if code or "tutti-cli login" not in out or "tutti-cli room list" not in out:
+        detail = ("未安装" if not shutil.which("tutti-cli") else
+                  "PATH 里的 tutti-cli 不是账号登录版（没有 login 命令）" if "tutti-cli login" not in out else
+                  "版本过旧，没有 room list（按房间名查房间）")
         version = run(["node", "--version"])[1].strip()
         major = re.match(r"v(\d+)\.", version)
         if major and int(major[1]) >= 24 and shutil.which("npm"):
@@ -165,7 +167,7 @@ def check_tutti_cli():
                     guide=["QA 提 Bug 用全局安装的 tutti-cli 以你的 Tutti 账号在指定 Room 建 Task，它要求 Node.js 24 及以上。",
                            "用 nvm：`nvm install 24 && nvm use 24`（或 `brew install node`），然后回复「已完成」，"
                            "Agent 会运行 `npm install -g @tutti-os/tutti-cli`。"],
-                    verify="`tutti-cli --help` 列出 login、whoami 与 task create")
+                    verify="`tutti-cli --help` 列出 login、room list 与 task create")
     code, out = run(["tutti-cli", "whoami", "--json"])
     if code == 0:
         try:

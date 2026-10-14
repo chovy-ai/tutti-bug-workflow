@@ -4,7 +4,7 @@
 
 | 参数 | Task 字段 | 怎么填 |
 |---|---|---|
-| `--room-id` | 所在 Room | Room 链接 `/platform/room/<roomId>` 里的 ID；每条 `task` 命令都要带 |
+| `--room-id` | 所在 Room | `find_room.py` 按 Room ID／链接、房间名或用户名从 `tutti-cli room list` 里找到的 ID；每条 `task` 命令都要带 |
 | `--operation-id` | Task ID／幂等键 | 第 1 步生成的 `operation_id`（UUID），重试时不变 |
 | `--title` | 标题 | 一行「类别：现象（触发条件／关键对照）」，见下；`task edit --title` 可改 |
 | `--description`（建单）／`--description-file`（编辑） | 描述 | 建单时写 QA 原话；采集后 `task edit --description-file` 整段替换为下面的「描述」，只写 Bug 表现。`task create` 只接受 `--description` |

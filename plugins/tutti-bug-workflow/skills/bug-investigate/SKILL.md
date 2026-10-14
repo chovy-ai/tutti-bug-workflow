@@ -12,9 +12,14 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 - `--help` 里没有 `login`：没装，或 PATH 里先找到的是 Computer 自带的 Agent 版 `tutti-cli`。改用 `"$(npm prefix -g)/bin/tutti-cli"`；仍没有就按 `$tutti-bug-workflow:bug-setup` 安装，不改用别的建单方式。
 - `whoami` 报未登录或会话失效：按下面「登录过期」自动恢复。
 
-它只有 `login`／`whoami`／`logout` 和 `task create`／`edit`／`show`：**没有查重列表、指派、评论、改优先级**，每条 `task` 命令都要显式带 `--room-id`。排查线索因此写成一个文本文件，和日志一起作为附件挂在描述上（见下）；跟进人请 QA 在任务看板指派。
+它只有 `login`／`whoami`／`logout`、`room list` 和 `task create`／`edit`／`show`：**没有查重列表、指派、评论、改优先级**，每条 `task` 命令都要显式带 `--room-id`。排查线索因此写成一个文本文件，和日志一起作为附件挂在描述上（见下）；跟进人请 QA 在任务看板指派。
 
-**Room ID 从链接里取。** Room 页面链接形如 `https://tutti.sh/platform/room/<roomId>?...`，路径里 `room/` 后面那一段就是 `--room-id`。依次从：QA 消息里的 Room／Task 链接、WebMCP 页面 URL（3.1 第 1 步）里取；都没有时先采集，在第 5 步向 QA 要 Room 链接，拿到后再建单。QA 说的是哪个 Room 就建到哪个 Room；它只能是 QA 账号所在的 Room。
+**先查房间，再定 Room。** 用 `scripts/find_room.py --query "<QA 给的线索>"` 在当前账号的房间列表（`tutti-cli room list --json`）里找要建单的 Room，线索可以是：
+
+- **Room ID**，或带 `/room/<roomId>` 的 Room／Task 链接：必须在列表里，否则当作没找到；
+- **房间名或用户名**（房间一般以主人命名，如「Tutti-Chovy 1012」「TIBO 本地房间」）：不区分大小写，先在**本地房间**里找，本地没有匹配才找云端房间；名称完全相同优先于部分包含。
+
+结果 `matched` 就用 `room.id` 作为 `--room-id`，回复里写上房间名；`ambiguous` 把 `candidates`（名称、本地／云端）列给 QA 选；`not_found` 把 `local_rooms` 列给 QA 选。QA 什么都没给时，用 WebMCP 页面 URL（3.1 第 1 步）里的 Room ID 当线索；仍没有就先采集，在第 5 步连同本地房间列表一起问。只能建到当前账号能看到的 Room。
 
 **一旦调用就走完全程。** 「记个 bug」「帮我提个 bug」「登记一下」都执行第 1–5 步，没有「只登记」的模式。建 Task 只是第 2 步，不能回复「已登记」就结束。
 
@@ -50,6 +55,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 | 自查项 | 必须有的结果 |
 |---|---|
+| Room | `find_room.py` 结果为 `matched`，或 QA 从候选里选定；回复里写明房间名 |
 | Task | `task create --room-id` 成功，回执 `task.taskId` 等于 `operation_id`、`task.roomId` 是目标 Room（或复用了 QA 指定的已有 Task）；采集后已 `task edit` 写好描述；`task show` 回读标题、描述、优先级一致 |
 | 跟进人 | CLI 不能指派：回复里请 QA 在任务看板指派，QA 提到的人写进 `排查线索.txt` 的「建议跟进人」 |
 | 标题 | 一句话简介「功能：现象」，20–40 字，没有错误码、ID 和括号补充；说的是 QA 报的问题 |
@@ -79,13 +85,13 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 ## 2. 建 Task
 
-1. **确定 Room 和是否复用**：按开头的规则取 `roomId`。QA 给的是已有 Task 链接（带 `task=<taskId>`）并说是同一个问题时，`tutti-cli task show --room-id <roomId> --task-id <taskId> --json` 确认后复用它，后面的编辑都作用于它。CLI 不能列出 Task，不做自动查重。还拿不到 `roomId` 时跳过本步，先做第 3 步，Web 日志给出页面 URL 后再回来建单。
+1. **确定 Room 和是否复用**：按开头「先查房间」的规则用 `find_room.py` 取 `roomId`。QA 给的是已有 Task 链接（带 `task=<taskId>`）并说是同一个问题时，`tutti-cli task show --room-id <roomId> --task-id <taskId> --json` 确认后复用它，后面的编辑都作用于它。CLI 不能列出 Task，不做自动查重。还拿不到 `roomId`（没线索、多个候选或没找到）时跳过本步，先做第 3 步，Web 日志给出页面 URL 后再查一次。
 2. **建单**：按 QA 的描述先起一个标题（规则见 [Task 字段](references/report-fields.md#标题)），描述先写 QA 原话、发生时间和「现场采集中」：
    ```sh
    tutti-cli task create --room-id <roomId> --operation-id <operation_id> --title "<标题>" \
      --description "<QA 原话、发生时间；现场采集中>" --priority <urgent|high|medium|low|none> --json
    ```
-   回执 `task.taskId` 应等于 `operation_id`、`task.roomId` 等于 `roomId`。超时等结果不确定时用同一个 `--operation-id` 和相同参数重试；参数校验错误先修正再重试。报无权限或 Room 不存在时，核对链接和 `whoami` 的账号是否是该 Room 成员，记为卡点问 QA。
+   回执 `task.taskId` 应等于 `operation_id`、`task.roomId` 等于 `roomId`。超时等结果不确定时用同一个 `--operation-id` 和相同参数重试；参数校验错误先修正再重试。报无权限时，核对 `whoami` 的账号是否是该 Room 成员，记为卡点问 QA。
 
 ## 3. 采集现场
 
@@ -147,11 +153,11 @@ python3 scripts/web_requests.py --web-logs <web-logs.log 或诊断包 zip> --que
    |---|---|
    | Web 现场 | 在出问题的 Tutti 页面打开「设置 → 诊断」，点「复制 WebMCP 连接链接」发过来并保持页面不刷新；或在同一浏览器「导出日志」（范围覆盖问题发生时间），把 zip 发过来 |
    | 故障设备 | 从列出的候选（名称、平台、版本）里选当时用的那台；或直接提供设备名称／Computer ID |
-   | Room（拿不到 `roomId` 时） | 「这条 Bug 建在哪个 Room？把 Room 页面链接发我即可」 |
+   | Room（拿不到 `roomId` 时） | 「这条 Bug 建在哪个房间？回复房间名、房主名字或 Room ID 都行」，附上 `find_room.py` 给出的候选或本地房间列表（名称 + 本地／云端） |
    | 跟进人 | CLI 不能指派：「建好了，请在任务看板把这条 Bug 指派给跟进人」 |
    | 优先级（拿不准时） | 「这条按 P1（明显 Bug，对应 high）合适吗？」，附一句判断理由；确认后请 QA 在任务看板修改 |
    | 期望（没说清，或现场事实与 QA 的说法不一致时） | 把 QA 的说法和查到的事实并列，请 QA 确认期望，例如「你说是同一份文件，记录里三条内容各不相同：期望只显示最新一份，还是保留历史但标出版本？」 |
 
    登录过期按上面的规则当场自动恢复，不列在这里；真正的工具缺失、权限不足才写进回复交给维护方。用户补充后在同一会话里继续：更新 `description.txt`／`排查线索.txt`，带上全部文件 `task edit` 一次；不再建第二个 Task。
 3. 按开头的自查表逐项确认；全部完成后按 [会话上传](references/session-upload.md) 上传本次会话一次。
-4. 最终回复：Task 标题与链接（`https://tutti.sh/platform/room/<roomId>?surface=task-board&task=<taskId>`）、建单账号、优先级、请 QA 指派跟进人、环境、已挂上的截图和日志、缺失项及需要用户提供的内容。
+4. 最终回复：房间名、Task 标题与链接（`https://tutti.sh/platform/room/<roomId>?surface=task-board&task=<taskId>`）、建单账号、优先级、请 QA 指派跟进人、环境、已挂上的截图和日志、缺失项及需要用户提供的内容。

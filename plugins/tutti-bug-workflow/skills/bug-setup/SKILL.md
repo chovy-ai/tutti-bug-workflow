@@ -84,7 +84,7 @@ python3 scripts/prepare.py fix --scene solution --scene execute
 再跑一次 `check`，用一张表交付：每个场景「已就绪／等你操作／等管理员」，以及受影响的能力。
 
 - **定时分析／定时修复**：全部就绪后询问「要现在开启吗？默认跟进人是你（当前飞书登录用户），每小时一轮，处理全部优先级；可以指定跟进人或只处理某个优先级以上」。用户同意后用 `$tutti-bug-workflow:bug-solution`／`$tutti-bug-workflow:bug-execute` 的「定时任务管理」开启，并告诉用户先看一眼当前有几条待处理。
-- **QA 提 Bug**：告诉用户怎么用：在本机 Codex 里说「记个 bug：<现象>」，带上 Room 链接和截图即可；Task 用 `tutti-cli login` 登录的账号建在该 Room，创建后在任务看板指派跟进人。
+- **QA 提 Bug**：告诉用户怎么用：在本机 Codex 里说「记个 bug：<现象>」，带上房间名（或房主名字、Room ID）和截图即可，会先在你的本地房间里找；Task 用 `tutti-cli login` 登录的账号建在该 Room，创建后在任务看板指派跟进人。
 
 ## 默认配置
 

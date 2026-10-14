@@ -74,6 +74,10 @@ class PrepareTests(unittest.TestCase):
         self.tools["tutti_cli_logged_in"] = True
         _, items = self.prepare("check", "investigate")
         self.assertEqual(items["tutti-cli"]["status"], "ok")
+        self.tools["tutti_cli_rooms"] = False  # an older build without room list is upgraded
+        _, items = self.prepare("check", "investigate")
+        self.assertEqual((items["tutti-cli"]["status"], items["tutti-cli"]["fix"]), ("fix", "npm:tutti-cli"))
+        self.assertIn("room list", items["tutti-cli"]["detail"])
 
     def test_defaults_fill_gaps_but_keep_existing_values(self):
         self.data.mkdir()
