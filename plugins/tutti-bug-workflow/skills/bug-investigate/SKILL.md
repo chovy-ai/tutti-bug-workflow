@@ -66,7 +66,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 | 附件 | 最后一次 `task edit` 带上了 QA 的截图／视频、`排查线索.txt` 和全部日志；`task show` 回读描述里的 `uploadedFile` 一个不少 |
 | 描述 | 只有问题、复现步骤、实际、期望、频率、发生时间、环境一行（和待 QA 确认），没有日志字段、ID、版本号 |
 | 排查线索 | `排查线索.txt` 记下日志核对、关联 ID、环境与版本、分类；回复里提到的每条发现都在描述或这个文件里 |
-| 根因分析 | 已按 [交给 Room Agent 分析](references/rd-analysis.md) 用 `task run` 发出分析指令，回执 `accepted`／`pending`，记下 Agent 和模型；或写明为什么没发（没有可用的 Agent／模型、被拒） |
+| 根因分析 | 已按 [交给 Room Agent 分析](references/rd-analysis.md) 用 `task run` 发出分析指令，回执 `accepted` 且带 `invocationId`，记下 Agent、模型和 `invocationId`；重放后仍是 `pending` 的写明「Agent 尚未受理」；或写明为什么没发（没有可用的 Agent／模型、被拒） |
 | 会话上传 | 全部完成后已上传一次 |
 
 ## 1. 接收
@@ -145,7 +145,7 @@ python3 scripts/web_requests.py --web-logs <web-logs.log 或诊断包 zip> --que
 
 上传失败时 Task 不会被修改：按报错修正（文件名重复、空文件、超过 500 MiB、HTML／SVG 等）后重跑；修不了的文件去掉，在排查线索里写一句缺什么，继续。
 
-4. **交给 Room Agent 分析根因。** Task 回读无误后，按 [交给 Room Agent 分析](references/rd-analysis.md) 选该 Room 的 Agent 和模型（Codex 优先，用 `gpt-6.1-sol`，其次 `gpt-6-astra`；没有再用 Claude Code 的 Opus 5.5；推理强度都用 `high`），用模板把 Bug 表现和关键现场线索组织成 `$REPORT/rd-analysis.txt`，`tutti-cli task run` 发出。指令要求 Agent 拉代码分析根因、先弄清模块整体设计再出方案、画修复前后的工作流程图，结果回复在 Task 的评论线程里。只发不等，回执 `accepted`／`pending` 就继续第 5 步。现场有缺项（召回在等设备、QA 还没给诊断包）时也照常发，缺什么写进指令的现场线索。
+4. **交给 Room Agent 分析根因。** Task 回读无误后，按 [交给 Room Agent 分析](references/rd-analysis.md) 选该 Room 的 Agent 和模型（Codex 优先，用 `gpt-6.1-sol`，其次 `gpt-6-astra`；没有再用 Claude Code 的 Opus 5.5；推理强度都用 `high`），用模板把 Bug 表现和关键现场线索组织成 `$REPORT/rd-analysis.txt`，`tutti-cli task run` 发出。指令要求 Agent 拉代码分析根因、先弄清模块整体设计再出方案、画修复前后的工作流程图，结果回复在 Task 的评论线程里。**确保发送成功，然后就不管了**：回执是 `accepted` 且带 `invocationId` 才算成功；`pending` 用同一个操作 ID 重放、`rejected` 换下一个 Agent／模型，细则见引用文档。成功后直接继续第 5 步，不等 Agent 执行、不轮询它的回复、不转述分析结果。现场有缺项（召回在等设备、QA 还没给诊断包）时也照常发，缺什么写进指令的现场线索。
 
 ## 5. 收尾
 

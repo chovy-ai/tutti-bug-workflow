@@ -4,7 +4,7 @@ Task 补全后（第 4 步的 `task edit` 成功、`task show` 回读无误）�
 
 ## 选 Agent 和模型
 
-先 Codex，其次 Claude Code。`tutti-cli agent list --room-id <roomId> --json` 里只看 `availability.status` 是 `available`、`referenceOnly` 为 `false` 的 Agent，按下面的顺序逐个试，第一个找得到合适模型的就用它：
+先 Codex，其次 Claude Code。`tutti-cli agent list --room-id <roomId> --json` 里只看 `availability.status` 是 `available`、`ownership` 是 `self`、`referenceOnly` 为 `false` 的 Agent（`requestable` 要先授权，不选），按下面的顺序逐个试，第一个找得到合适模型的就用它：
 
 | 顺序 | Agent | 模型（`--model`） | `--reasoning-effort` |
 |---|---|---|---|
@@ -29,8 +29,18 @@ tutti-cli task run --room-id <roomId> --task-id <taskId> --agent-target-id <agen
   --instruction-file <$REPORT>/rd-analysis.txt --operation-id <新 UUID> --json
 ```
 
-- 回执是 `accepted` 或 `pending` 就算发出，不等 Agent 执行完；`rejected`（退出码 1）时按上面的顺序换下一个模型或候选 Agent 再发一次，都被拒就写进最终回复，带上拒绝原因。
-- 结果不确定（超时、断网）时先 `task show` 看评论里是否已有这条指令，确实没有再用同一个 `--operation-id` 重发。
+**要确保发送成功，发成功后就不管了。** 发送成功的标准是回执同时满足：`status` 为 `accepted`、带 `invocationId`、`taskId` 和 `agentTargetId` 是这次的 Task 和 Agent。按回执处理：
+
+| 回执 | 怎么做 |
+|---|---|
+| `accepted` + `invocationId` | 发送成功，这一步结束：记下 Agent、模型、`invocationId`、`commentId`，立刻继续后面的步骤 |
+| `pending`（退出码 0，执行还没受理） | 还不算成功：隔 15 秒用**同一个 `--operation-id`、同样的参数和同一份指令文件**重跑，最多 3 次。同 ID 重跑会复用那条评论、重放执行请求，不会重复触发；变成 `accepted` 就算成功。3 次后仍是 `pending`，最终回复里写「已发出，Agent 尚未受理，请在 Task 里查看」 |
+| `rejected`（退出码 1，带 `rejectionCode`） | 这个组合发不出去：按上面的顺序换下一个模型或候选 Agent，用**新的** `--operation-id` 再发（被拒的结果不会改变，新 ID 会再发一条评论）。全部被拒就写进最终回复，带上每次的拒绝原因 |
+| 超时、断网、没拿到回执 | 用同一个 `--operation-id` 和相同输入重跑一次，按新回执处理 |
+| 参数错误、HTTP 错误 | 按报错修正（模型值、推理强度不被接受时换下一个模型）后用新的 `--operation-id` 再发 |
+
+发送成功以后不再管它：不等 Agent 执行，不用 `task show` 轮询进度或回复，不读、不转述它的分析结果；最终回复里只写交给了哪个 Agent 和模型，分析结果会出现在 Task 的评论里。
+
 - Agent 会把代码拉到它所在电脑的固定目录 `~/.local/share/bug-workbench/repositories/<仓库名>`，同一台电脑上后面的分析直接复用，只增量更新。
 - 每个 Task 只发一次。QA 之后补充现场、再 `task edit` 时不重发；QA 明确要求重新分析时再发。
 
