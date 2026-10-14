@@ -29,11 +29,6 @@ def configuration_status(kind, cfg):
         source = next((s for s in cfg.get("log_sources", [])
                        if isinstance(s, dict) and s.get("name") == name), {})
         configured = workbench.log_source_configured(source, cfg)
-    elif kind == "aws-cli":
-        value = cfg.get("aws_cli", {})
-        configured = bool(isinstance(value, dict) and value.get("region"))
-        return {"status": "configured" if configured else "pending_configuration",
-                "scope": "CLI settings only; account, log groups and permissions are not checked"}
     elif kind == "source-only":
         return {"status": "source_generation", "rendering": "not_checked"}
     else:
@@ -58,9 +53,6 @@ def installation_plan(tool, root, cfg):
         return {"status": "review_custom_configuration"}
     installer = item.get("installer")
     if name == "tutti-ops" and installer not in (None, workbench.TUTTI_OPS_INSTALLER):
-        return {"status": "review_custom_configuration"}
-    if name == "aws" and installer is not None and (
-            not isinstance(installer, dict) or installer.get("type") != "aws-official"):
         return {"status": "review_custom_configuration"}
     command = [sys.executable, str(ROOT / "scripts/workbench.py"), operation,
                "--data-dir", str(root), "--install"]

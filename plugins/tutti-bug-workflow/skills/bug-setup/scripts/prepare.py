@@ -380,7 +380,7 @@ def check_schedule(scene):
                         "每小时一轮、处理全部优先级；可以指定跟进人和最低优先级（例如「只处理 P1 以上」）。"])]
 
 
-def check(root, scenes, include_aws=False):
+def check(root, scenes):
     items = [item("python", "Python 3.10+", "ok" if sys.version_info >= (3, 10) else "user",
                   platform.python_version()), check_config(root)]
     cfg = wb.read_json(root / "config.json") if (root / "config.json").is_file() else example()
@@ -399,11 +399,6 @@ def check(root, scenes, include_aws=False):
         items.append(check_tutti_cli())
         items += check_tutti_ops(root, cfg)
         items += check_computer_logs(cfg)
-    if include_aws:
-        code, out = run([sys.executable, str(SCRIPT.parent / "workbench.py"), "setup-aws-cli", "--check-auth",
-                         "--data-dir", str(root)], timeout=120)
-        items.append(item("aws", "AWS CLI 与登录", "ok" if code == 0 and '"authenticated"' in out else "user",
-                          out.strip()[-300:], guide=["按 references/aws-cli.md 完成 AWS SSO 登录后回复「已完成」。"]))
     for scene in ("solution", "execute"):
         if scene in scenes:
             items += check_schedule(scene)
@@ -454,13 +449,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("operation", choices=("check", "fix"))
     parser.add_argument("--scene", action="append", choices=(*SCENES, "all"), required=True)
-    parser.add_argument("--include", action="append", choices=("aws",), default=[])
     parser.add_argument("--data-dir")
     args = parser.parse_args()
     try:
         root = wb.data_root(argparse.Namespace(data_dir=args.data_dir))
         scenes = set(SCENES) if "all" in args.scene else set(args.scene)
-        items = check(root, scenes, "aws" in args.include)
+        items = check(root, scenes)
         if args.operation == "check":
             wb.emit(report(scenes, items))
             return 0
@@ -471,7 +465,7 @@ def main():
                     done.append(apply_fix(root, entry["fix"]))
                 except (ValueError, OSError) as error:
                     errors.append({"id": entry["id"], "error": str(error)})
-        wb.emit(report(scenes, check(root, scenes, "aws" in args.include), done, errors))
+        wb.emit(report(scenes, check(root, scenes), done, errors))
         return 0 if not errors else 1
     except (ValueError, OSError) as error:
         wb.emit({"ok": False, "error": str(error)})

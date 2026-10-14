@@ -24,7 +24,7 @@ Agent 会先问你要准备哪个场景：**QA 提 Bug**、**定时分析**、**
 
 只想先看看要准备什么：「使用 $tutti-bug-workflow:bug-setup，只列出准备情况」。
 
-默认配置（Bug 表与字段、三个仓库、定时任务、PPE 部署、tutti-ops 管理端、本机 Computer 日志路径等）都已内置，不需要你提供，见 [Setup Skill](skills/bug-setup/SKILL.md#默认配置)。数据目录默认 `~/.local/share/bug-workbench`（可用 `BUG_WORKBENCH_DATA` 覆盖），配置、代码缓存与运行记录都在这里，插件更新不影响。单项工具命令（`workbench.py doctor`、`setup-tutti-ops`、`configure-tutti-token`、`setup-aws-cli`）仍可直接使用，见 [准备与授权教程](skills/bug-setup/references/setup-user-guide.md)。
+默认配置（Bug 表与字段、三个仓库、定时任务、PPE 部署、tutti-ops 管理端、本机 Computer 日志路径等）都已内置，不需要你提供，见 [Setup Skill](skills/bug-setup/SKILL.md#默认配置)。数据目录默认 `~/.local/share/bug-workbench`（可用 `BUG_WORKBENCH_DATA` 覆盖），配置、代码缓存与运行记录都在这里，插件更新不影响。单项工具命令（`workbench.py doctor`、`setup-tutti-ops`、`configure-tutti-token`）仍可直接使用，见 [准备与授权教程](skills/bug-setup/references/setup-user-guide.md)。
 
 ## 飞书 Bug 管理表
 
@@ -72,15 +72,14 @@ Computer 版本较旧、只有 `task create` 时，退回「采集完最后一�
 - 根因、方案、验收与验证模板。
 - 幂等初始化、环境检查、私有目录下的固定版本 npm CLI 安装。
 - setup 复用已有 tutti-ops，缺少时按 `npm install -g @tutti-os/tutti-ops-cli` 全局安装，记录实际版本和入口；根据已安装命令的帮助与 schema 读取 Computer。
-- setup 准备 AWS CLI v2，复用已有安装，缺少时通过 AWS 官方安装器补齐；完整 Setup 接续身份检查和缺口处理，完成必要的本人操作后复查实际访问。
 - bare 代码缓存增量同步、全局分析检出、修复 worktree 的创建／推送／解除，均加文件锁。
 - 按跟进人安装的本机定时根因分析（launchd + codex exec），Mermaid 图渲染 PNG。
 - 从实际配置生成便携 MCP 配置与旧版 Codex 兼容配置。
 - 执行前确认方案状态为「已批准」且根因、方案、验收齐全。
 
-AWS CLI 使用专用官方安装器，新安装固定版本，核对安装脚本摘要和最终版本，详见 [AWS CLI 安装](skills/bug-setup/references/aws-cli.md)。tutti-ops 使用用户指定的全局 npm 安装方式，要求 Node.js >=20 和 npm，详见 [tutti-ops 安装与认证](skills/bug-setup/references/tutti-ops-computer-logs.md)。其他 CLI 先填写可信 npm 包名与精确版本，再显式调用 `install-cli`；通用私有 npm 安装器不运行包的安装脚本，其他原生工具按实际安装方法适配。
+tutti-ops 使用用户指定的全局 npm 安装方式，要求 Node.js >=20 和 npm，详见 [tutti-ops 安装与认证](skills/bug-setup/references/tutti-ops-computer-logs.md)。其他 CLI 先填写可信 npm 包名与精确版本，再显式调用 `install-cli`；通用私有 npm 安装器不运行包的安装脚本，其他原生工具按实际安装方法适配。
 
-插件不自带 MCP server；AWS 默认使用 CLI。确认 CLI 可用后，仅清理由旧插件创建且未被改动的 AWS MCP，保留其他连接。AWS MCP 仅在用户明确要求恢复时按 [兼容接入](skills/bug-setup/references/aws-mcp.md) 配置。其他 MCP 填写真实服务后使用 `configure-mcp --config CONFIG --output-dir PLUGIN_SOURCE` 生成配置，再通过安装流程更新插件。配置生成不代表服务已经部署、登录或连接成功。
+插件不自带 MCP server（chrome-devtools 除外）。setup 不安装、不登录 AWS。其他 MCP 填写真实服务后使用 `configure-mcp --config CONFIG --output-dir PLUGIN_SOURCE` 生成配置，再通过安装流程更新插件。配置生成不代表服务已经部署、登录或连接成功。
 
 Web 日志由 QA 在出问题的浏览器里自行导出：Tutti「设置 → 诊断 → 浏览器日志」选择覆盖故障时间的范围，点「导出日志」，得到 `tutti-web-diagnostics-<时间>.zip`（`manifest.json`、`errors.jsonl`、`logs.jsonl`，已脱敏）。Agent 把这个包原样作为 Task 附件上传，再解包阅读；QA 没附带时，排查到需要时连同其他问题一起请 QA 导出。详见 [Web 日志](skills/bug-investigate/references/web-logs.md)。
 

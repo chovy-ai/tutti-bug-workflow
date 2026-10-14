@@ -258,28 +258,10 @@
       "requirements": [
         "实际CLI help/schema、只读性质与现有身份/API origin",
         "匹配服务、环境、原问题时间窗与请求/房间/账号；成功日志与HTTP失败归因区分",
-        "必需或建议补/可辅助后本轮立即采集、保存、上传同一条Bug并回读；不足且已确认AWS来源时启用aws-logs",
+        "必需或建议补/可辅助后本轮立即采集、保存、上传同一条Bug并回读",
         "认证过期主动恢复；失败/空/截断/未匹配分别记录，不停在建议"
       ],
       "install_operation": "setup-tutti-ops"
-    },
-    {
-      "id": "aws-logs",
-      "label": "AWS CLI 服务端日志",
-      "required_in": [],
-      "conditional_in": [
-        "execute"
-      ],
-      "commands": [
-        "aws"
-      ],
-      "configuration": "aws-cli",
-      "requirements": [
-        "AWS CLI v2；缺少时需官方安装网络与用户安装目录权限",
-        "实际账号、区域、日志服务/日志组与读取权限",
-        "选中后检查身份并处理认证缺口；目标日志访问单独验证"
-      ],
-      "install_operation": "setup-aws-cli"
     },
     {
       "id": "github-delivery",

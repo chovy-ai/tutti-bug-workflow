@@ -107,18 +107,9 @@
     { "name": "git", "command": "git", "required": true, "installer": null },
     { "name": "gh", "command": "gh", "required": false, "installer": null },
     { "name": "tutti-ops", "command": "tutti-ops", "required": true, "installer": { "type": "npm-global", "package": "@tutti-os/tutti-ops-cli" } },
-    { "name": "aws", "command": "aws", "required": false, "installer": { "type": "aws-official", "version": "2.34.11" } },
     { "name": "codex", "command": "codex", "required": false, "installer": null },
     { "name": "mmdc", "command": "mmdc", "required": false, "installer": null }
   ],
   "mcp_servers": {},
-  "aws_cli": { "profile": null, "region": "us-east-1" },
-  "aws_mcp": {
-    "server_name": "tutti-aws",
-    "auth_mode": "oauth",
-    "endpoint": "https://aws-mcp.us-east-1.api.aws/mcp",
-    "region": "us-east-1",
-    "profile": null
-  },
   "trigger": { "mode": "manual", "service_url": null }
 }

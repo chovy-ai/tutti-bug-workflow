@@ -1,6 +1,6 @@
 # 定时任务
 
-本机 launchd 每小时为一个跟进人跑一轮根因分析。每条 Bug 一个独立的 `codex exec` 会话，在本机直接运行（`--dangerously-bypass-approvals-and-sandbox`），复用本机 lark-cli、git、AWS、mmdc 的登录态与权限。
+本机 launchd 每小时为一个跟进人跑一轮根因分析。每条 Bug 一个独立的 `codex exec` 会话，在本机直接运行（`--dangerously-bypass-approvals-and-sandbox`），复用本机 lark-cli、git、mmdc 的登录态与权限。
 
 ## 管理
 
