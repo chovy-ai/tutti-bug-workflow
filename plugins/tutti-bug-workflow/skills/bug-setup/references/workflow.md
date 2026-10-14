@@ -2,7 +2,7 @@
 
 | 场景 | 面向 | 交付 | 写入的字段 |
 |---|---|---|---|
-| `bug-investigate` | QA | 登记 Bug，带全现场日志与上下文 | Bug 描述、分类、上下文、附件 |
+| `bug-investigate` | QA | 带全现场日志与上下文，在当前 Room 建 Task（`tutti-cli task create`），不写飞书表 | Room Task（标题、描述、优先级）与 Room 内附件 |
 | `bug-solution` | RD | 每小时按跟进人定时分析方案状态为空／未处理／已驳回的 Bug：根因、流程图与架构图、方案与验收 | 分析根因、根因图、修复方式、验收标准，方案状态置「待评审」 |
 | `bug-execute` | RD | 每小时按跟进人修复方案状态为「已批准」的 Bug：修复、提 PR 到 main、部署 PPE（server 泳道 → ws 泳道 → 前端预览 → Computer canary）、验证 | 方案状态（修复中／已部署待验收／修复失败）、修复进度、关联 PR、验证结果、证据附件 |
 

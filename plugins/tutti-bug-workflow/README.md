@@ -1,10 +1,10 @@
 # tutti-bug-workflow
 
-版本：0.1.50。运行方式：Codex 本地会话。三个业务场景以飞书 Bug 管理表中的同一条记录交接，不保留本地档案；公共初始化 Skill 准备配置与依赖。
+版本：0.2.3。运行方式：Codex 本地会话。三个业务场景以飞书 Bug 管理表中的同一条记录交接，不保留本地档案；公共初始化 Skill 准备配置与依赖。
 
 | 入口 | 工作内容 |
 |---|---|
-| `$tutti-bug-workflow:bug-investigate` | QA 提 Bug：登记并带全现场日志与上下文，不分析根因 |
+| `$tutti-bug-workflow:bug-investigate` | QA 提 Bug：带全现场日志与上下文，在当前 Room 建 Task（本分支不写飞书表），不分析根因 |
 | `$tutti-bug-workflow:bug-solution` | RD 根因与方案（定时）：每小时按跟进人逐条分析根因、生成流程图与架构图 PNG、起草方案和验收，记录 RD 批准 |
 | `$tutti-bug-workflow:bug-execute` | 修复与部署（定时）：每小时按跟进人修复已批准的 Bug，提 PR 到 main，部署 PPE（server 泳道 → ws 泳道 → 前端预览 → Computer canary），验证，进度写回 bug 单 |
 | `$tutti-bug-workflow:bug-setup` | 准备环境：选场景，自动检查、安装、补默认配置，一步步引导登录和授权，可直接开启定时任务 |
@@ -32,18 +32,21 @@ Agent 会先问你要准备哪个场景：**QA 提 Bug**、**定时分析**、**
 
 | 场景 | 写入的字段 |
 |---|---|
-| bug-investigate | Bug 描述、所属端、优先级、业务模块、提交人、指派人、记录时间、环境与版本、页面链接、问题上下文、截图／视频／日志 |
+| bug-investigate | 不写飞书表；在当前 Room 建 Task（标题、描述、优先级），截图和日志作为 Task 附件上传 |
 | bug-solution | 分析根因、根因图（PNG）、修复方式、验收标准；方案状态置「待评审」 |
 | bug-execute | 方案状态（修复中／已部署待验收／修复失败）、修复进度、访问环境、一句话解释原因、关联 PR、验证结果、修复截图 |
 
 ### QA 提 Bug（`bug-investigate`）
 
-不做根因分析，只把当时的现场带全，写进飞书 Bug 管理表（视图「新框架（一期）」）。无状态：流程状态只在会话上下文中，飞书记录是唯一事实来源。流程见 [SKILL.md](skills/bug-investigate/SKILL.md)：
+**本分支（`tutti-task`）不写飞书 Bug 表**，而是用 `tutti-cli` 在当前 Room 建 Task。只能在 Tutti Room 的 Agent 会话里使用（`tutti-cli task` 的写入命令只在 Tutti 托管的 Agent 执行中提供），推荐 Native Agent。不做根因分析，只把当时的现场带全。流程见 [SKILL.md](skills/bug-investigate/SKILL.md)：
 
-1. 接收上报，判断所属端、优先级、业务模块，`feishu.py create` 建单，`assign` 写跟进人。
-2. Web 日志：本机 Chrome WebMCP 读页面日志（`merge_web_logs.py` 合并），不可用时用 QA 导出的诊断包。
-3. 并行：Computer 召回（`collect_computer.py`，后台）与 Server 日志（`collect_server.py`，subagent，从 Web 日志提取 request id 查 AWS CloudWatch 并识别生产／PPE）。
-4. 上传截图、视频与全部日志，写入环境与版本、页面链接、问题上下文；全部完成后上传本次会话。
+1. 接收上报，判断所属端、优先级、业务模块，生成 `operation_id`（即 Task ID 与幂等键）。
+2. `task list` 查重，`task create` 按 QA 描述先建 Task（优先级只能在此时设置），`user list` 找到跟进人后 `task assign`。
+3. Web 日志：本机 Chrome WebMCP 读页面日志（`merge_web_logs.py` 合并），不可用时用 QA 导出的诊断包；并行跑 Computer 召回（`collect_computer.py`，后台）与 Server 日志（`collect_server.py`，subagent，按 Web／Computer 日志里的 request id 查 AWS CloudWatch 并识别生产／PPE）。
+4. `task edit` 把标题改成一句话 Bug 简介，描述只写 Bug 表现（问题、复现步骤、实际、期望），用 `--file` 挂上截图、录屏；`task show` 回读。日志核对、关联 ID、环境与版本写进一条「排查线索」评论，全部日志用 `task comment add --file` 挂在这条评论上（Task 私有附件，本地和云端房间都可用）。
+5. 召回完成后另发一条评论附召回包；缺的一次问完，用户补充后在同一会话里 `task edit`／`assign`／`comment add`。最后上传本次会话。
+
+Computer 版本较旧、只有 `task create` 时，退回「采集完最后一次建好」；`task edit` 没有 `--file` 时，附件退回 `artifact publish` 发布到当前 Room。
 
 ### 根因与方案（`bug-solution`）
 
@@ -79,19 +82,19 @@ AWS CLI 使用专用官方安装器，新安装固定版本，核对安装脚本
 
 插件不自带 MCP server；AWS 默认使用 CLI。确认 CLI 可用后，仅清理由旧插件创建且未被改动的 AWS MCP，保留其他连接。AWS MCP 仅在用户明确要求恢复时按 [兼容接入](skills/bug-setup/references/aws-mcp.md) 配置。其他 MCP 填写真实服务后使用 `configure-mcp --config CONFIG --output-dir PLUGIN_SOURCE` 生成配置，再通过安装流程更新插件。配置生成不代表服务已经部署、登录或连接成功。
 
-Web 日志由 QA 在出问题的浏览器里自行导出：Tutti「设置 → 诊断 → 浏览器日志」选择覆盖故障时间的范围，点「导出日志」，得到 `tutti-web-diagnostics-<时间>.zip`（`manifest.json`、`errors.jsonl`、`logs.jsonl`，已脱敏）。Agent 把这个包原样上传到 Bug 单，再解包阅读；QA 没附带时，排查到需要时连同其他问题一起请 QA 导出。详见 [Web 日志](skills/bug-investigate/references/web-logs.md)。
+Web 日志由 QA 在出问题的浏览器里自行导出：Tutti「设置 → 诊断 → 浏览器日志」选择覆盖故障时间的范围，点「导出日志」，得到 `tutti-web-diagnostics-<时间>.zip`（`manifest.json`、`errors.jsonl`、`logs.jsonl`，已脱敏）。Agent 把这个包原样作为 Task 附件上传，再解包阅读；QA 没附带时，排查到需要时连同其他问题一起请 QA 导出。详见 [Web 日志](skills/bug-investigate/references/web-logs.md)。
 
 远端 Computer 日志通过 [tutti-ops CLI](skills/bug-investigate/references/tutti-ops-computer-logs.md) 定位 Computer、复用或创建召回、查询任务和生成链接，再下载、校验并读取日志包。setup 准备 CLI，使用前从 [admin.tutti.sh](https://admin.tutti.sh) 管理端获取 Token，通过 `configure-tutti-token` 隐藏输入，直接验证并保存到 CLI 本机配置，再核对实际环境与权限；当前 npm 包的原子操作已通过帮助、schema 和零网络预览验证，组合采集命令仅在实际发现后使用。
 
 ## 当前接入范围
 
-飞书 Bug 管理表及字段已绑定，并在本机通过 user 身份读取验证。三个仓库（tutti、tutti-server、tsh-websocket）的 URL 与 main 分支已配置。Web 日志使用 QA 导出的诊断包，见 [Web 日志](skills/bug-investigate/references/web-logs.md)。本地 computer 日志读取用户指定的明确文件路径；远端 computer 固定复用 Tutti 的日志召回流程，可使用 tutti-ops CLI 或实际 MCP 执行，见 [Computer 日志获取](skills/bug-investigate/references/computer-logs.md)。当前 Mac 已保存核实的三个本地主日志及 Codex 临时诊断路径，并记录轮转日志、VM 崩溃报告与导出漏收注意事项；其他机器需确认实际路径。本机 tutti-ops 已安装并完成离线能力核对，远端认证与真实日志采集尚待验证；其他使用者的宿主能力、远端环境／权限及验证地址仍需分别核对。Skills 可复用当前 Codex 会话的本地工具与已连接 MCP；当前包没有自带 MCP server、飞书连接器或常驻调度服务。共享此包携带表格和仓库地址，不授予收件人访问权限，也不携带本机检出路径或凭证。
+QA 提 Bug 在当前 Room 建 Task；定时分析与定时修复仍使用飞书 Bug 管理表，表及字段已绑定，并在本机通过 user 身份读取验证。三个仓库（tutti、tutti-server、tsh-websocket）的 URL 与 main 分支已配置。Web 日志使用 QA 导出的诊断包，见 [Web 日志](skills/bug-investigate/references/web-logs.md)。本地 computer 日志读取用户指定的明确文件路径；远端 computer 固定复用 Tutti 的日志召回流程，可使用 tutti-ops CLI 或实际 MCP 执行，见 [Computer 日志获取](skills/bug-investigate/references/computer-logs.md)。当前 Mac 已保存核实的三个本地主日志及 Codex 临时诊断路径，并记录轮转日志、VM 崩溃报告与导出漏收注意事项；其他机器需确认实际路径。本机 tutti-ops 已安装并完成离线能力核对，远端认证与真实日志采集尚待验证；其他使用者的宿主能力、远端环境／权限及验证地址仍需分别核对。Skills 可复用当前 Codex 会话的本地工具与已连接 MCP；当前包没有自带 MCP server、飞书连接器或常驻调度服务。共享此包携带表格和仓库地址，不授予收件人访问权限，也不携带本机检出路径或凭证。
 
 飞书事件触发、重试、事件去重、跨设备调度与可信 RD 审批属于后续流程服务，契约见 [工作流](skills/bug-setup/references/workflow.md)。本版 `check-approval` 以方案状态为准，谁批准的以飞书修改记录为准。
 
 本地执行仍可能把选取的代码、日志片段和工具输出提交给模型。共享源码和分发包不包含真实业务数据或凭证。
 
-服务端日志判断必需或建议补／可辅助后，在本轮立即调用实际Tutti CLI或已确认AWS来源的AWS CLI，先保存易失证据，追加上传同一条Bug并回读；不会停在建议或等待QA追问。成功访问记录不能用HTTP失败归因空结果代替。详见 [服务端日志](skills/bug-investigate/references/server-logs.md)。
+服务端日志判断必需或建议补／可辅助后，在本轮立即调用实际Tutti CLI或已确认AWS来源的AWS CLI，先保存易失证据，挂到排查线索评论并写进线索；不会停在建议或等待QA追问。成功访问记录不能用HTTP失败归因空结果代替。详见 [服务端日志](skills/bug-investigate/references/server-logs.md)。
 
 ## 验证插件源码
 

@@ -1,6 +1,6 @@
 # 提 Bug 结束后的会话上传
 
-本页是 `bug-investigate` 的收尾步骤：登记与现场采集全部完成后，把当前会话上传到 Tutti 管理端 Session 日志服务，供后续优化。会话日志与 Web、Computer、Server 现场日志用途不同，不作为飞书附件。
+本页是 `bug-investigate` 的收尾步骤：登记与现场采集全部完成后，把当前会话上传到 Tutti 管理端 Session 日志服务，供后续优化。会话日志与 Web、Computer、Server 现场日志用途不同，不作为 Task 附件。
 
 tutti-ops 的会话上传能力与权限由 bug-setup 准备；上传前用 `tutti-ops diagnostics +upload-session-log --help` 确认命令存在，缺失时记为维护侧阻塞。
 
@@ -26,9 +26,9 @@ provider 表示产生会话记录的 Agent 宿主，例如 Codex 或 Claude Code
 
 ## 3. 生成快照
 
-1. 确认结论、字段回填与剩余问题都已写入飞书，再读取当前会话日志，复制到会话临时目录，例如 `$TMP/session-<record_id>-<session_id>.jsonl`，文件名便于管理端按飞书记录追溯。保留 provider 原生 JSONL 结构，文件权限 0600。
+1. 确认 Task 已建好、描述已补全（只剩需要用户补充的项也算），再读取当前会话日志，复制到会话临时目录，例如 `$TMP/session-task-<operation_id>-<session_id>.jsonl`，文件名便于管理端按 Task 追溯。保留 provider 原生 JSONL 结构，文件权限 0600。
 2. CLI 只复制文件并上传，不解析 JSONL、不自动脱敏，也不会自动寻找当前 session。发现实际凭证时对快照脱敏，原会话不改写。快照只包含当时已落盘的记录，不包含之后的最终回复。
-3. 只上传这一份快照；当前 CLI 请求只接受 provider 和文件，飞书记录与会话的对应关系体现在文件名里，不虚构关联字段。
+3. 只上传这一份快照；当前 CLI 请求只接受 provider 和文件，Task 与会话的对应关系体现在文件名里，不虚构关联字段。
 
 ## 4. 上传并核对结果
 
@@ -39,7 +39,7 @@ tutti-ops --admin-url https://admin.tutti.sh --mode write diagnostics +upload-se
 tutti-ops --admin-url https://admin.tutti.sh --mode write diagnostics +upload-session-log --provider PROVIDER --file SNAPSHOT.jsonl --yes
 ```
 
-dry-run 零网络，不读取文件或验证权限。实际工作流为私有文件副本 → 创建上传记录 → 签名 PUT → complete 确认。仅在退出码成功、`ok=true`、`meta.complete=true`，且 `data.upload` 中 uploadId、provider、fileName、sizeBytes 匹配快照、`status=uploaded` 时记录上传成功。只有创建记录或 PUT 成功不算完成。签名 URL、管理 Token/Cookie 不进入回执或飞书；对象传输由 CLI 隔离认证。
+dry-run 零网络，不读取文件或验证权限。实际工作流为私有文件副本 → 创建上传记录 → 签名 PUT → complete 确认。仅在退出码成功、`ok=true`、`meta.complete=true`，且 `data.upload` 中 uploadId、provider、fileName、sizeBytes 匹配快照、`status=uploaded` 时记录上传成功。只有创建记录或 PUT 成功不算完成。签名 URL、管理 Token/Cookie 不进入回执或 Task；对象传输由 CLI 隔离认证。
 
 把 uploadId 与结果记在会话上下文中；`uploaded`、`partial`、`unknown`、`blocked` 分别如实说明。
 

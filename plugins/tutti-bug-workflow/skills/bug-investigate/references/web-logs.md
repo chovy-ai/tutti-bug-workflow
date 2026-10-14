@@ -16,11 +16,11 @@ Web 端只取页面日志（请求等其他现场由 Tutti Web 记入日志）�
    ```
    execute_webmcp_tool({pageId, toolName: "get_web_logs", input: "{\"range\":\"10m\",\"limit\":200,\"untilUnixMs\":Q}"})
    ```
-   每页原始结果存为 `$TMP/web/pages/page-1.json`……；`truncated: true` 时把 `nextBeforeSequence` 作为 `beforeSequence` 继续，直到 `truncated: false`。
+   每页原始结果存为 `$REPORT/web/pages/page-1.json`……；`truncated: true` 时把 `nextBeforeSequence` 作为 `beforeSequence` 继续，直到 `truncated: false`。
 3. **合并**：
    ```sh
    python3 scripts/merge_web_logs.py --connection-url <链接> --question-time <question_time> \
-     --page $TMP/web/pages/page-1.json [--page ...] --output $TMP/web/web-logs.log
+     --page $REPORT/web/pages/page-1.json [--page ...] --output $REPORT/web/web-logs.log
    ```
    脚本核对页面与 Account、提问前 10 分钟的固定窗口、序号连续与去重，写出 JSON Lines（首行 metadata）；`collectionStatus: partial` 表示翻页中断。
 4. **设备列表**：`execute_webmcp_tool` 调 `list_my_computers`；房间相关时加 `list_rooms`、`list_room_agents({roomId})`，按 `nextCursor` 读完。用于定位 Computer，不上传。
@@ -31,7 +31,7 @@ Web 端只取页面日志（请求等其他现场由 Tutti Web 记入日志）�
 
 在 Tutti「设置 → 诊断 → 浏览器日志」选择导出范围（最近 10 分钟／1 小时／半天／1 天／7 天，选能覆盖问题发生时间的最小一档），点「导出日志」，得到 `tutti-web-diagnostics-<时间>.zip`。要在出问题的同一个浏览器、同一个账号里导出；日志只保留 7 天、最多 20 MB。
 
-拿到后原样上传（已附在飞书记录上时用 `feishu.py download` 取到本地，不重复上传），解包到 `$TMP/web/`：
+拿到后原样上传（复制到 `$REPORT/web/`，第 4 步作为 Task 附件挂上），解包到 `$REPORT/web/`：
 
 | 文件 | 内容 |
 |---|---|

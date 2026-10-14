@@ -48,16 +48,16 @@ class PrepareTests(unittest.TestCase):
         self.install("node", "npm", "npx")
         report, items = self.prepare("check", "investigate")
         self.assertEqual(set(report["scenes"]), {"investigate"})
-        self.assertEqual((items["config"]["status"], items["lark-cli"]["status"], items["tutti-ops"]["status"]),
-                         ("fix", "fix", "fix"))
+        self.assertEqual((items["config"]["status"], items["tutti-ops"]["status"]), ("fix", "fix"))
+        self.assertEqual(items["tutti-cli"]["status"], "user")  # only inside a Tutti Agent execution
         self.assertNotIn("codex", items)  # not part of this scene
+        self.assertNotIn("lark-cli", items)  # QA files a Room Task, not a Feishu record
         self.tools["tutti_token"] = False
         report, items = self.prepare("fix", "investigate")
-        self.assertEqual(len(report["fixed"]), 3, report)
+        self.assertEqual(len(report["fixed"]), 2, report)
         self.assertEqual(items["config"]["status"], "ok")
         config = json.loads((self.data / "config.json").read_text())
         self.assertEqual(config["tutti_ops"]["admin_url"], "https://admin.tutti.sh")
-        self.assertEqual((items["lark-auth"]["status"], items["feishu-table"]["status"]), ("ok", "ok"))
         self.assertEqual(items["tutti-ops-auth"]["status"], "user")
         self.assertIn("admin-tokens", items["tutti-ops-auth"]["guide"][0])
         self.assertEqual(items["chrome-devtools"]["status"], "host")
@@ -97,7 +97,7 @@ class PrepareTests(unittest.TestCase):
         self.assertNotIn("mmdc", items)
 
     def test_all_scenes_ready_with_schedules(self):
-        self.install("node", "npm", "npx", "lark-cli", "git", "codex", "mmdc", "gh", "tutti-ops")
+        self.install("node", "npm", "npx", "lark-cli", "git", "codex", "mmdc", "gh", "tutti-ops", "tutti-cli")
         self.tools.update(gh_scopes="'repo', 'workflow'")
         for name in ("com.tutti.bug-solution.ou_me.plist", "com.tutti.bug-execute.ou_me.plist"):
             (self.agents / name).write_text("<plist/>")

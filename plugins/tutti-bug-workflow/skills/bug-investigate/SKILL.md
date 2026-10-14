@@ -1,13 +1,15 @@
 ---
 name: bug-investigate
-description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下这个问题」等都算）：每次调用都走完全程——在飞书 Bug 管理表登记，固定采集当时的现场日志（Web 页面日志、tutti-server 日志、Computer 日志），把上下文和附件填进表格；不做根因分析，只有遇到自己无法解决的卡点才向用户提问。
+description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下这个问题」等都算）：每次调用都走完全程——固定采集当时的现场日志（Web 页面日志、tutti-server 日志、Computer 日志），用 `tutti-cli task create` 在当前 Room 建 Task，再用 `task edit` 把标题改成一句话简介、描述写清 Bug 表现（附截图），用一条评论记下排查线索并挂上全部日志，`task assign` 指派跟进人；不做根因分析，只有遇到自己无法解决的卡点才向用户提问。
 ---
 
 # QA 提 Bug
 
-你负责把一次上报变成一条**上下文完整**的 Bug 记录，交给 RD 排查：登记、采集当时的全部现场、上传、填字段。**不分析根因，不读代码**；时间花在把现场带全上。
+你负责把一次上报变成当前 Room 里一个**上下文完整**的 Task，交给 RD 排查：建 Task、采集当时的全部现场、把现场作为附件挂到 Task、补全描述、指派跟进人。**不分析根因，不读代码**；时间花在把现场带全上。
 
-**一旦调用就走完全程。** 「记个 bug」「帮我提个 bug」「登记一下」都执行第 1–5 步，没有「只登记」的模式。建单只是第 2 步，不能回复「已登记」就结束。
+**只能在 Tutti Room 的 Agent 会话里运行。** Task 由 `tutti-cli task create` 在**当前 Room** 创建，这个命令只在 Tutti 托管的 Agent 执行中可用（Native 或 VM Agent），创建者是这台 Computer 当前登录的 Account。开始前运行 `tutti-cli task --help`：命令不存在，或执行时报 `task creation is available only inside a managed Agent execution`，说明不在 Tutti Agent 会话里，直接告诉用户「请在要登记 Bug 的 Room 里，让 Agent 执行这条上报」，不要改用别的建单方式。用 **Native Agent**（跑在 QA 本机的 Computer 上）：采集要用本机的 Chrome（WebMCP）、AWS CLI、tutti-ops 和本插件，VM Agent 里没有这些；只能用 VM Agent 时照常建 Task，取不到的现场按卡点记录。
+
+**一旦调用就走完全程。** 「记个 bug」「帮我提个 bug」「登记一下」都执行第 1–5 步，没有「只登记」的模式。建 Task 只是第 2 步，不能回复「已登记」就结束。
 
 **连续执行，一次做完。**
 
@@ -15,58 +17,75 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 - 耗时操作在本轮内等它完成：Computer 远端召回最长约 25 分钟，期间并行做其他步骤，不把控制权交还给用户。
 - 某一项卡住时记下原因，继续其他能做的；全部做完或全部卡住才写最终回复。
 
-**尽量并行。** Web 日志先采（它给出要对到服务端的请求和 Computer 线索），随后三件事同时进行：Computer 召回用后台进程跑，Server 日志交给 subagent 查，主 agent 上传附件、填字段。宿主不支持 subagent 时，Server 也用后台进程跑。
+**尽量并行。** Web 日志先采（它给出要对到服务端的请求和 Computer 线索），随后三件事同时进行：Computer 召回用后台进程跑，Server 日志交给 subagent 查，主 agent 整理上下文。宿主不支持 subagent 时，Server 也用后台进程跑。
 
-**登录过期就当场重新登录，不停下来问。** 认证失效不是卡点，不要写「因登录过期受阻，已记录原因」然后结束：
+**先建 Task，再补全。** 第 2 步按 QA 的描述先建好 Task，采集完用 `tutti-cli task edit` 改标题、写全描述，用 `task assign` 指派跟进人。**优先级只能在创建时设置**，CLI 不能修改，建单时就要定好。所有写操作都带 `--operation-id`，结果不确定时用同一个 ID 和相同输入重试；CLI 不会自动重试。带 `--file` 的写入例外：每次上传都会生成新的附件，结果不确定时先 `task show`（评论看 `task timeline`）核对，确实没生效再换一个新的操作 ID 重跑，不用同一个 ID 配不同的附件。
+
+**描述只讲表现，线索放评论。** 标题是一句话 Bug 简介，描述只写问题、复现步骤、实际、期望等 Bug 表现，让没看过现场的人一看就懂；日志事实、各种 ID、版本这些排查线索写进一条评论。格式见 [Task 字段](references/report-fields.md)。
+
+**现场附件直接挂在 Task 上。** `task edit`、`task comment add` 的 `--file <路径>` 可重复，把本机文件上传为 Task 的私有附件，只有 Room 成员能下载，本地房间和云端房间都能用（VM Agent 读的是 VM 里的文件）。截图、录屏挂在描述上；`task edit` 整段替换描述，**没有再次带上的截图会从描述里消失**，所以每次 `task edit` 都要带上全部截图。日志挂在排查线索评论上，评论只追加。限制和命名见 [现场材料与附件](references/registration-logs.md)。
+
+**Computer 版本较旧时退回「最后一次建好」。** `tutti-cli task --help` 里只有 `create`、没有 `edit`／`assign` 时，不能先建后改：先采集、发布，有缺口先一次问完，最后一次把标题、完整描述、优先级建好；跟进人请 QA 在任务看板指派。`tutti-cli task edit --help` 里没有 `--file` 时，附件退回用 `tutti-cli artifact publish` 发布到当前 Room（见 [旧版 Computer](references/registration-logs.md#旧版-computer)）。
+
+**登录过期就当场重新登录，不停下来问。** 认证失效不是卡点：
 
 | 入口 | 怎么自动恢复 |
 |---|---|
 | AWS（Server 日志） | `collect_server.py` 遇到 SSO 过期会自己运行 `aws sso login`，浏览器在本机弹出，用户在浏览器里点「允许」即可，脚本随后重试。结果里 `login.ok` 为 true 就照常继续 |
-| 飞书（lark-cli） | 报未登录或 token 过期时：`lark-cli auth login --domain base,contact,drive --no-wait --json` 取 `verification_url` 和 `device_code` → `open <verification_url>` 在本机打开浏览器 → `lark-cli auth login --device-code <device_code>`（会等到用户在浏览器里点完授权）→ 重试原命令 |
 
-自动登录的同时在对话里说一句「AWS／飞书登录已过期，已在浏览器打开授权页，点一下允许即可」，然后继续等待，不结束本轮。只有等了 10 分钟仍没完成、没有配置 SSO，或者 tutti-ops Token 失效（需要在管理端重新创建，见 `$tutti-bug-workflow:bug-setup`），才写进最终回复，并写清用户要做的一步。
+自动登录的同时在对话里说一句「AWS 登录已过期，已在浏览器打开授权页，点一下允许即可」，然后继续等待，不结束本轮。只有等了 10 分钟仍没完成、没有配置 SSO，或者 tutti-ops Token 失效（需要在管理端重新创建，见 `$tutti-bug-workflow:bug-setup`），才写进最终回复，并写清用户要做的一步。
 
 **不脱敏。** 现场日志原样采集、原样上传。
 
-**无状态。** `record_id`、`question_time`、采集结果都记在本次会话上下文中；日志、截图等是放在会话临时目录（下称 `$TMP`）里的临时文件。对外唯一的事实来源是飞书记录。脚本路径相对本 Skill 目录（`skills/bug-investigate/`），都输出一段 JSON。工具安装与认证由 `$tutti-bug-workflow:bug-setup` 负责，已有权限内的读取、召回、上传与回填属于本任务授权，无需逐项再问。
+**无状态。** `operation_id`、`question_time`、采集结果都记在本次会话上下文中。日志、截图等放在当前 Room 目录下的 `bug-reports/<operation_id>/`（下称 `$REPORT`，用绝对路径）。`--file` 能读取本机任意路径，统一放这里是为了旧版退回 `artifact publish` 时也能用（它只接受 Room 目录内的文件）。对外唯一的事实来源是 Room 里的 Task。脚本路径相对本 Skill 目录（`skills/bug-investigate/`），都输出一段 JSON。工具安装与认证由 `$tutti-bug-workflow:bug-setup` 负责，已有权限内的读取、召回、上传附件，以及建 Task、编辑、指派、评论属于本任务授权，无需逐项再问。
 
 写最终回复前逐项自查，任何一项没有结果且不是卡点，就回去做完：
 
 | 自查项 | 必须有的结果 |
 |---|---|
-| 飞书记录 | `record_id`；Bug 描述、状态、问题类型、提交人、记录时间已填；所属端已判断；优先级已按定义填写，或拿不准、已列入待 QA 确认；业务模块是现有选项之一，或对不上、已列入待 QA 确认 |
-| 跟进人 | 已写入「指派人」；或已在回复中请用户指定 |
-| Web 日志 | `web-logs.log` 或 QA 导出包已上传；或写明缺什么、怎么提供 |
+| Task | `task create` 成功，回执 `task.taskId` 等于 `operation_id`（或复用了同名的未关闭 Task）；采集后已 `task edit` 写好描述；`task show` 回读标题、描述、优先级一致 |
+| 跟进人 | 已 `task assign --user-id` 指派；或已在回复中请用户指定 |
+| 标题 | 一句话简介「功能：现象」，20–40 字，没有错误码、ID 和括号补充；说的是 QA 报的问题 |
+| 优先级 | 建单时按定义映射成 Task 优先级；拿不准时用 `none`，在描述「待 QA 确认」和回复里问，QA 确认后在任务看板修改 |
+| Web 日志 | `web-logs.log` 或 QA 导出包已挂到排查线索评论；或写明缺什么、怎么提供 |
 | Server 日志 | `captured`／`empty`／`blocked`（附原因）；登录过期已自动重新登录并重试过 |
-| Computer 日志 | 召回已完成并上传；或写明受阻原因、待用户确认的设备 |
-| 附件 | QA 的截图／视频与全部日志都在「截图、视频、日志」，`check_collection` 显示 `attached: true` |
-| 上下文字段 | 环境与版本、页面链接、问题上下文已写入并回读；问题上下文以「概要」「现场核对」开头，回复里提到的每条发现都在这两段里 |
-| Bug 描述 | 一行写清「类别：现象（触发条件／关键对照）」；没看过现场的人单看这一行也能明白哪里不对（必要时括号里写出期望），说的是 QA 报的问题；采集中确认了新条件或对照时已更新 |
+| Computer 日志 | 召回已完成，召回包已挂到评论；或写明受阻原因、待用户确认的设备 |
+| 附件 | QA 的截图／视频随最后一次 `task edit --file` 挂在描述上，`task show` 回读一个不少；全部日志挂在排查线索评论上；旧版 Computer 已用 `artifact publish` 发布 |
+| 描述 | 只有问题、复现步骤、实际、期望、频率、发生时间、环境一行（和待 QA 确认），没有日志字段、ID、版本号 |
+| 排查线索 | 已用一条评论记下日志核对、关联 ID、环境与版本、分类；回复里提到的每条发现都在描述或这条评论里 |
 | 会话上传 | 全部完成后已上传一次 |
 
 ## 1. 接收
 
-1. 从用户消息整理：期望与实际表现、复现步骤与频率、发生时间与时区、操作账号、截图／视频（实际查看）、WebMCP 连接链接、QA 附带的 Web 诊断包、跟进人姓名、用到的设备。用户原话与你的推断分开记；QA 说的问题和期望原样保留，后面写标题、概要、期望都以它为准。
+1. 从用户消息整理：期望与实际表现、复现步骤与频率、发生时间与时区、操作账号、截图／视频（实际查看）、WebMCP 连接链接、QA 附带的 Web 诊断包、建议的跟进人、用到的设备。用户原话与你的推断分开记；QA 说的问题和期望原样保留，后面写标题、问题、期望都以它为准。
 2. 固定 `question_time`：触发本次上报的消息时间（含时区的 ISO 8601）；拿不到时用收到消息的时间并注明近似。
-3. 判断三个分类字段：
-   - **所属端**：`新框架一期-Mac`／`新框架一期-Windows`／`新框架一期-Web`，按问题出现的位置判断。
+3. 生成 `operation_id`：`python3 -c 'import uuid; print(uuid.uuid4())'`。它同时是 Task ID 和建 Task 的幂等键，本次上报全程只用这一个；建 Task 结果不确定时用同一个 ID 和相同参数重试，不会重复建单。创建 `$REPORT`。之后每次 `task edit`／`assign`／`comment add` 各自生成一个新的操作 ID，重试同一次写入时不变。
+4. 判断分类（所属端、业务模块写进排查线索的「分类」，Task 没有对应字段）：
+   - **所属端**：Mac／Windows／Web，按问题出现的位置判断。
    - **优先级**：用户（QA）给了就照填。没给时按定义判断：
      - **P0**：严重阻塞，核心流程走不下去、没有绕过办法，或数据丢失；
      - **P1**：明显的 Bug，功能结果不对、用户一眼能看出来；
      - **P2**：非核心功能的问题，或体验、展示上的小问题。
 
-     对照描述能明确落到某一级才自己定；**拿不准就问 QA**：建单时先不填优先级，照常走完全程，在第 5 步的待补充项里问（说明你倾向哪一级、为什么），QA 回复后 `write --set priority=…` 补上。P00、P3 只在 QA 明确说了时使用。P2 的记录不在「新框架（一期）」视图里，脚本会提示，照实填写。
-   - **业务模块**：只能从现有模块里选一个，**不能自创**。先 `python3 scripts/feishu.py options --field module` 取选项（已去掉历史上被随手加的非正式选项），选最贴近问题所在功能的那一个，原样填写；写入时脚本会拒绝列表外的值。一个都对不上时问 QA 该归哪个模块，不要新建选项，也不要绕过脚本直接用 lark-cli 写这一列。
+     对照描述能明确落到某一级才自己定；拿不准就用 `none` 建单，在第 5 步问 QA（说明你倾向哪一级、为什么），QA 确认后在任务看板修改（CLI 改不了优先级）。Task 优先级的映射见 [Task 字段](references/report-fields.md#优先级)。
+   - **业务模块**：用界面上的功能名称描述问题所在的功能（如「房间-群聊」「任务看板」），不确定时写「待 QA 确认」。
 
-## 2. 建单
+## 2. 建 Task
 
-```sh
-python3 scripts/feishu.py create --title "房间：顶部名称与左侧选中房间名称不一致" --record-time <question_time> \
-  --set platform=新框架一期-Web --set priority=P1 --set module=房间-群聊
-python3 scripts/feishu.py assign --record-id REC --name "张三"     # 用户没指定跟进人时省略 --name
-```
+1. **查重**：`tutti-cli task list --page-size 100 --json`（按 `nextPageToken` 读完）。有标题相同的未关闭 Task 时复用它的 `taskId`，不重复建单，后面的编辑都作用于它。
+2. **建单**：按 QA 的描述先起一个标题（规则见 [Task 字段](references/report-fields.md#标题)），描述先写 QA 原话、发生时间和「现场采集中」：
+   ```sh
+   tutti-cli task create --operation-id <operation_id> --title "<标题>" \
+     --description "<QA 原话、发生时间；现场采集中>" --priority <urgent|high|medium|low|none> --json
+   ```
+   回执 `task.taskId` 应等于 `operation_id`。超时等结果不确定时用同一个 `--operation-id` 和相同参数重试；参数校验错误先修正再重试。
+3. **指派跟进人**：用户给了名字时，`tutti-cli user list --json` 在 Room 成员里找，唯一匹配就
+   ```sh
+   tutti-cli task assign --task-id <taskId> --user-id <userId> --operation-id <新 UUID> --json
+   ```
+   没给、同名多人或不是 Room 成员时不指派，留到第 5 步请用户指定（附上候选）。
 
-「Bug 描述」写一行「类别：现象（触发条件／关键对照）」，先按用户描述写，第 4 步采集完再补全，见 [字段规则](references/report-fields.md#bug-描述)。同名记录已存在时返回它，不重复建单。新记录自动填状态「未解决」、问题类型「bug」、提交人（lark-cli 当前用户）和记录时间。跟进人同名多人、查不到或没指定时不写入，返回候选或常联系的人，留到第 5 步请用户指定。
+当前 Room 就是 Task 要建到的 Room；QA 要求建到别的 Room 时，请 QA 到那个 Room 里重新发起，不跨 Room 创建。
 
 ## 3. 采集现场
 
@@ -75,7 +94,7 @@ python3 scripts/feishu.py assign --record-id REC --name "张三"     # 用户没
 详见 [Web 日志](references/web-logs.md)。用户给了 WebMCP 连接链接、页面开在本机 Chrome 时，用 `chrome-devtools` MCP：
 
 1. `list_pages` + `list_webmcp_tools` 按链接里的页面与 Account 匹配页面，记下页面 URL（「页面链接」）。
-2. `execute_webmcp_tool` 分页读 `get_web_logs`，每页存一个文件，用 `scripts/merge_web_logs.py` 合并成 `$TMP/web/web-logs.log`。
+2. `execute_webmcp_tool` 分页读 `get_web_logs`，每页存一个文件，用 `scripts/merge_web_logs.py` 合并成 `$REPORT/web/web-logs.log`。
 3. `execute_webmcp_tool` 调 `list_my_computers`（房间相关时加 `list_room_agents`），用于定位 Computer。
 
 不刷新、不跳转页面。WebMCP 不可用、用户在另一台机器上或页面已刷新时，用 QA 导出的诊断包；两者都没有时记为 `pending`，第 5 步请用户导出。
@@ -85,7 +104,7 @@ python3 scripts/feishu.py assign --record-id REC --name "张三"     # 用户没
 按 [Computer 定位](references/computer-target.md) 确定设备：优先 Web 日志里故障时间附近记录关联的 Computer，其次页面的 `list_my_computers`，再其次用户说的设备名。确定后立刻放到后台跑，不等它：
 
 ```sh
-python3 scripts/collect_computer.py --computer-id ID --incident-at <question_time> --output-dir $TMP/computer > $TMP/computer.json &
+python3 scripts/collect_computer.py --computer-id ID --incident-at <question_time> --output-dir $REPORT/computer > $REPORT/computer.json &
 ```
 
 有多个候选或没有线索时记为 `pending`，第 5 步请用户确认设备，确认后再跑。
@@ -96,45 +115,40 @@ python3 scripts/collect_computer.py --computer-id ID --incident-at <question_tim
 
 ```sh
 python3 scripts/collect_server.py --question-time <question_time> \
-  --web-logs <web-logs.log 或诊断包 zip> --output-dir $TMP/server
+  --web-logs <web-logs.log 或诊断包 zip> --output-dir $REPORT/server
 ```
 
 新版 Web 日志的每条 HTTP 记录都带网关的 request id，脚本直接用它们拉全这些请求的日志（看 `request_ids_in_web_logs`、`matched_request_ids`）；旧版 Web 的记录没有 id，脚本把其中失败的请求按 method、路径、状态码、时间对到服务端访问日志，取回 `request_id`（看 `web_requests_matched`）。`--path-contains <房间或 Computer ID>` 会带回整段时间窗的大量请求，只在结果为 `empty` 或需要整段上下文时再加。
 
-结果里的 `namespaces`／`environments` 告诉你环境：`tutti` 是生产，`lane-ppe-*` 是 PPE；`correlated_requests` 中与故障相关的请求和 `web_failures_not_in_server_logs`（页面失败但没到服务端的请求）写进「问题上下文」。详见 [Server 日志](references/server-logs.md)。
+结果里的 `namespaces`／`environments` 告诉你环境：`tutti` 是生产，`lane-ppe-*` 是 PPE；`correlated_requests` 中与故障相关的请求和 `web_failures_not_in_server_logs`（页面失败但没到服务端的请求）写进排查线索的「日志核对」。详见 [Server 日志](references/server-logs.md)。
 
-## 4. 上传与填字段
 
-1. 上传附件（同名同大小的不重复传）：
+## 4. 补全描述与排查线索
+
+1. 按 [现场材料与附件](references/registration-logs.md) 整理文件：QA 的截图／视频复制到 `$REPORT`（挂描述），日志留在各自目录（挂评论）。
+2. 按 [Task 字段](references/report-fields.md) 把描述写到 `$REPORT/description.txt`，标题按规则改成一句话简介。描述和截图在一次 `task edit` 里提交：
    ```sh
-   python3 scripts/feishu.py attach --record-id REC --file <QA 的截图／视频> --file <web-logs.log 或诊断包> \
-     --file $TMP/server/server-logs.log
+   tutti-cli task edit --task-id <taskId> --title "<标题>" --description-file <$REPORT>/description.txt \
+     --file <$REPORT>/screenshot-1.png --operation-id <新 UUID> --json
+   tutti-cli task show --task-id <taskId> --json     # 回读标题、描述和截图
    ```
-2. 按 [字段规则](references/report-fields.md) 写三个上下文字段：
-   ```sh
-   python3 scripts/feishu.py write --record-id REC --set page_url=<页面链接> \
-     --set env_version=@$TMP/env-version.md --set context=@$TMP/context.md
-   ```
-   - **环境与版本**：环境（生产／PPE／本地开发）与标识（页面域名、Server namespace 如 `lane-ppe-cloud-0928`），Web、tutti-server、Computer 版本与浏览器。
-   - **页面链接**：出问题页面的完整 URL。
-   - **问题上下文**：先写「概要」（什么坏了、条件、报错原文、与正常情况的差异）和「现场核对」（采集中核对过的事实：成功／失败对照、设置或版本差异、日志报错、服务端失败请求，各带来源和时间）；再写期望、实际、复现步骤、频率、发生时间（精确到分钟，含时区）、操作账号；最后「关联 ID」只列 ID：账号、房间、页面会话、Computer、Agent、关键 request id、召回任务 ID。
-   - **Bug 描述**：采集中确认了触发条件或关键对照时，`--set title=…` 更新成「类别：现象（触发条件／关键对照）」。要写清楚，不要过于简单，规则见字段规则；不用采集到的技术细节改写 QA 报的问题。
-3. `python3 scripts/check_collection.py --record-id REC --web @$TMP/web.json --computer @$TMP/computer.json` 核对附件。
+3. 把排查线索写到 `$REPORT/clues.txt`，连同已有的日志发一条评论（命令见 [排查线索](references/report-fields.md#排查线索评论)）。Computer 召回还没结束时先发已有的，召回包在第 5 步另发一条。
+
+上传失败时 Task 和评论都不会被修改：按报错修正（文件名重复、空文件、超过 500 MiB、HTML／SVG 等）后重跑；修不了的文件去掉，在排查线索里写一句缺什么，继续。
 
 ## 5. 收尾
 
-1. 等 Computer 召回完成（读 `$TMP/computer.json`），上传召回包，把召回任务 ID 补进「问题上下文」，再跑一次 `check_collection`。`desktopd.log` 里故障时间附近失败的出站请求带有 Server 日志中没有的 `request_id` 时，用 `collect_server.py --request-id <id> --output-dir $TMP/server-computer` 补拉，上传其 `server-logs.log`（见 [Computer 日志里的 request id](references/computer-logs.md#日志里的-request-id)）。
+1. 等 Computer 召回完成（读 `$REPORT/computer.json`），发一条评论：几行补充线索（召回任务 ID、召回包里核对到的事实）加 `--file` 召回包，不改描述。`desktopd.log` 里故障时间附近失败的出站请求带有 Server 日志中没有的 `request_id` 时，用 `collect_server.py --request-id <id> --output-dir $REPORT/server-computer` 补拉，结果复制成 `server-logs-computer.log`，和召回包挂在同一条评论上（同一次调用里文件名不能重复；见 [Computer 日志里的 request id](references/computer-logs.md#日志里的-request-id)）。
 2. 需要用户提供的东西一次列出，每项说明怎么获取：
 
    | 缺什么 | 怎么请用户提供 |
    |---|---|
    | Web 现场 | 在出问题的 Tutti 页面打开「设置 → 诊断」，点「复制 WebMCP 连接链接」发过来并保持页面不刷新；或在同一浏览器「导出日志」（范围覆盖问题发生时间），把 zip 发过来 |
    | 故障设备 | 从列出的候选（名称、平台、版本）里选当时用的那台；或直接提供设备名称／Computer ID |
-   | 跟进人 | 「这条 Bug 由谁跟进？直接回复名字即可」，可附上常联系的人；同名多人时列出姓名与部门请用户选 |
-   | 优先级（拿不准时） | 「这条按 P1（明显 Bug）登记合适吗？P0 严重阻塞／P1 明显 Bug／P2 非核心 Bug」，附一句判断理由 |
-   | 业务模块（对不上时） | 列出两三个最接近的现有模块请 QA 选，不新建选项 |
+   | 跟进人 | 「这条 Bug 由谁跟进？直接回复名字即可」，附上 Room 成员里的候选；同名多人时列出请用户选 |
+   | 优先级（拿不准时） | 「这条按 P1（明显 Bug，对应 high）合适吗？」，附一句判断理由；确认后请 QA 在任务看板修改 |
    | 期望（没说清，或现场事实与 QA 的说法不一致时） | 把 QA 的说法和查到的事实并列，请 QA 确认期望，例如「你说是同一份文件，记录里三条内容各不相同：期望只显示最新一份，还是保留历史但标出版本？」 |
 
-   登录过期按上面的规则当场自动恢复，不列在这里；真正的工具缺失、权限不足（没有表格或日志的访问权）才写进回复交给维护方。用户补充后再次调用本 Skill，读取同一记录继续。
+   登录过期按上面的规则当场自动恢复，不列在这里；真正的工具缺失、权限不足才写进回复交给维护方。用户补充后在同一会话里继续：表现有变化时带上全部截图 `task edit` 更新描述，`task assign` 指派；不再建第二个 Task。新的日志、线索或文件用评论追加，评论可以只附文件：`tutti-cli task comment add --task-id <taskId> [--text-file <文件>] --file <路径> --operation-id <新 UUID> --json`。
 3. 按开头的自查表逐项确认；全部完成后按 [会话上传](references/session-upload.md) 上传本次会话一次。
-4. 最终回复：飞书记录链接、环境、已采集的现场与附件、缺失项及需要用户提供的内容。
+4. 最终回复：Task 标题与 ID、所在 Room、优先级、跟进人、环境、已挂上的截图和日志、缺失项及需要用户提供的内容。

@@ -29,7 +29,6 @@
       "id": "feishu",
       "label": "飞书记录与附件操作",
       "required_in": [
-        "investigate",
         "solution",
         "execute"
       ],
@@ -42,6 +41,24 @@
         "Bug 管理表（bug_report）的实际字段映射",
         "身份认证",
         "记录读取、创建、字段更新及附件读写权限；宿主工具可作为替代入口"
+      ],
+      "install_operation": null
+    },
+    {
+      "id": "tutti-task",
+      "label": "在当前 Room 建 Task、编辑与指派，并上传现场附件",
+      "required_in": [
+        "investigate"
+      ],
+      "conditional_in": [],
+      "commands": [
+        "tutti-cli"
+      ],
+      "configuration": "host",
+      "requirements": [
+        "在 Tutti Room 的 Agent 会话中运行（Native 或 VM Agent）",
+        "Computer 版本支持 `tutti-cli task create`／`edit`／`assign`／`list`、`user list`，`task edit`／`comment add` 支持 `--file` 上传 Task 附件（旧版退回 `artifact publish`）",
+        "Computer 当前登录的 Account 有该 Room 的 Task 创建、编辑与指派权限"
       ],
       "install_operation": null
     },
