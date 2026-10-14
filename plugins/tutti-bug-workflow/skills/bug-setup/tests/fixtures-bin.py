@@ -25,10 +25,17 @@ if name == "node":
     out(tools.get("node", "v22.1.0"))
 if name == "npm":
     if args[:2] == ["install", "-g"]:
-        target = Path(sys.argv[0]).parent / PACKAGES[args[2]]
+        package = args[2].removesuffix("@latest")
+        target = Path(sys.argv[0]).parent / PACKAGES[package]
         shutil.copyfile(__file__, target)
         target.chmod(0o755)
+        if package == "@tutti-os/tutti-cli":
+            (target.parent / ".tutti-cli-version").write_text(tools.get("tutti_cli_latest", "0.1.0"))
         out("added 1 package")
+    if args[:2] == ["view", "@tutti-os/tutti-cli"]:
+        if tools.get("npm_offline"):
+            sys.exit(1)
+        out(tools.get("tutti_cli_latest", "0.1.0"))
     if args[:2] == ["prefix", "-g"]:
         out(str(Path(sys.argv[0]).parent.parent))
 if name == "lark-cli":
@@ -66,6 +73,9 @@ if name == "tutti-cli":
         out("Tutti CLI — account login, Rooms and Tasks\n  tutti-cli login [--no-browser] [--json]\n"
             + ("  tutti-cli room list [--type all|local|cloud] [--json]\n  tutti-cli task run --room-id ID --task-id UUID"
                if tools.get("tutti_cli_rooms", True) else ""))
+    if args == ["--version"]:
+        marker = Path(sys.argv[0]).parent / ".tutti-cli-version"
+        out(marker.read_text() if marker.exists() else tools.get("tutti_cli_version", "0.1.0"))
     if args[:1] == ["whoami"]:
         if tools.get("tutti_cli_logged_in", True):
             out({"userId": "1", "name": "QA", "email": "qa@example.com"})

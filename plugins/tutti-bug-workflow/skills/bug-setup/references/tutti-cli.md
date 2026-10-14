@@ -20,7 +20,7 @@ tutti-cli whoami --json        # 返回账号即已登录
 
 | 情况 | 处理 |
 |---|---|
-| Node.js ≥ 24，没装、版本过旧（没有 `room list`）或 PATH 里是 Agent 版 | `prepare.py fix` 自动运行 `npm install -g @tutti-os/tutti-cli`，不用征求同意 |
+| Node.js ≥ 24，没装、不是 npm 上的最新版（`tutti-cli --version` 对比 `npm view @tutti-os/tutti-cli version`）、缺少 `room list`／`task run` 或 PATH 里是 Agent 版 | `prepare.py fix` 自动运行 `npm install -g @tutti-os/tutti-cli@latest`，不用征求同意；npm 查不到最新版本（断网）时保留已装的版本 |
 | Node.js < 24 | 转成用户项：`nvm install 24 && nvm use 24 && nvm alias default 24`（或 `brew install node`），用户回复「已完成」后再 `fix` |
 | npm 全局目录没有写权限 | 改用 nvm 的 Node 再装，不用 `sudo` |
 | 用 nvm 且有多个 Node 版本 | 全局包按 Node 版本分开装：确认 `nvm alias default` 指向装了 tutti-cli 的那个版本，否则新终端里找不到 |
