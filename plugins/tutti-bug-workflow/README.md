@@ -44,7 +44,7 @@ RD 手动触发，一次一条 Task，流程见 [SKILL.md](skills/bug-execute/SK
 2. 从最新 main 切 `codex/bug-<Task ID 前 8 位>`（重试时接着原分支）→ 修复、测试 → 推送、提 PR 到 main。
 3. 部署 PPE：先 tutti-server `deploy-lane`（泳道 `ppe-bug-<同样 8 位>`，关闭连接器授权），涉及 ws 时 tsh-websocket `deploy-lane`（同一泳道；新泳道需人工先建 ws 基础设施），再 tutti `platform-web-preview`（指向该泳道），涉及 Computer 时在分支上发 `Computer Canary`。
 4. 用本机 Chrome（chrome-devtools MCP）打开预览链接，按验收要点自验证，涉及 UI 的每条用例截图。
-5. 用 `tutti-cli task comment` 把一句话原因、PR、体验链接（前端预览，只改 Computer 时为 canary 发布页）和验证结果回复到 Task；失败也回复，写清卡在哪一步。
+5. 用 `tutti-cli task comment` 把一句话原因、PR、体验链接（前端预览，只改 Computer 时为 canary 发布页）和验证结果回复到 Task，验证截图作为评论附件一起上传；失败也回复，写清卡在哪一步。
 6. 泳道不自动销毁，需要时让 agent 用 `deploy.py destroy-lane` 销毁。
 
 ## 已提供的能力

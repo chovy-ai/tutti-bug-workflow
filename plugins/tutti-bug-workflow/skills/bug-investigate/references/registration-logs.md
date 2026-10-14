@@ -16,7 +16,7 @@
 
 ## 日志文件与附件
 
-附件只能挂在描述上（评论不带附件），所有文件都用 `task edit --file` 挂上，描述正文只写 Bug 表现（见 [Task 字段](report-fields.md)）。
+现场附件统一挂在描述上（不挂在评论里，Task 打开就能看到全部现场），所有文件都用 `task edit --file` 挂上，描述正文只写 Bug 表现（见 [Task 字段](report-fields.md)）。
 
 | 材料 | 上传什么 |
 |---|---|

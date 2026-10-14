@@ -19,10 +19,10 @@ PPE 部署：
 - Computer canary：<版本>，<run 链接>，<结论>
 （没涉及的一端写「未涉及」）
 
-自验证（本机 Chrome，预览链接 <链接>；截图在 ~/.local/share/bug-workbench/bug-fixes/<taskId>/）：
-1. <用例名>：passed／failed／not_run；<实际结果>；截图：fix-<短 ID>-1-<时间>.png
+自验证（本机 Chrome，预览链接 <链接>；截图见本条评论附件）：
+1. <用例名>：passed／failed／not_run；<实际结果>；截图：附件 fix-<短 ID>-1-<时间>.png
 2. ……
-修复前对照：<before- 截图文件名，或「未截」>
+修复前对照：<附件 before- 截图文件名，或「未截」>
 
 未覆盖与风险：<未执行的用例及原因、连接器授权等限制、后续动作>
 失败时：<卡在哪一步、错误信息、run／日志链接；成功就删掉这一行>

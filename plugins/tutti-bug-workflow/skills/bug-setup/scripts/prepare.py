@@ -152,10 +152,14 @@ def check_tutti_cli():
     label = "Tutti CLI（tutti-cli，账号登录版）"
     code, out = run(["tutti-cli", "--help"]) if shutil.which("tutti-cli") else (127, "")
     detail = None
+    # The usage block of `task comment` runs until the next command line.
+    comment = re.search(r"tutti-cli task comment\b(.*?)(?=\n\s*tutti-cli |\n\s*\n|\Z)", out, re.S)
     if code or any(f"tutti-cli {command}" not in out for command in ("login", "room list", "task run")):
         detail = ("未安装" if not shutil.which("tutti-cli") else
                   "PATH 里的 tutti-cli 不是账号登录版（没有 login 命令）" if "tutti-cli login" not in out else
                   "版本过旧，没有 room list／task run（按房间名查房间、交给 Room Agent 分析根因）")
+    elif not comment or "--file" not in comment[1]:
+        detail = "版本过旧，task comment 不支持 --file（修复回复要把验证截图作为评论附件）"
     elif shutil.which("npm"):
         # Always run the latest release; when npm cannot be reached keep the installed one.
         latest_code, latest = run(["npm", "view", "@tutti-os/tutti-cli", "version"])
@@ -172,7 +176,7 @@ def check_tutti_cli():
                     guide=["提 Bug、修复回复都用全局安装的 tutti-cli 以你的 Tutti 账号读写 Room 里的 Task，它要求 Node.js 24 及以上。",
                            "用 nvm：`nvm install 24 && nvm use 24`（或 `brew install node`），然后回复「已完成」，"
                            "Agent 会运行 `npm install -g @tutti-os/tutti-cli@latest`。"],
-                    verify="`tutti-cli --help` 列出 login、room list、task create 与 task run")
+                    verify="`tutti-cli --help` 列出 login、room list、task create、task run，task comment 带 --file")
     code, out = run(["tutti-cli", "whoami", "--json"])
     if code == 0:
         try:
