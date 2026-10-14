@@ -1,5 +1,7 @@
 # 工作流
 
+> **目前只开放 `bug-investigate`。** `bug-solution`、`bug-execute` 暂时屏蔽（移到插件的 `disabled-skills/`，插件不再加载）。下面关于这两个场景和飞书表交接的内容留作恢复时参考。
+
 | 场景 | 面向 | 交付 | 写入的字段 |
 |---|---|---|---|
 | `bug-investigate` | QA | 带全现场日志与上下文，用全局 `tutti-cli task create --room-id` 在指定 Room 建 Task，不写飞书表 | Room Task（标题、描述、优先级）与 Room 内附件 |

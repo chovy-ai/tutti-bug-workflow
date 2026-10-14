@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Scene-based setup: check everything a scene needs, fix what can be fixed unattended.
 
-Scenes: `investigate` (QA 提 Bug), `solution` (定时分析根因与方案), `execute` (定时修复与部署),
-or `all`. Each item comes back with one status:
+Scenes: `investigate` (QA 提 Bug), `solution` (定时分析根因与方案), `execute` (定时修复与部署).
+Only the scenes in ENABLED_SCENES can be chosen; `all` means all of those. Each item comes back with one status:
 
 - `ok`: ready and verified (installed, logged in, resource reachable).
 - `fix`: missing but `prepare.py fix` can do it unattended (fill config defaults, npm or
@@ -31,6 +31,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import workbench as wb  # noqa: E402
 
 SCENES = {"investigate": "QA 提 Bug", "solution": "定时分析根因与方案", "execute": "定时修复与部署"}
+# bug-solution and bug-execute are paused (moved to disabled-skills/); add them back here to re-enable.
+ENABLED_SCENES = ("investigate",)
 NPM_PACKAGES = {"lark-cli": "@larksuite/cli", "codex": "@openai/codex", "mmdc": "@mermaid-js/mermaid-cli",
                 "tutti-ops": "@tutti-os/tutti-ops-cli", "tutti-cli": "@tutti-os/tutti-cli"}
 SCHEDULE_PREFIX = {"solution": "com.tutti.bug-solution.", "execute": "com.tutti.bug-execute."}
@@ -450,12 +452,12 @@ def report(scenes, items, done=None, errors=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("operation", choices=("check", "fix"))
-    parser.add_argument("--scene", action="append", choices=(*SCENES, "all"), required=True)
+    parser.add_argument("--scene", action="append", choices=(*ENABLED_SCENES, "all"), required=True)
     parser.add_argument("--data-dir")
     args = parser.parse_args()
     try:
         root = wb.data_root(argparse.Namespace(data_dir=args.data_dir))
-        scenes = set(SCENES) if "all" in args.scene else set(args.scene)
+        scenes = set(ENABLED_SCENES) if "all" in args.scene else set(args.scene)
         items = check(root, scenes)
         if args.operation == "check":
             wb.emit(report(scenes, items))

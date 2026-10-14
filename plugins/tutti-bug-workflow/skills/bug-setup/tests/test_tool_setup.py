@@ -30,6 +30,7 @@ class ToolSetupTests(unittest.TestCase):
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return json.loads(result.stdout)
 
+    @unittest.skip("bug-solution/bug-execute 暂时屏蔽，setup 不再提供这两个场景")
     def test_solution_is_not_blocked_by_unrelated_logging_or_validation_tools(self):
         before = self.config.read_bytes()
         report = self.invoke("solution")
@@ -54,9 +55,6 @@ class ToolSetupTests(unittest.TestCase):
                 self.assertEqual(tool["business_access"], "not_checked")
                 self.assertIn("setup-tutti-ops", tool["install_plan"]["argv"])
                 self.assertFalse(tool["install_plan"]["executed"])
-        for scene in ("solution", "execute"):
-            with self.subTest(scene=scene):
-                self.assertNotIn("session-upload", {t["id"] for t in self.invoke(scene)["tools"]})
         self.assertEqual(self.config.read_bytes(), before)
         self.assertEqual(set(p.name for p in self.data.iterdir()), {"config.json"})
 
@@ -85,6 +83,7 @@ class ToolSetupTests(unittest.TestCase):
         self.assertFalse(result["installation_performed"])
         self.assertFalse((self.data / "tools").exists())
 
+    @unittest.skip("bug-solution/bug-execute 暂时屏蔽，setup 不再提供这两个场景")
     def test_configured_browser_does_not_claim_login_or_business_validation(self):
         cfg = json.loads(self.config.read_text())
         cfg["validation"] = {"url": "http://127.0.0.1:8123/preview", "environment": "synthetic",
@@ -97,7 +96,7 @@ class ToolSetupTests(unittest.TestCase):
 
     def test_inapplicable_selection_rejected_without_modification(self):
         before = self.config.read_bytes()
-        report = self.invoke("solution", "--include", "web-logs", expected=2)
+        report = self.invoke("investigate", "--include", "diagrams", expected=2)
         self.assertFalse(report["ok"])
         self.assertEqual(self.config.read_bytes(), before)
 
@@ -112,7 +111,8 @@ class ToolSetupTests(unittest.TestCase):
         ids = [t["id"] for t in report["tools"]]
         self.assertEqual(len(ids), len(set(ids)))
         self.assertFalse(next(t for t in report["tools"] if t["id"] == "web-logs")["selected"])
-        self.assertTrue(next(t for t in report["tools"] if t["id"] == "browser-validation")["selected"])
+        self.assertFalse(next(t for t in report["tools"] if t["id"] == "browser-validation")["selected"])
+        self.assertTrue({"feishu", "code", "diagrams", "deployment"}.isdisjoint(ids))  # RD scenes are paused
 
 
 if __name__ == "__main__":

@@ -1,13 +1,11 @@
 # tutti-bug-workflow
 
-版本：0.2.4。运行方式：Codex 本地会话。三个业务场景以飞书 Bug 管理表中的同一条记录交接，不保留本地档案；公共初始化 Skill 准备配置与依赖。
+版本：0.3.0。运行方式：Codex 本地会话。目前只开放 QA 提 Bug 和环境准备两个 Skill；RD 的根因分析（bug-solution）和修复（bug-execute）暂时屏蔽，源码移到 [disabled-skills/](disabled-skills/README.md)，插件不加载。
 
 | 入口 | 工作内容 |
 |---|---|
 | `$tutti-bug-workflow:bug-investigate` | QA 提 Bug：带全现场日志与上下文，用全局 tutti-cli 在指定 Room 建 Task（不写飞书表），不分析根因 |
-| `$tutti-bug-workflow:bug-solution` | RD 根因与方案（定时）：每小时按跟进人逐条分析根因、生成流程图与架构图 PNG、起草方案和验收，记录 RD 批准 |
-| `$tutti-bug-workflow:bug-execute` | 修复与部署（定时）：每小时按跟进人修复已批准的 Bug，提 PR 到 main，部署 PPE（server 泳道 → ws 泳道 → 前端预览 → Computer canary），验证，进度写回 bug 单 |
-| `$tutti-bug-workflow:bug-setup` | 准备环境：选场景，自动检查、安装、补默认配置，一步步引导登录和授权，可直接开启定时任务 |
+| `$tutti-bug-workflow:bug-setup` | 准备提 Bug 环境：自动检查、安装 tutti-cli 与 tutti-ops、补默认配置，一步步引导登录和授权 |
 
 ## 首次使用
 
@@ -15,28 +13,18 @@
 
 > 使用 $tutti-bug-workflow:bug-setup 帮我准备环境
 
-Agent 会先问你要准备哪个场景：**QA 提 Bug**、**定时分析**、**定时修复**，或**全部**（RD 一般选定时分析＋定时修复）。之后：
+目前只准备 **QA 提 Bug** 一个场景，不用选：
 
-1. **检查**：`skills/bug-setup/scripts/prepare.py check --scene …` 逐项实际验证：飞书登录与 Bug 表、三个仓库、Codex 登录、mmdc 渲染、GitHub 登录与推送/部署权限、tutti-ops Token、本机 Chrome 连接、定时任务。
-2. **能做的直接做**：`prepare.py fix` 补齐默认配置（已有值不动，原文件备份），用 npm／Homebrew 安装缺少的 lark-cli、codex、mmdc、tutti-ops、gh。
-3. **一步步引导**：需要你本人做的（飞书扫码授权、`gh auth login`、`codex login`、管理端创建 Token、Chrome 点允许、找管理员要权限），一次一项给出步骤和可复制的命令，你回复「已完成」后 Agent 复查。
-4. **收尾**：汇总已就绪／等你／等管理员，询问是否开启定时任务（默认跟进人是你，每小时一轮，不限优先级）。
+1. **检查**：`skills/bug-setup/scripts/prepare.py check --scene investigate` 逐项实际验证：Node.js、tutti-cli 安装与登录、tutti-ops Token、本机 Chrome 连接、本机 Computer 日志。
+2. **能做的直接做**：`prepare.py fix` 补齐默认配置（已有值不动，原文件备份），用 npm 安装缺少的 tutti-cli（Node.js 24+）和 tutti-ops。
+3. **一步步引导**：需要你本人做的（`tutti-cli login`、管理端创建 Token、Chrome 点允许、找管理员要权限），一次一项给出步骤和可复制的命令，你回复「已完成」后 Agent 复查。
+4. **收尾**：汇总已就绪／等你／等管理员，告诉你怎么提 Bug。
 
 只想先看看要准备什么：「使用 $tutti-bug-workflow:bug-setup，只列出准备情况」。
 
-默认配置（Bug 表与字段、三个仓库、定时任务、PPE 部署、tutti-ops 管理端、本机 Computer 日志路径等）都已内置，不需要你提供，见 [Setup Skill](skills/bug-setup/SKILL.md#默认配置)。数据目录默认 `~/.local/share/bug-workbench`（可用 `BUG_WORKBENCH_DATA` 覆盖），配置、代码缓存与运行记录都在这里，插件更新不影响。单项工具命令（`workbench.py doctor`、`setup-tutti-ops`、`configure-tutti-token`）仍可直接使用，见 [准备与授权教程](skills/bug-setup/references/setup-user-guide.md)。
+默认配置（tutti-ops 管理端、本机 Computer 日志路径等）都已内置，不需要你提供，见 [Setup Skill](skills/bug-setup/SKILL.md#默认配置)。数据目录默认 `~/.local/share/bug-workbench`（可用 `BUG_WORKBENCH_DATA` 覆盖），配置与运行记录都在这里，插件更新不影响。单项工具命令（`workbench.py doctor`、`setup-tutti-ops`、`configure-tutti-token`）仍可直接使用，见 [准备与授权教程](skills/bug-setup/references/setup-user-guide.md)。
 
-## 飞书 Bug 管理表
-
-三个场景共用 [Bug 管理表（视图「新框架（一期）」）](https://ccn53rwonxso.feishu.cn/base/CEHMbNF8Zavq5wsAO3ecrpQ6nPc?table=tblieImZwMnvZ8My&view=vewoD2kiPo)，每个场景只写自己负责的字段，「状态」由人工流转。「方案状态」串起后两个场景：空／未处理／已驳回 → 定时分析 → 待评审 → RD 选已批准或已驳回（写驳回意见，重新分析）→ 定时修复 → 修复中 → 已部署待验收／修复失败。字段与职责见 [字段与职责](skills/bug-setup/references/report-fields.md)。
-
-| 场景 | 写入的字段 |
-|---|---|
-| bug-investigate | 不写飞书表；在指定 Room 建 Task（标题、描述、优先级），截图和日志作为 Task 附件上传 |
-| bug-solution | 分析根因、根因图（PNG）、修复方式、验收标准；方案状态置「待评审」 |
-| bug-execute | 方案状态（修复中／已部署待验收／修复失败）、修复进度、访问环境、一句话解释原因、关联 PR、验证结果、修复截图 |
-
-### QA 提 Bug（`bug-investigate`）
+## QA 提 Bug（`bug-investigate`）
 
 **不写飞书 Bug 表**，而是用全局安装的 `tutti-cli`（npm `@tutti-os/tutti-cli`，Node.js 24+，`tutti-cli login` 用浏览器登录 Tutti 账号）在 QA 指定的 Room 建 Task。在 QA 本机的 Codex 会话里运行即可，不需要 Room Agent。不做根因分析，只把当时的现场带全。流程见 [SKILL.md](skills/bug-investigate/SKILL.md)：
 
@@ -46,9 +34,23 @@ Agent 会先问你要准备哪个场景：**QA 提 Bug**、**定时分析**、**
 4. 现场齐了以后一次 `task edit`：标题改成一句话 Bug 简介，描述只写 Bug 表现（问题、复现步骤、实际、期望），截图、`排查线索.txt`（日志核对、关联 ID、环境与版本）和全部日志用 `--file` 作为 Task 私有附件挂上；`task show` 回读。
 5. 缺的一次问完，用户补充后带上全部文件再 `task edit` 一次；CLI 不能指派，请 QA 在任务看板指派跟进人。最后上传本次会话。
 
+## 暂时屏蔽：RD 根因分析与修复
+
+bug-solution、bug-execute 暂时不随插件加载，源码和测试原样保留在 [disabled-skills/](disabled-skills/README.md)，恢复方式见该目录的 README。下面是它们原来的工作方式，供恢复时参考。
+
+### 飞书 Bug 管理表
+
+三个场景共用 [Bug 管理表（视图「新框架（一期）」）](https://ccn53rwonxso.feishu.cn/base/CEHMbNF8Zavq5wsAO3ecrpQ6nPc?table=tblieImZwMnvZ8My&view=vewoD2kiPo)，每个场景只写自己负责的字段，「状态」由人工流转。「方案状态」串起后两个场景：空／未处理／已驳回 → 定时分析 → 待评审 → RD 选已批准或已驳回（写驳回意见，重新分析）→ 定时修复 → 修复中 → 已部署待验收／修复失败。字段与职责见 [字段与职责](skills/bug-setup/references/report-fields.md)。
+
+| 场景 | 写入的字段 |
+|---|---|
+| bug-investigate | 不写飞书表；在指定 Room 建 Task（标题、描述、优先级），截图和日志作为 Task 附件上传 |
+| bug-solution | 分析根因、根因图（PNG）、修复方式、验收标准；方案状态置「待评审」 |
+| bug-execute | 方案状态（修复中／已部署待验收／修复失败）、修复进度、访问环境、一句话解释原因、关联 PR、验证结果、修复截图 |
+
 ### 根因与方案（`bug-solution`）
 
-定时分析，流程见 [SKILL.md](skills/bug-solution/SKILL.md) 与 [定时任务](skills/bug-solution/references/schedule.md)：
+定时分析，流程见 [SKILL.md](disabled-skills/bug-solution/SKILL.md) 与 [定时任务](disabled-skills/bug-solution/references/schedule.md)：
 
 1. 对 agent 说「给张三开 bug 根因定时分析，只看 P1 以上」，`schedule.py install` 为该跟进人装一个本机 launchd 任务，每小时一轮。
 2. 每轮 `scan.py`：列出该跟进人「未解决」且方案状态为空／未处理／已驳回的 Bug，同步全局代码检出到最新 main，全部处理。
@@ -57,7 +59,7 @@ Agent 会先问你要准备哪个场景：**QA 提 Bug**、**定时分析**、**
 
 ### 修复与部署（`bug-execute`）
 
-定时修复，流程见 [SKILL.md](skills/bug-execute/SKILL.md)、[定时任务](skills/bug-execute/references/schedule.md) 与 [PPE 部署](skills/bug-execute/references/deploy.md)：
+定时修复，流程见 [SKILL.md](disabled-skills/bug-execute/SKILL.md)、[定时任务](disabled-skills/bug-execute/references/schedule.md) 与 [PPE 部署](disabled-skills/bug-execute/references/deploy.md)：
 
 1. 对 agent 说「给张三开定时修复」，`schedule.py install` 为该跟进人装一个本机 launchd 任务，每小时一轮。
 2. 每轮 `scan.py`：遗留的「修复中」标为修复失败；方案状态为「已批准」的 Bug 逐条置「修复中」，各起一个 `codex exec` 会话（本机运行，不进 sandbox）。
@@ -66,14 +68,10 @@ Agent 会先问你要准备哪个场景：**QA 提 Bug**、**定时分析**、**
 
 ## 已提供的能力
 
-- 四个可发现的 Skills；其中三个是业务场景。
-- 根因、方案、验收与验证模板。
+- 两个可发现的 Skills：bug-investigate（QA 提 Bug）和 bug-setup（环境准备）。
 - 幂等初始化、环境检查、私有目录下的固定版本 npm CLI 安装。
 - setup 复用已有 tutti-ops，缺少时按 `npm install -g @tutti-os/tutti-ops-cli` 全局安装，记录实际版本和入口；根据已安装命令的帮助与 schema 读取 Computer。
-- bare 代码缓存增量同步、全局分析检出、修复 worktree 的创建／推送／解除，均加文件锁。
-- 按跟进人安装的本机定时根因分析（launchd + codex exec），Mermaid 图渲染 PNG。
 - 从实际配置生成便携 MCP 配置与旧版 Codex 兼容配置。
-- 执行前确认方案状态为「已批准」且根因、方案、验收齐全。
 
 tutti-ops 使用用户指定的全局 npm 安装方式，要求 Node.js >=20 和 npm，详见 [tutti-ops 安装与认证](skills/bug-setup/references/tutti-ops-computer-logs.md)。其他 CLI 先填写可信 npm 包名与精确版本，再显式调用 `install-cli`；通用私有 npm 安装器不运行包的安装脚本，其他原生工具按实际安装方法适配。
 
@@ -85,9 +83,7 @@ Web 日志由 QA 在出问题的浏览器里自行导出：Tutti「设置 → �
 
 ## 当前接入范围
 
-QA 提 Bug 用全局 tutti-cli 在指定 Room 建 Task；定时分析与定时修复仍使用飞书 Bug 管理表，表及字段已绑定，并在本机通过 user 身份读取验证。三个仓库（tutti、tutti-server、tsh-websocket）的 URL 与 main 分支已配置。Web 日志使用 QA 导出的诊断包，见 [Web 日志](skills/bug-investigate/references/web-logs.md)。本地 computer 日志读取用户指定的明确文件路径；远端 computer 固定复用 Tutti 的日志召回流程，可使用 tutti-ops CLI 或实际 MCP 执行，见 [Computer 日志获取](skills/bug-investigate/references/computer-logs.md)。当前 Mac 已保存核实的三个本地主日志及 Codex 临时诊断路径，并记录轮转日志、VM 崩溃报告与导出漏收注意事项；其他机器需确认实际路径。本机 tutti-ops 已安装并完成离线能力核对，远端认证与真实日志采集尚待验证；其他使用者的宿主能力、远端环境／权限及验证地址仍需分别核对。Skills 可复用当前 Codex 会话的本地工具与已连接 MCP；当前包没有自带 MCP server、飞书连接器或常驻调度服务。共享此包携带表格和仓库地址，不授予收件人访问权限，也不携带本机检出路径或凭证。
-
-飞书事件触发、重试、事件去重、跨设备调度与可信 RD 审批属于后续流程服务，契约见 [工作流](skills/bug-setup/references/workflow.md)。本版 `check-approval` 以方案状态为准，谁批准的以飞书修改记录为准。
+QA 提 Bug 用全局 tutti-cli 在指定 Room 建 Task。Web 日志使用 QA 导出的诊断包，见 [Web 日志](skills/bug-investigate/references/web-logs.md)。本地 computer 日志读取用户指定的明确文件路径；远端 computer 固定复用 Tutti 的日志召回流程，可使用 tutti-ops CLI 或实际 MCP 执行，见 [Computer 日志获取](skills/bug-investigate/references/computer-logs.md)。当前 Mac 已保存核实的三个本地主日志及 Codex 临时诊断路径，并记录轮转日志、VM 崩溃报告与导出漏收注意事项；其他机器需确认实际路径。本机 tutti-ops 已安装并完成离线能力核对，远端认证与真实日志采集尚待验证；其他使用者的宿主能力、远端环境／权限及验证地址仍需分别核对。Skills 可复用当前 Codex 会话的本地工具与已连接 MCP；当前包没有自带 MCP server、飞书连接器或常驻调度服务。共享此包携带表格和仓库地址，不授予收件人访问权限，也不携带本机检出路径或凭证。
 
 本地执行仍可能把选取的代码、日志片段和工具输出提交给模型。共享源码和分发包不包含真实业务数据或凭证。
 
@@ -97,9 +93,9 @@ QA 提 Bug 用全局 tutti-cli 在指定 Room 建 Task；定时分析与定时�
 
 ```sh
 python3 PLUGIN_SOURCE/scripts/validate_plugin.py
-for skill in bug-investigate bug-setup bug-solution bug-execute; do
-  python3 -m unittest discover -s PLUGIN_SOURCE/skills/$skill/tests -t PLUGIN_SOURCE/skills/$skill/tests
+for skill in skills/bug-investigate skills/bug-setup disabled-skills/bug-solution disabled-skills/bug-execute; do
+  python3 -m unittest discover -s PLUGIN_SOURCE/$skill/tests -t PLUGIN_SOURCE/$skill/tests
 done
 ```
 
-打包时包括根部 `plugin.json`、`mcp.json`、`skills/` 和隐藏兼容文件。排除业务数据、凭证、工具安装目录与缓存。
+打包时包括根部 `plugin.json`、`mcp.json`、`skills/` 和隐藏兼容文件；`disabled-skills/` 不在 `skills/` 下，插件不会加载。排除业务数据、凭证、工具安装目录与缓存。
