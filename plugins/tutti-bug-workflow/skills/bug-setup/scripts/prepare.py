@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Scene-based setup: check everything a scene needs, fix what can be fixed unattended.
 
-Scenes: `investigate` (QA 提 Bug), `solution` (定时分析根因与方案), `execute` (定时修复与部署).
-Only the scenes in ENABLED_SCENES can be chosen; `all` means all of those. Each item comes back with one status:
+Scenes: `investigate` (QA 提 Bug) and `execute` (修复一条 Bug Task 并部署 PPE), or `all`.
+Both work only with the Tutti task system through tutti-cli. Each item comes back with one status:
 
 - `ok`: ready and verified (installed, logged in, resource reachable).
 - `fix`: missing but `prepare.py fix` can do it unattended (fill config defaults, npm or
@@ -10,10 +10,10 @@ Only the scenes in ENABLED_SCENES can be chosen; `all` means all of those. Each 
 - `user`: needs the person (a login, a token, a permission from an owner); `guide` lists
   the exact steps and `verify` says how it is checked afterwards.
 - `host`: checked by the agent inside Codex (the chrome-devtools MCP and Chrome consent).
-- `optional`: not needed for the scene to work, e.g. the scheduled job not installed yet.
+- `optional`: not needed for the scene to work, e.g. no local Computer logs on this machine.
 
 `check` only reads and runs read-only probes. `fix` performs the `fix` items, then checks
-again. Nothing here creates bugs, pushes, deploys or writes to Feishu.
+again. Nothing here creates Tasks, pushes or deploys.
 """
 
 import argparse
@@ -25,17 +25,12 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import workbench as wb  # noqa: E402
 
-SCENES = {"investigate": "QA 提 Bug", "solution": "定时分析根因与方案", "execute": "定时修复与部署"}
-# bug-solution is paused (moved to disabled-skills/); add "solution" back here to re-enable it.
-ENABLED_SCENES = ("investigate", "execute")
-NPM_PACKAGES = {"lark-cli": "@larksuite/cli", "codex": "@openai/codex", "mmdc": "@mermaid-js/mermaid-cli",
-                "tutti-ops": "@tutti-os/tutti-ops-cli", "tutti-cli": "@tutti-os/tutti-cli"}
-SCHEDULE_PREFIX = {"solution": "com.tutti.bug-solution.", "execute": "com.tutti.bug-execute."}
+SCENES = {"investigate": "QA 提 Bug", "execute": "修复与部署"}
+NPM_PACKAGES = {"tutti-ops": "@tutti-os/tutti-ops-cli", "tutti-cli": "@tutti-os/tutti-cli"}
 SCRIPT = Path(__file__).resolve()
 
 
@@ -130,7 +125,7 @@ def check_node():
     if ready:
         return item("node", "Node.js 20+ 与 npm", "ok", version)
     return item("node", "Node.js 20+ 与 npm", "user", f"当前：{version or '未安装'}",
-                guide=["Node.js 用来安装 lark-cli、mmdc、tutti-ops，并运行 chrome-devtools MCP。",
+                guide=["Node.js 用来安装 tutti-cli、tutti-ops，并运行 chrome-devtools MCP。",
                        "macOS 推荐：在终端运行 `brew install node`（没有 Homebrew 先看 https://brew.sh）；"
                        "或用 nvm：`nvm install 22 && nvm use 22`。",
                        "装好后重新打开终端，回复「已完成」。"],
@@ -153,7 +148,7 @@ def check_command(name, label, scene_hint):
 
 
 def check_tutti_cli():
-    """QA 提 Bug creates the Room Task with the global account CLI (@tutti-os/tutti-cli, Node 24+)."""
+    """Both scenes talk to Room Tasks through the global account CLI (@tutti-os/tutti-cli, Node 24+)."""
     label = "Tutti CLI（tutti-cli，账号登录版）"
     code, out = run(["tutti-cli", "--help"]) if shutil.which("tutti-cli") else (127, "")
     detail = None
@@ -174,7 +169,7 @@ def check_tutti_cli():
             return item("tutti-cli", label, "fix", f"{detail}，将运行 npm install -g @tutti-os/tutti-cli@latest",
                         fix="npm:tutti-cli")
         return item("tutti-cli", label, "user", f"{detail}；需要 Node.js 24+（当前：{version or '未安装'}）",
-                    guide=["QA 提 Bug 用全局安装的 tutti-cli 以你的 Tutti 账号在指定 Room 建 Task，它要求 Node.js 24 及以上。",
+                    guide=["提 Bug、修复回复都用全局安装的 tutti-cli 以你的 Tutti 账号读写 Room 里的 Task，它要求 Node.js 24 及以上。",
                            "用 nvm：`nvm install 24 && nvm use 24`（或 `brew install node`），然后回复「已完成」，"
                            "Agent 会运行 `npm install -g @tutti-os/tutti-cli@latest`。"],
                     verify="`tutti-cli --help` 列出 login、room list、task create 与 task run")
@@ -186,60 +181,9 @@ def check_tutti_cli():
             user = {}
         return item("tutti-cli", label, "ok", f"已登录：{user.get('name') or user.get('userId') or '未知账号'}")
     return item("tutti-cli", label, "user", f"未登录或登录已过期：{out.strip()[-200:]}",
-                guide=["在终端运行 `tutti-cli login`，浏览器会打开 Tutti 登录页，用要建 Bug 的账号完成登录（需是目标 Room 的成员）。",
+                guide=["在终端运行 `tutti-cli login`，浏览器会打开 Tutti 登录页，用你自己的 Tutti 账号完成登录（需是目标 Room 的成员）。",
                        "登录完成后回复「已完成」。"],
                 verify="`tutti-cli whoami --json` 返回账号")
-
-
-def check_lark(cfg):
-    missing = check_command("lark-cli", "飞书 CLI（lark-cli）", "读写 Bug 表")
-    if missing:
-        return [missing]
-    items = []
-    code, out = run(["lark-cli", "auth", "status"])
-    try:
-        status = json.loads(out[out.index("{"):]) if "{" in out else {}
-    except ValueError:
-        status = {}
-    user = (status.get("identities") or {}).get("user") or {}
-    if not status.get("appId"):
-        return [item("lark-auth", "飞书应用与登录", "user", "lark-cli 还没有配置飞书应用",
-                     guide=["Agent 在后台运行 `lark-cli config init --new`，把输出里的链接发给你；",
-                            "你在浏览器里打开链接，按页面提示创建（或选择）飞书应用并确认；",
-                            "完成后回复「已完成」，Agent 接着发起飞书登录。"],
-                     verify="lark-cli auth status 返回 appId")]
-    if user.get("tokenStatus") != "valid":
-        return [item("lark-auth", "飞书登录", "user", user.get("message") or "飞书用户身份未登录或已过期",
-                     guide=["Agent 运行 `lark-cli auth login --domain base,contact,drive --no-wait --json`，"
-                            "用 `open <verification_url>` 在本机打开浏览器；",
-                            "Agent 接着运行 `lark-cli auth login --device-code <device_code>` 等待授权完成；",
-                            "你只需在弹出的浏览器里点「授权」，不用回复。"],
-                     verify="lark-cli auth status 中 user.tokenStatus 为 valid")]
-    items.append(item("lark-auth", "飞书登录", "ok", f"{user.get('userName')}（{user.get('openId')}）"))
-    table = cfg.get("bug_report") or example()["bug_report"]
-    code, out = run(["lark-cli", "base", "+field-list", "--as", "user", "--base-token", table["base_token"],
-                     "--table-id", table["table_id"], "--format", "json"], timeout=90)
-    try:
-        data = json.loads(out[out.index("{"):]).get("data") or {}
-    except ValueError:
-        data = {}
-    fields = next((value for value in data.values() if isinstance(value, list)), []) if isinstance(data, dict) else []
-    present = {field.get("field_id") or field.get("id") for field in fields if isinstance(field, dict)}
-    if code or not present:
-        items.append(item("feishu-table", "Bug 管理表访问", "user", "读不到 Bug 管理表：" + out.strip()[-300:],
-                          guide=[f"打开 Bug 管理表 {table.get('base_url')}，确认你能看到「{table.get('table_name')}」；",
-                                 "看不到或不能编辑时，请表格负责人把你加为「可编辑」协作者；",
-                                 "完成后回复「已完成」。"],
-                          verify="lark-cli base +field-list 能读到表字段"))
-        return items
-    missing = sorted(key for key, value in (table.get("field_map") or {}).items() if value and value not in present)
-    if missing:
-        items.append(item("feishu-table", "Bug 管理表访问", "user", f"表里缺少字段：{missing}",
-                          guide=["表结构和插件配置不一致：请维护人员在表里补上这些列，或更新 config.json 的 "
-                                 "bug_report.field_map。"], verify="field_map 中每个字段 ID 都在表里"))
-    else:
-        items.append(item("feishu-table", "Bug 管理表访问", "ok", f"{len(present)} 个字段，配置的字段都在"))
-    return items
 
 
 def check_repositories(cfg):
@@ -260,36 +204,6 @@ def check_repositories(cfg):
                             "完成后回复「已完成」。"],
                      verify="git ls-remote 能读到 tutti、tutti-server、tsh-websocket 的 main")]
     return [item("repositories", "代码仓库读取", "ok", "tutti、tutti-server、tsh-websocket 都能读取")]
-
-
-def check_codex():
-    missing = check_command("codex", "Codex CLI", "定时任务为每条 Bug 起会话")
-    if missing:
-        return [missing]
-    code, out = run(["codex", "login", "status"])
-    if code or "Logged in" not in out:
-        return [item("codex-login", "Codex 登录", "user", out.strip()[-200:] or "未登录",
-                     guide=["Agent 直接运行 `codex login`，它会在本机打开浏览器并等待；",
-                            "你在浏览器里登录（ChatGPT 账号或 API key），不用回复。"],
-                     verify="codex login status 显示 Logged in")]
-    return [item("codex-login", "Codex 登录", "ok", out.strip().splitlines()[0])]
-
-
-def check_mmdc():
-    missing = check_command("mmdc", "Mermaid 渲染（mmdc）", "根因图转 PNG")
-    if missing:
-        return [missing]
-    with tempfile.TemporaryDirectory() as folder:
-        source, target = Path(folder) / "probe.mmd", Path(folder) / "probe.png"
-        source.write_text("flowchart LR\n  A --> B\n", encoding="utf-8")
-        code, out = run(["mmdc", "-i", str(source), "-o", str(target), "-b", "white"], timeout=120)
-        rendered = target.is_file() and target.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
-    if not rendered:
-        return [item("mmdc", "Mermaid 渲染（mmdc）", "user", "mmdc 渲染失败：" + out.strip()[-300:],
-                     guide=["mmdc 依赖 puppeteer 自带的 Chromium：在终端运行 "
-                            "`npx puppeteer browsers install chrome-headless-shell`，完成后回复「已完成」。"],
-                     verify="mmdc 能把一张测试图渲染成 PNG")]
-    return [item("mmdc", "Mermaid 渲染（mmdc）", "ok", "测试图渲染成功")]
 
 
 def check_github(cfg):
@@ -378,42 +292,19 @@ def check_computer_logs(cfg):
                  "本机没有 Computer 日志（这台机器没跑过 Tutti Computer 时正常）；远端设备的日志用 tutti-ops 召回")]
 
 
-def check_schedule(scene):
-    folder = Path(os.environ.get("LAUNCH_AGENTS_DIR") or Path.home() / "Library/LaunchAgents")
-    jobs = sorted(path.stem.split(".")[-1] for path in folder.glob(f"{SCHEDULE_PREFIX[scene]}*.plist"))
-    name = "定时分析" if scene == "solution" else "定时修复"
-    skill = "bug-solution" if scene == "solution" else "bug-execute"
-    if jobs:
-        return [item(f"{scene}-schedule", f"{name}任务", "ok", f"已开启：{jobs}")]
-    if platform.system() != "Darwin":
-        return [item(f"{scene}-schedule", f"{name}任务", "user", "定时任务依赖 macOS launchd，这台机器不是 macOS")]
-    return [item(f"{scene}-schedule", f"{name}任务", "optional", "还没开启",
-                 guide=[f"其他项都通过后，用 `$tutti-bug-workflow:{skill}` 开启：默认跟进人是当前飞书登录用户、"
-                        "每小时一轮、处理全部优先级；可以指定跟进人和最低优先级（例如「只处理 P1 以上」）。"])]
-
-
 def check(root, scenes):
     items = [item("python", "Python 3.10+", "ok" if sys.version_info >= (3, 10) else "user",
                   platform.python_version()), check_config(root)]
     cfg = wb.read_json(root / "config.json") if (root / "config.json").is_file() else example()
     items.append(check_node())
-    if {"solution", "execute"} & scenes:
-        items += check_lark(cfg)
-        items += check_repositories(cfg)
-        items += check_codex()
-    if "solution" in scenes:
-        items += check_mmdc()
+    items.append(check_tutti_cli())
     if "execute" in scenes:
+        items += check_repositories(cfg)
         items += check_github(cfg)
-    if {"investigate", "execute"} & scenes:
-        items += check_chrome()
+    items += check_chrome()
     if "investigate" in scenes:
-        items.append(check_tutti_cli())
         items += check_tutti_ops(root, cfg)
         items += check_computer_logs(cfg)
-    for scene in ("solution", "execute"):
-        if scene in scenes:
-            items += check_schedule(scene)
     return items
 
 
@@ -461,12 +352,12 @@ def report(scenes, items, done=None, errors=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("operation", choices=("check", "fix"))
-    parser.add_argument("--scene", action="append", choices=(*ENABLED_SCENES, "all"), required=True)
+    parser.add_argument("--scene", action="append", choices=(*SCENES, "all"), required=True)
     parser.add_argument("--data-dir")
     args = parser.parse_args()
     try:
         root = wb.data_root(argparse.Namespace(data_dir=args.data_dir))
-        scenes = set(ENABLED_SCENES) if "all" in args.scene else set(args.scene)
+        scenes = set(SCENES) if "all" in args.scene else set(args.scene)
         items = check(root, scenes)
         if args.operation == "check":
             wb.emit(report(scenes, items))

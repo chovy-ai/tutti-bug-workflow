@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Per-fix worktrees cut from the latest remote main, pushed, then detached.
+"""Per-fix worktrees cut from the remote branch, pushed, kept through the PPE deploy, then removed.
 
 `start` fetches main into the repository's bare cache (`cache_path`) and adds a
-worktree on a new branch at `worktrees/<repo>/<branch>` in the data directory; when the
-branch already exists on origin (a retried fix) it continues from that branch instead.
-`finish` requires a clean tree with new commits, pushes the branch to origin,
-checks the remote now points at the local HEAD, then removes the worktree and the
-local branch. `remove` detaches a worktree without pushing (failed or abandoned
-fixes). Nothing else is kept: the pushed branch and its PR are the record.
+worktree on a new branch at `worktrees/<repo>/<branch>` in the data directory, cut from
+the latest origin main; when the branch already exists on origin (a retried fix) it is
+cut from that remote branch instead. `push` requires a clean tree with new commits,
+pushes the branch to origin and checks the remote now points at the local HEAD; the
+worktree stays for the PR and the PPE deploy. `remove` detaches the worktree and the
+local branch at the end; it refuses unpushed work unless `--discard` (failed or
+abandoned fixes). Nothing else is kept: the pushed branch and its PR are the record.
 """
 
 import argparse
@@ -139,7 +140,7 @@ def start(args, root, repos):
         raise ValueError(f"Cut a fix branch, not {repo['branch']}.")
     reference, sha = fetch(repo)
     if git(repo["cache"], "for-each-ref", f"refs/heads/{args.branch}"):
-        raise ValueError(f"Branch {args.branch} already exists in the cache; finish or remove its "
+        raise ValueError(f"Branch {args.branch} already exists in the cache; remove its "
                          "worktree first, or pick another name.")
     path = worktree_path(root, repo, args.branch)
     if path.exists():
@@ -158,11 +159,11 @@ def start(args, root, repos):
             "behind_main": int(git(path, "rev-list", "--count", f"HEAD..{reference}")) if resumed else 0}
 
 
-def finish(args, root, repos):
+def push(args, root, repos):
     repo, path = owner(root, repos, args.path)
     branch = git(path, "symbolic-ref", "--short", "HEAD")
     if git(path, "status", "--porcelain"):
-        raise ValueError(f"{path} has uncommitted changes; commit them before finishing.")
+        raise ValueError(f"{path} has uncommitted changes; commit them before pushing.")
     reference, base = fetch(repo)
     head = git(path, "rev-parse", "HEAD")
     if not git(path, "rev-list", f"{reference}..HEAD"):
@@ -170,10 +171,9 @@ def finish(args, root, repos):
     git(path, "push", "origin", f"HEAD:refs/heads/{branch}")
     remote = git(path, "ls-remote", "--heads", "origin", branch).split()
     if not remote or remote[0] != head:
-        raise ValueError(f"origin/{branch} is not at {head} after push; worktree kept at {path}.")
-    detach(repo, path, branch)
+        raise ValueError(f"origin/{branch} is not at {head} after push.")
     return {"repository": repo["name"], "branch": branch, "pushed_sha": head,
-            "main_sha": base, "url": repo["url"], "worktree_removed": str(path)}
+            "main_sha": base, "url": repo["url"], "worktree": str(path)}
 
 
 def remove(args, root, repos):
@@ -199,7 +199,7 @@ def remove(args, root, repos):
 def main():
     result = argparse.ArgumentParser(description=__doc__)
     commands = result.add_subparsers(dest="operation", required=True)
-    for name in ("start", "finish", "remove"):
+    for name in ("start", "push", "remove"):
         command = commands.add_parser(name)
         command.add_argument("--data-dir")
         command.add_argument("--config")
@@ -218,7 +218,7 @@ def main():
         repos = repositories(wb.load_config(args, root), root,
                              [args.repo] if args.operation == "start" else None)
         with repositories_lock(root / "repositories"):
-            report = {"start": start, "finish": finish, "remove": remove}[args.operation](args, root, repos)
+            report = {"start": start, "push": push, "remove": remove}[args.operation](args, root, repos)
         wb.emit({"ok": True, **report})
     except (ValueError, OSError, subprocess.TimeoutExpired) as error:
         wb.emit({"ok": False, "error": str(error)})

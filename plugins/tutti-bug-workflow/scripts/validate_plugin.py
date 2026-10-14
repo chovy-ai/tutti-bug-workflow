@@ -7,7 +7,6 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-# bug-solution is paused in disabled-skills/ and must not be loaded.
 SCENES = {"bug-investigate", "bug-execute", "bug-setup"}
 
 
@@ -36,7 +35,7 @@ def main():
     if converted != legacy_mcp.get("mcpServers"):
         errors.append("Portable/compatibility MCP configurations differ.")
     catalog = json.loads((ROOT / "skills/bug-setup/config/tool-profiles.json").read_text())
-    scene_names = {"investigate", "solution", "execute"}
+    scene_names = {"investigate", "execute"}
     if catalog.get("schema_version") != 1 or set(catalog.get("scenes", {})) != scene_names:
         errors.append("Invalid tool scene catalog.")
     identifiers = set()

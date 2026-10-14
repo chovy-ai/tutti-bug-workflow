@@ -8,13 +8,14 @@
 
 ## 项目配置
 
-- `bug_report.base_url`、`base_token`、`table_id`、`view_id`：三个场景共用的 Bug 管理表；`field_map` 的键为业务语义，值为真实字段 ID。`defaults`、`platform_choices`、`excluded_priorities` 供提 Bug 使用。更换表格前必须重新解析和读取字段，不能复用原字段或视图 ID。字段职责见 [字段与职责](report-fields.md)，场景交接见 [工作流](workflow.md)。
-- `repositories`：默认配置 tutti（Web、Computer）、tutti-server（Server）、tsh-websocket（WebSocket）三个仓库的远端 main；每项提供 `name`、`url`、`base_branch`、`cache_path`（bare 缓存）和 `checkout_path`（全局分析检出）。修复 worktree 位于数据目录 `worktrees/` 下，推送后删除。操作见 [代码缓存](repository-cache.md)，其他分支需用户指定。
+- Bug 记录在 Tutti 任务系统（Room 里的 Task），用全局 `tutti-cli` 读写，配置里不需要表格信息。场景交接见 [工作流](workflow.md)。
+- `repositories`：默认配置 tutti（Web、Computer）、tutti-server（Server）、tsh-websocket（WebSocket）三个仓库的远端 main；每项提供 `name`、`url`、`base_branch`、`cache_path`（bare 缓存）和 `checkout_path`（检出位置）。修复 worktree 位于数据目录 `worktrees/` 下，推送后删除。操作见 [代码缓存](repository-cache.md)，其他分支需用户指定。
 - `log_sources`：每项提供 `name`、`kind`、`transport`、`environment` 及对应入口。Web 有两个来源：`chrome-devtools-mcp`（插件注册的 chrome-devtools MCP，见 [WebMCP 连接准备](web-logs.md)）与 `user-export`（QA 导出的诊断包）；`files` 使用明确的文件 `paths`，支持绝对路径、`~/`、`${TMPDIR}/` 和 `${TEMP}/`，读取前解析为本机绝对路径；`mcp` 使用 `mcp_server` 与实际 `tool`；兼容旧配置的 `cli` 使用 `argv` 与可选 `cwd`。Computer 的路径规则及远端协议见 [Computer 日志获取](computer-logs.md)。缺少入口时保留空值，检查逐个报告未配置；配置检查不表示已取得日志。
+- `deploy`：修复分支前缀（`codex/bug-`）、各端 PPE 部署工作流、泳道前缀（`ppe-bug-`）和预览链接模板，供 bug-execute 使用。
 - `validation`：实际环境、URL、浏览器工具，以及部署版本的读取方法。部署操作仍按当前任务授权执行。
 - `trigger.mode`：本版只支持 `manual`。填写其他模式不会创建监听器。
 
-`doctor` 检查本地命令是否存在及配置是否齐备，不访问飞书、不验证仓库权限，也不替用户登录。它分别报告本地工具和外部接入的配置状态；执行模式的 Agent 还需按 [主动补齐授权](setup-user-guide.md#主动补齐授权) 验证权限、处理缺口并复查实际访问。
+`doctor` 检查本地命令是否存在及配置是否齐备，不访问外部服务、不验证仓库权限，也不替用户登录。它分别报告本地工具和外部接入的配置状态；执行模式的 Agent 还需按 [主动补齐授权](setup-user-guide.md#主动补齐授权) 验证权限、处理缺口并复查实际访问。
 
 ## 日志采集
 
@@ -59,7 +60,7 @@ QA 所需的补充资料由当前未验证假设决定；通用接入或权限�
 
 调用 `install-cli --name company-cli` 后，安装器在数据目录的 `tools/company-cli/` 运行固定版本 npm 安装，禁用 npm lifecycle scripts，检查对应可执行文件，并返回该可执行文件的路径。后续工具使用返回路径或将其 `.bin` 目录临时加入该任务 PATH。需要 postinstall 的 CLI 不适用 npm 安装器。
 
-认证使用 CLI 自己的登录流程。飞书可先看 `lark-cli auth status --help`，确认当前身份；需要授权时仅申请任务所需 scope。凭证保存在 CLI 的认证存储中，配置文件只保存服务位置与非秘密设置。
+认证使用 CLI 自己的登录流程（如 `tutti-cli login`、`gh auth login`）；需要授权时仅申请任务所需 scope。凭证保存在 CLI 的认证存储中，配置文件只保存服务位置与非秘密设置。
 
 ## MCP
 
@@ -85,13 +86,3 @@ python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py configure-mcp --conf
 生成器会拒绝明显的占位地址，输出根部 `mcp.json` 和兼容 `.mcp.json`。对源码生成，再更新或重装插件；保持 installed cache 不变。需要的 OAuth、Bearer Token 或其他鉴权按服务要求通过宿主的 MCP 配置与凭证存储完成。生成器不会写入令牌，也不修改用户全局 Codex 设置。
 
 本地 STDIO 的 `command` 和 `args` 必须指向实际存在的运行时和入口；配置生成不能部署服务器。浏览器 MCP 的登录态、浏览器依赖和连接权限同样需要实际准备。
-
-## 飞书命令适配
-
-使用当前 CLI 帮助确认参数。链接先通过 `lark-cli base +url-resolve` 解析，再读取目标表字段与记录。优先显式使用指定身份，默认 `user`；权限失败先修复授权，不自动切换身份。
-
-写入前确认实际字段类型和 CellValue 结构，只更新该 Bug 的已映射字段；附件使用专用命令。成功以进程退出码和 `ok: true` 为准。审批门禁或权限错误需要按实际反馈处理，不能通过静默追加确认参数绕过。
-
-字段按 [字段与职责](report-fields.md) 写入：每个场景只写自己负责的字段，写前读取、写后回读，保留人工内容；状态由人工流转。缺少字段映射时先补齐实际字段 ID，不把内容挪到其他字段。
-
-当宿主提供飞书官方 Skills/MCP 时优先复用。若当前宿主没有可用操作说明，用 CLI 自带帮助或官方 API 文档补齐契约后执行。

@@ -35,8 +35,10 @@ class DeployTests(unittest.TestCase):
     def dispatches(self):
         return [call for call in json.loads(self.log.read_text()) if call[:2] == ["workflow", "run"]]
 
-    def test_lane_name_is_a_valid_lowercase_lane(self):
-        self.assertEqual(self.deploy("lane-name", "--record-id", "recvuU4kdHhaRU")["lane"], "ppe-bug-recvuu4kdhharu")
+    def test_fix_names_come_from_the_task_id(self):
+        names = self.deploy("fix-names", "--task-id", "0F3A9C21-7037-4b89-87e7-d503f811be8d")
+        self.assertEqual((names["branch"], names["lane"]), ("codex/bug-0f3a9c21", "ppe-bug-0f3a9c21"))
+        self.assertIn("UUID", self.deploy("fix-names", "--task-id", "rec1", expected=2)["error"])
 
     def test_server_then_websocket_then_web_then_computer(self):
         server = self.deploy("server", "--branch", "codex/bug-rec1", "--lane", "ppe-bug-rec1")
@@ -70,22 +72,14 @@ class DeployTests(unittest.TestCase):
         found = self.deploy("computer", "--branch", "b", FAKE_GH_NO_URL="1")
         self.assertEqual(found["run_id"], 4242)
 
-    def test_record_id_fills_access_environment_and_progress(self):
-        fields = json.loads(EXAMPLE_CONFIG.read_text())["bug_report"]["field_map"]
-        state = self.base / "lark.json"
-        state.write_text(json.dumps({"records": {"rec1": {fields["plan_status"]: "修复中"}}, "next": 2, "calls": []}))
-        lark = {"LARK_CLI": str(ROOT / "tests/fixtures-lark-cli.py"), "FAKE_LARK_STATE": str(state)}
-        self.deploy("server", "--branch", "codex/bug-rec1", "--lane", "ppe-bug-rec1", "--record-id", "rec1", **lark)
-        self.deploy("web", "--branch", "codex/bug-rec1", "--server-lane", "ppe-bug-rec1", "--record-id", "rec1", **lark)
-        self.deploy("computer", "--branch", "codex/bug-rec1", "--record-id", "rec1", expected=1, FAKE_GH_CONCLUSION="failure",
-                    **lark)
-        record = json.loads(state.read_text())["records"]["rec1"]
-        self.assertEqual(record[fields["environment"]], "https://tutti.sh/platform/?webBranch=codex/bug-rec1")
-        progress = record[fields["fix_progress"]].splitlines()
-        self.assertEqual(len(progress), 3)
-        self.assertIn("部署成功 Server 泳道：ppe-bug-rec1", progress[0])
-        self.assertIn("run https://github.com/x/actions/runs/1002", progress[1])
-        self.assertIn("部署失败 Computer canary（failure）", progress[2])
+    def test_successful_deploys_return_the_link_to_try_the_fix(self):
+        web = self.deploy("web", "--branch", "codex/bug-0f3a9c21", "--server-lane", "ppe-bug-0f3a9c21")
+        self.assertEqual(web["access_url"], "https://tutti.sh/platform/?webBranch=codex/bug-0f3a9c21")
+        computer = self.deploy("computer", "--branch", "codex/bug-0f3a9c21")
+        self.assertEqual(computer["access_url"], computer["url"])
+        self.assertNotIn("access_url", self.deploy("server", "--branch", "b", "--lane", "ppe-bug-0f3a9c21"))
+        failed = self.deploy("web", "--branch", "b", expected=1, FAKE_GH_CONCLUSION="failure")
+        self.assertNotIn("access_url", failed)
 
     def test_destroy_only_touches_per_bug_lanes(self):
         self.assertIn("per-bug", self.deploy("destroy-lane", "--lane", "ppe-a", expected=2)["error"])
