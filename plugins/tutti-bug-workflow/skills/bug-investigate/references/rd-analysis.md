@@ -27,6 +27,7 @@ tutti-cli task run --room-id <roomId> --task-id <taskId> --agent-target-id <agen
 
 - 回执是 `accepted` 或 `pending` 就算发出，不等 Agent 执行完；`rejected`（退出码 1）时换下一个模型或候选 Agent 再发一次，都被拒就写进最终回复，带上拒绝原因。
 - 结果不确定（超时、断网）时先 `task show` 看评论里是否已有这条指令，确实没有再用同一个 `--operation-id` 重发。
+- Agent 会把代码拉到它所在电脑的固定目录 `~/.local/share/bug-workbench/repositories/<仓库名>`，同一台电脑上后面的分析直接复用，只增量更新。
 - 每个 Task 只发一次。QA 之后补充现场、再 `task edit` 时不重发；QA 明确要求重新分析时再发。
 
 ## 指令模板
@@ -57,7 +58,18 @@ tutti-cli task run --room-id <roomId> --task-id <taskId> --agent-target-id <agen
 - 服务端日志没有拉，需要时按上面的 request id 查 tutti-server 日志；查不到就标成待确认，不要停下。
 
 【怎么做】
-1. 拉代码。涉及的仓库：tutti（Web 前端、Computer）、tutti-server（Server）、tsh-websocket（WebSocket，很少改，根因确实在这里才看）。本机已有检出就 git fetch 后在 origin/main 上读，没有就克隆最新 main 到临时目录；只读，不在检出里改代码、切分支或装依赖。记下每个仓库的 commit SHA。线上版本和 main 不一致时，用 git log 核实这段差异会不会影响结论；最新 main 已修复的，根因照写，并注明由哪个 PR／提交修复。
+1. 拉代码。代码放在固定目录 ~/.local/share/bug-workbench/repositories/<仓库名>，以后每次分析都复用这里，不要克隆到临时目录：
+   - tutti（Web 前端、Computer）：https://github.com/tutti-lab/tutti.git
+   - tutti-server（Server）：https://github.com/tutti-lab/tutti-server.git
+   - tsh-websocket（WebSocket，很少改，根因确实在这里才拉）：https://github.com/tutti-lab/tsh-websocket.git
+   每个要看的仓库这样更新到最新 main（<url> 和 <仓库名> 换成上面的值）：
+     dir=~/.local/share/bug-workbench/repositories/<仓库名>
+     [ -d "$dir/.git" ] || [ -f "$dir/.git" ] || git clone <url> "$dir"
+     git -C "$dir" status --porcelain     # 有输出说明有本地改动：不要动它，在回复的「待确认」里写明，改用 git -C "$dir" show／grep FETCH_HEAD 读
+     git -C "$dir" fetch <url> main && git -C "$dir" switch --detach FETCH_HEAD
+     git -C "$dir" rev-parse HEAD         # 记下 SHA
+   fetch 报锁冲突（另一个分析正在更新）时等半分钟重试。目录只读：不在里面改代码、切分支、装依赖或生成文件，需要跑最小复现时复制到临时目录做。
+   线上版本和 main 不一致时，用 git log 核实这段差异会不会影响结论；最新 main 已修复的，根因照写，并注明由哪个 PR／提交修复。
 
 2. 分析根因。从现场出发：按发生时间和关联 ID 在日志里找到出错的那几条，排出时间线，再在代码里找到对应实现，解释为什么会这样。因果链每一环都要有日志或代码作证，没证据的标成假设；现场不够就写进「待确认」，照常给出结论，不要提问等待。
 
