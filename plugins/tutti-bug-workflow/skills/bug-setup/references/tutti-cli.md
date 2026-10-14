@@ -39,4 +39,4 @@ Agent 后台运行 `tutti-cli login`：它在本机打开 Tutti 登录页并等�
 
 ## 能力边界
 
-有 `login`／`whoami`／`logout`、`room list [--type all|local|cloud] [--all]`、`agent list`／`agent models` 和 `task create`／`edit`／`show`／`comment`／`run`。`room list` 分页列出当前账号能访问的房间（本地／云端、ID、名称），bug-investigate 用 `--all` 读全后按 Room ID、房间名或用户名找房间；`agent list`／`agent models` 列出 Room 里的 Agent 和可选模型，`task run` 把指令作为 Task 评论交给指定 Agent 执行，bug-investigate 用它把根因分析交给 Room 里的 Codex Agent。每条 `task`、`agent` 命令显式带 `--room-id`。不能列出 Task、指派或修改优先级；排查线索写成附件，跟进人在任务看板指派。
+有 `login`／`whoami`／`logout`、`room list [--type all|local|cloud] [--all]`、`agent list`／`agent models` 和 `task create`／`edit`／`show`／`comment`／`run`。`room list` 分页列出当前账号能访问的房间（本地／云端、ID、名称），bug-investigate 用 `--all` 读全后按 Room ID、房间名或用户名找房间；`agent list`／`agent models` 列出 Room 里的 Agent 和可选模型，`task run` 把指令作为 Task 评论交给指定 Agent 执行，bug-investigate 用它把根因分析交给 Room 里的 Agent（Codex 优先，其次 Claude Code）。每条 `task`、`agent` 命令显式带 `--room-id`。不能列出 Task、指派或修改优先级；排查线索写成附件，跟进人在任务看板指派。

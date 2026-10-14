@@ -1,19 +1,23 @@
 # 交给 Room Agent 分析根因
 
-Task 补全后（第 4 步的 `task edit` 成功、`task show` 回读无误），用 `tutti-cli task run` 把一段分析指令发到这个 Task，交给目标 Room 里的 Codex Agent：拉代码、分析根因、按模块设计出方案、画修复前后的流程图，结果回复在 Task 的同一个评论线程里。本 Skill 只负责把指令组织好并发出去，不等分析完成，也不自己分析。
+Task 补全后（第 4 步的 `task edit` 成功、`task show` 回读无误），用 `tutti-cli task run` 把一段分析指令发到这个 Task，交给目标 Room 里的 Agent（Codex 优先，其次 Claude Code）：拉代码、分析根因、按模块设计出方案、画修复前后的流程图，结果回复在 Task 的同一个评论线程里。本 Skill 只负责把指令组织好并发出去，不等分析完成，也不自己分析。
 
 ## 选 Agent 和模型
 
-1. `tutti-cli agent list --room-id <roomId> --json`，只看 `providerId` 是 `codex`、`availability.status` 是 `available`、`referenceOnly` 为 `false` 的 Agent。按下面的顺序排候选：
-   1. `computerId` 等于该 Room 的 `nativeComputerId`（`find_room.py` 返回的 `room.nativeComputerId`），且 `executionEnvironment` 是 `native`：在房主本机运行，能用本机的 git 登录拉私有仓库；
-   2. 同一台 Computer 的 `managed_vm`；
-   3. 其他 Computer 上的 Codex。
-2. 对第一个候选运行 `tutti-cli agent models --room-id <roomId> --agent-target-id <id> --json`，在 `models[].value` 里按顺序找（值可能带连接前缀，按结尾匹配，传给 `--model` 时用原值）：
-   1. `gpt-6.1-sol`，`--reasoning-effort high`；
-   2. 没有时用 `gpt-6-astra`，`--reasoning-effort high`。
+先 Codex，其次 Claude Code。`tutti-cli agent list --room-id <roomId> --json` 里只看 `availability.status` 是 `available`、`referenceOnly` 为 `false` 的 Agent，按下面的顺序逐个试，第一个找得到合适模型的就用它：
 
-   `reasoningOptionsByModel.<model>.options` 里要有 `high`。两个都没有，换下一个候选 Agent；全部候选都没有就不发，写进最终回复（「房间里没有可用的 Codex Agent 或模型，未自动分析」）。不换成其他模型或其他 Agent 类型。
-3. `agent models` 报 403 等错误时跳过这个 Agent，试下一个。
+| 顺序 | Agent | 模型（`--model`） | `--reasoning-effort` |
+|---|---|---|---|
+| 1 | `providerId` 为 `codex` | `gpt-6.1-sol`，没有再用 `gpt-6-astra` | `high` |
+| 2 | `providerId` 为 `claude-code` | Opus 5.5 | `high` |
+
+- 同一类 Agent 有多个时：`computerId` 等于该 Room 的 `nativeComputerId`（`find_room.py` 返回的 `room.nativeComputerId`）且 `executionEnvironment` 为 `native` 的优先（在房主本机运行，能用本机的 git 登录拉私有仓库），其次同一台 Computer 的 `managed_vm`，再其次其他 Computer。所有 Codex 都试过、都没有合适模型，才轮到 Claude Code。
+- 每个候选先运行 `tutti-cli agent models --room-id <roomId> --agent-target-id <id> --json`，在 `models[]` 里找模型，`--model` 传 `value` 原值（可能带连接前缀）：
+  - Codex：`value` 等于或以 `gpt-6.1-sol`／`gpt-6-astra` 结尾；
+  - Claude Code：`label` 或 `description` 写明 Opus 5.5，或 `value` 含 `opus-5-5`。`opus`、`opus[1m]` 这类别名只有 `label` 写的是 Opus 5.5 才算，写的是其他版本（如 Opus 4.7）不算。
+- 选中的模型要支持 `high`：看 `reasoningOptionsByModel.<value>.options`，没有这一项时看 `reasoningEfforts`。
+- `agent models` 报 403 等错误时跳过这个 Agent，试下一个。
+- 全部候选都没有合适的就不发，写进最终回复：「房间里没有可用的 Codex（gpt-6.1-sol／gpt-6-astra）或 Claude Code（Opus 5.5），未自动分析」。不换成其他模型或其他 Agent 类型。
 
 ## 发出指令
 
@@ -25,7 +29,7 @@ tutti-cli task run --room-id <roomId> --task-id <taskId> --agent-target-id <agen
   --instruction-file <$REPORT>/rd-analysis.txt --operation-id <新 UUID> --json
 ```
 
-- 回执是 `accepted` 或 `pending` 就算发出，不等 Agent 执行完；`rejected`（退出码 1）时换下一个模型或候选 Agent 再发一次，都被拒就写进最终回复，带上拒绝原因。
+- 回执是 `accepted` 或 `pending` 就算发出，不等 Agent 执行完；`rejected`（退出码 1）时按上面的顺序换下一个模型或候选 Agent 再发一次，都被拒就写进最终回复，带上拒绝原因。
 - 结果不确定（超时、断网）时先 `task show` 看评论里是否已有这条指令，确实没有再用同一个 `--operation-id` 重发。
 - Agent 会把代码拉到它所在电脑的固定目录 `~/.local/share/bug-workbench/repositories/<仓库名>`，同一台电脑上后面的分析直接复用，只增量更新。
 - 每个 Task 只发一次。QA 之后补充现场、再 `task edit` 时不重发；QA 明确要求重新分析时再发。
