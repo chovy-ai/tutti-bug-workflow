@@ -1,22 +1,21 @@
 {
   "name": "tutti-bug-workflow",
-  "version": "0.2.4",
-  "description": "在 Codex 本地环境中完成 QA 提 Bug、RD 根因与方案、修复与验证，以飞书 Bug 管理表的同一条记录交接。",
+  "version": "0.3.0",
+  "description": "在 Codex 本地环境中完成 QA 提 Bug：带全现场日志，用全局 tutti-cli 在指定 Room 建 Task；附带环境准备。",
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "tutti-bug-workflow",
-    "shortDescription": "问题分析、方案协商、修复与验证",
-    "longDescription": "三个业务场景分别负责 QA 根因分析、RD 方案协商、修复与验证。默认绑定指定飞书 Bug 表和 tutti/tutti-server 的 main；QA 上报后自动保存问题和可获取的相关日志，先自行读取代码、查询目标、采集证据并验证候选原因，完成本轮可进行的分析后反馈结论或必要的现场问题。技术接入、命令和权限缺口保存在维护侧；提 Bug 每次调用都走完全程。本地读取已确认日志文件，远端通过 tutti-ops CLI/MCP 召回日志。Web 日志使用 QA 从 Tutti「设置 → 诊断」导出的诊断包，原样上传到 Bug 单。setup 准备 tutti-ops 与 tutti-cli；tutti-ops 由 setup 直接接收、验证并保存 Token，后续自动复用；执行 Setup 先完成工具安装，安装结束后立即进入授权，主动检查所需身份与权限，处理配置缺口并发起适用登录；必要时展示授权链接和二维码，本人完成后继续验证目标访问。只有用户明确跳过时才延期授权。 Setup Skill 逐步列出必需输入、条件性依赖、获取方式与验证标准；先讨论准备条件时只梳理现状，确定方式后再执行初始化。 工具 Setup 按 QA 分析、RD 方案、修复验证选择公共必需项和条件工具，复用已有准备并分别记录安装、配置、授权与真实验证。 提 Bug 不拉 Server 日志，只把相关请求的 request id 记进排查线索，RD 排查时再查。",
+    "shortDescription": "QA 提 Bug 与环境准备",
+    "longDescription": "QA 提 Bug：每次调用都走完全程，采集当时的 Web 页面日志和 Computer 日志，把相关请求的 request id 记进排查线索，用全局 tutti-cli（账号登录版）以 QA 的账号在指定 Room 建 Task，截图、排查线索和日志作为附件上传；再用 task run 把组织好的分析指令交给该 Room 的 Agent（Codex 优先，用 gpt-6.1-sol 或 gpt-6-astra；其次 Claude Code 用 Opus 5.5；推理强度 high），由它拉代码分析根因、按模块设计出方案、画修复前后流程图并回复在 Task 里。Room 按 Room ID、房间名或用户名从本地房间里找。提 Bug 不拉 Server 日志，RD 排查时再按 request id 查。bug-setup 只准备提 Bug 场景：自动安装 tutti-cli 与 tutti-ops、补默认配置，一步步引导 tutti-cli 登录、tutti-ops Token 和 Chrome 授权并复查。RD 根因分析与修复两个场景暂时屏蔽，插件不加载。",
     "category": "Productivity",
     "capabilities": [
       "Read",
       "Write"
     ],
     "defaultPrompt": [
-      "分析这条 Bug，读取代码和日志验证根因，并判断需要 QA 补充哪些资料。",
-      "根据根因设计修复方案，与 RD 协商并整理流程图、架构图和验收方案。",
-      "按 RD 批准的方案修复 Bug，在指定环境验证并保存证据。"
+      "记个 bug：<现象>，房间是 <房间名或房主名字>，截图见附件。",
+      "使用 $tutti-bug-workflow:bug-setup 帮我准备提 Bug 的环境。"
     ]
   }
 }

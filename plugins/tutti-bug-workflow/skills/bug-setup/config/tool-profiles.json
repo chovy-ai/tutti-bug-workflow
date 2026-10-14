@@ -59,7 +59,7 @@
         "全局安装 npm 包 @tutti-os/tutti-cli（Node.js 24+），`tutti-cli --help` 列出 login 与 task create／edit／show",
         "`tutti-cli login` 已登录，`tutti-cli whoami --json` 返回 QA 的账号",
         "该账号是目标 Room 的成员；Room ID 取自 Room 链接，每条 task 命令带 --room-id",
-        "CLI 不能指派、评论、改优先级：排查线索作为附件，跟进人在任务看板指派"
+        "CLI 不能指派、改优先级：排查线索作为附件，跟进人在任务看板指派；`agent list`／`agent models`／`task run` 把根因分析交给 Room 里的 Agent（Codex 优先，其次 Claude Code）"
       ],
       "install_operation": null
     },

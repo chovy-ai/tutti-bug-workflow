@@ -9,6 +9,8 @@ import sys
 import workbench
 
 ROOT = Path(__file__).resolve().parents[1]
+# bug-solution and bug-execute are paused (moved to disabled-skills/); add them back here to re-enable.
+ENABLED_SCENES = ("investigate",)
 
 
 def configuration_status(kind, cfg):
@@ -61,7 +63,7 @@ def installation_plan(tool, root, cfg):
 
 def build_report(scene, include, root, cfg, config=None):
     catalog = workbench.read_json(ROOT / "config/tool-profiles.json")
-    scenes = list(catalog["scenes"]) if scene == "all" else [scene]
+    scenes = list(ENABLED_SCENES) if scene == "all" else [scene]
     applicable = [t for t in catalog["tools"]
                   if set(scenes) & set(t["required_in"] + t["conditional_in"])]
     unknown = set(include) - {t["id"] for t in applicable}
@@ -89,7 +91,7 @@ def build_report(scene, include, root, cfg, config=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--scene", choices=("investigate", "solution", "execute", "all"), required=True)
+    parser.add_argument("--scene", choices=(*ENABLED_SCENES, "all"), required=True)
     parser.add_argument("--include", action="append", default=[], metavar="TOOL_ID",
                         help="Select a conditional tool; repeat for several tools.")
     parser.add_argument("--data-dir")

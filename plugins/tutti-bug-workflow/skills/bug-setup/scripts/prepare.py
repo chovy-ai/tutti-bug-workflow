@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Scene-based setup: check everything a scene needs, fix what can be fixed unattended.
 
-Scenes: `investigate` (QA 提 Bug), `solution` (定时分析根因与方案), `execute` (定时修复与部署),
-or `all`. Each item comes back with one status:
+Scenes: `investigate` (QA 提 Bug), `solution` (定时分析根因与方案), `execute` (定时修复与部署).
+Only the scenes in ENABLED_SCENES can be chosen; `all` means all of those. Each item comes back with one status:
 
 - `ok`: ready and verified (installed, logged in, resource reachable).
 - `fix`: missing but `prepare.py fix` can do it unattended (fill config defaults, npm or
@@ -31,6 +31,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import workbench as wb  # noqa: E402
 
 SCENES = {"investigate": "QA 提 Bug", "solution": "定时分析根因与方案", "execute": "定时修复与部署"}
+# bug-solution and bug-execute are paused (moved to disabled-skills/); add them back here to re-enable.
+ENABLED_SCENES = ("investigate",)
 NPM_PACKAGES = {"lark-cli": "@larksuite/cli", "codex": "@openai/codex", "mmdc": "@mermaid-js/mermaid-cli",
                 "tutti-ops": "@tutti-os/tutti-ops-cli", "tutti-cli": "@tutti-os/tutti-cli"}
 SCHEDULE_PREFIX = {"solution": "com.tutti.bug-solution.", "execute": "com.tutti.bug-execute."}
@@ -154,10 +156,10 @@ def check_tutti_cli():
     """QA 提 Bug creates the Room Task with the global account CLI (@tutti-os/tutti-cli, Node 24+)."""
     label = "Tutti CLI（tutti-cli，账号登录版）"
     code, out = run(["tutti-cli", "--help"]) if shutil.which("tutti-cli") else (127, "")
-    if code or "tutti-cli login" not in out or "tutti-cli room list" not in out:
+    if code or any(f"tutti-cli {command}" not in out for command in ("login", "room list", "task run")):
         detail = ("未安装" if not shutil.which("tutti-cli") else
                   "PATH 里的 tutti-cli 不是账号登录版（没有 login 命令）" if "tutti-cli login" not in out else
-                  "版本过旧，没有 room list（按房间名查房间）")
+                  "版本过旧，没有 room list／task run（按房间名查房间、交给 Room Agent 分析根因）")
         version = run(["node", "--version"])[1].strip()
         major = re.match(r"v(\d+)\.", version)
         if major and int(major[1]) >= 24 and shutil.which("npm"):
@@ -167,7 +169,7 @@ def check_tutti_cli():
                     guide=["QA 提 Bug 用全局安装的 tutti-cli 以你的 Tutti 账号在指定 Room 建 Task，它要求 Node.js 24 及以上。",
                            "用 nvm：`nvm install 24 && nvm use 24`（或 `brew install node`），然后回复「已完成」，"
                            "Agent 会运行 `npm install -g @tutti-os/tutti-cli`。"],
-                    verify="`tutti-cli --help` 列出 login、room list 与 task create")
+                    verify="`tutti-cli --help` 列出 login、room list、task create 与 task run")
     code, out = run(["tutti-cli", "whoami", "--json"])
     if code == 0:
         try:
@@ -450,12 +452,12 @@ def report(scenes, items, done=None, errors=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("operation", choices=("check", "fix"))
-    parser.add_argument("--scene", action="append", choices=(*SCENES, "all"), required=True)
+    parser.add_argument("--scene", action="append", choices=(*ENABLED_SCENES, "all"), required=True)
     parser.add_argument("--data-dir")
     args = parser.parse_args()
     try:
         root = wb.data_root(argparse.Namespace(data_dir=args.data_dir))
-        scenes = set(SCENES) if "all" in args.scene else set(args.scene)
+        scenes = set(ENABLED_SCENES) if "all" in args.scene else set(args.scene)
         items = check(root, scenes)
         if args.operation == "check":
             wb.emit(report(scenes, items))
