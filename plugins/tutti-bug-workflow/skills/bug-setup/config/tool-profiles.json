@@ -2,8 +2,7 @@
   "schema_version": 1,
   "scenes": {
     "investigate": "QA 提 Bug",
-    "solution": "定时分析根因与方案",
-    "execute": "定时修复与部署"
+    "execute": "修复一条 Bug Task 并部署 PPE"
   },
   "tools": [
     {
@@ -11,7 +10,6 @@
       "label": "本地文件、搜索、终端与图片查看",
       "required_in": [
         "investigate",
-        "solution",
         "execute"
       ],
       "conditional_in": [],
@@ -26,29 +24,11 @@
       "install_operation": null
     },
     {
-      "id": "feishu",
-      "label": "飞书记录与附件操作",
-      "required_in": [
-        "solution",
-        "execute"
-      ],
-      "conditional_in": [],
-      "commands": [
-        "lark-cli"
-      ],
-      "configuration": "feishu",
-      "requirements": [
-        "Bug 管理表（bug_report）的实际字段映射",
-        "身份认证",
-        "记录读取、创建、字段更新及附件读写权限；宿主工具可作为替代入口"
-      ],
-      "install_operation": null
-    },
-    {
       "id": "tutti-task",
-      "label": "用全局 tutti-cli（账号登录版）在指定 Room 建 Task、编辑并上传现场附件",
+      "label": "用全局 tutti-cli（账号登录版）读写 Room 里的 Task：提 Bug 建 Task、挂附件，修复后回复结果",
       "required_in": [
-        "investigate"
+        "investigate",
+        "execute"
       ],
       "conditional_in": [],
       "commands": [
@@ -65,9 +45,8 @@
     },
     {
       "id": "code",
-      "label": "Git、共享代码缓存、全局分析检出与修复 worktree",
+      "label": "Git、共享代码缓存与修复 worktree",
       "required_in": [
-        "solution",
         "execute"
       ],
       "conditional_in": [],
@@ -77,8 +56,8 @@
       "configuration": "repositories",
       "requirements": [
         "三个仓库读取权限与网络",
-        "缓存与检出的磁盘空间",
-        "分析用全局检出跟随最新 main；修复从远端 main 切 worktree，推送需写权限"
+        "缓存与 worktree 的磁盘空间",
+        "修复从远端 main 切 worktree，推送需写权限"
       ],
       "install_operation": null
     },
@@ -100,38 +79,6 @@
         "仅在本次提 Bug 确认结束后固定快照、上传并确认 uploaded；保存结束依据、本地关联回执及恢复状态，等待或暂时阻塞不触发"
       ],
       "install_operation": "setup-tutti-ops"
-    },
-    {
-      "id": "diagrams",
-      "label": "Mermaid 源码与 PNG 渲染（mmdc）",
-      "required_in": [
-        "solution"
-      ],
-      "conditional_in": [],
-      "commands": [
-        "mmdc"
-      ],
-      "configuration": "source-only",
-      "requirements": [
-        "@mermaid-js/mermaid-cli 提供的 mmdc 可执行",
-        "渲染所需的 Chromium（mmdc 自带 puppeteer）"
-      ],
-      "install_operation": null
-    },
-    {
-      "id": "approval",
-      "label": "RD 批准校验",
-      "required_in": [
-        "execute"
-      ],
-      "conditional_in": [],
-      "commands": [],
-      "configuration": "per-bug",
-      "requirements": [
-        "Bug 记录的方案状态为「已批准」",
-        "bug-execute 的 feishu.py check-approval"
-      ],
-      "install_operation": null
     },
     {
       "id": "project-checks",
@@ -277,7 +224,7 @@
       "requirements": [
         "选定的 GitHub CLI 或宿主工具",
         "目标分支推送/PR 权限",
-        "PR 创建后附加到当前任务的宿主能力"
+        "PR 链接写进 Task 回复"
       ],
       "install_operation": null
     },

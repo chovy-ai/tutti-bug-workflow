@@ -30,17 +30,6 @@ class ToolSetupTests(unittest.TestCase):
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return json.loads(result.stdout)
 
-    @unittest.skip("bug-solution 暂时屏蔽，setup 不再提供这个场景")
-    def test_solution_is_not_blocked_by_unrelated_logging_or_validation_tools(self):
-        before = self.config.read_bytes()
-        report = self.invoke("solution")
-        self.assertEqual({t["id"] for t in report["tools"]},
-                         {"local-workspace", "feishu", "code", "diagrams"})
-        self.assertTrue(all(t["selected"] for t in report["tools"]))
-        self.assertTrue(all(t["install_plan"] is None for t in report["tools"]))
-        self.assertEqual(self.config.read_bytes(), before)
-        self.assertEqual(set(p.name for p in self.data.iterdir()), {"config.json"})
-
     def test_only_reporting_prepares_session_upload_without_claiming_remote_readiness(self):
         before = self.config.read_bytes()
         for scene in ("investigate", "all"):
@@ -95,7 +84,7 @@ class ToolSetupTests(unittest.TestCase):
 
     def test_inapplicable_selection_rejected_without_modification(self):
         before = self.config.read_bytes()
-        report = self.invoke("investigate", "--include", "diagrams", expected=2)
+        report = self.invoke("investigate", "--include", "deployment", expected=2)
         self.assertFalse(report["ok"])
         self.assertEqual(self.config.read_bytes(), before)
 
@@ -111,8 +100,8 @@ class ToolSetupTests(unittest.TestCase):
         self.assertEqual(len(ids), len(set(ids)))
         self.assertFalse(next(t for t in report["tools"] if t["id"] == "web-logs")["selected"])
         self.assertTrue(next(t for t in report["tools"] if t["id"] == "browser-validation")["selected"])
-        self.assertTrue({"feishu", "code", "deployment"} <= set(ids))
-        self.assertNotIn("diagrams", ids)  # only bug-solution needs it, and it is paused
+        self.assertTrue({"tutti-task", "code", "deployment"} <= set(ids))
+        self.assertTrue({"feishu", "diagrams", "approval"}.isdisjoint(ids))  # only the task system now
         self.assertNotIn("session-upload", {t["id"] for t in self.invoke("execute")["tools"]})
 
 

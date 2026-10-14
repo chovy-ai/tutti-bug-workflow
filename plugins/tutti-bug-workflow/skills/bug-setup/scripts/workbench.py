@@ -339,7 +339,6 @@ def doctor(args, root):
         dependencies.append({"name": item["name"], "available": command is not None,
                              "required": bool(item.get("required", True)),
                              "executable": command, "version": "not_checked"})
-    feishu = cfg.get("bug_report", {})
     repositories = cfg.get("repositories", [])
     logs = cfg.get("log_sources", [])
     log_reports = [{"name": source.get("name") if isinstance(source, dict) else None,
@@ -348,8 +347,6 @@ def doctor(args, root):
                    for source in logs]
     validation = cfg.get("validation", {})
     configured = {
-        "feishu": bool(real_url(feishu.get("base_url")) and feishu.get("table_id")
-                       and feishu.get("field_map")),
         "repositories": bool(repositories and all(
             isinstance(repo, dict) and repo.get("name") and repo.get("url")
             and repo.get("base_branch") for repo in repositories)),

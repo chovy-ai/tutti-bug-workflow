@@ -36,25 +36,22 @@ class WorkbenchTests(unittest.TestCase):
 
     def test_reinitialization_preserves_user_configuration(self):
         cfg = self.config()
-        cfg["bug_report"]["table_id"] = "user-configured-table"
+        cfg["repositories"][0]["url"] = "https://example.invalid/user-configured.git"
         self.save_config(cfg)
         report = self.run_cli("init")
         self.assertEqual(report["action"], "preserved")
-        self.assertEqual(self.config()["bug_report"]["table_id"], "user-configured-table")
+        self.assertEqual(self.config()["repositories"][0]["url"], "https://example.invalid/user-configured.git")
 
     def test_doctor_distinguishes_configuration_from_connection(self):
         cfg = self.config()
-        cfg["bug_report"].update({"base_url": "http://127.0.0.1:8123/base/test",
-                              "table_id": "synthetic-table", "field_map": {"title": "synthetic-field"}})
-        self.save_config(cfg)
         report = self.run_cli("doctor")
-        self.assertFalse(report["ready_for_full_workflow"])
         self.assertEqual(report["external_connections"], "not_checked")
         self.assertFalse(report["automatic_trigger_available"])
-        self.assertTrue(report["integrations_configured"]["feishu"])
-        cfg["bug_report"]["base_url"] = None
+        self.assertTrue(report["integrations_configured"]["repositories"])
+        self.assertNotIn("feishu", report["integrations_configured"])
+        cfg["repositories"] = []
         self.save_config(cfg)
-        self.assertFalse(self.run_cli("doctor")["integrations_configured"]["feishu"])
+        self.assertFalse(self.run_cli("doctor")["integrations_configured"]["repositories"])
 
     def test_local_file_log_config_does_not_claim_files_were_read(self):
         cfg = self.config()

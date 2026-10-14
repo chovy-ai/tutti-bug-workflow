@@ -9,16 +9,10 @@ import sys
 import workbench
 
 ROOT = Path(__file__).resolve().parents[1]
-# bug-solution is paused (moved to disabled-skills/); add "solution" back here to re-enable it.
-ENABLED_SCENES = ("investigate", "execute")
 
 
 def configuration_status(kind, cfg):
-    if kind == "feishu":
-        value = cfg.get("bug_report", {})
-        configured = bool(workbench.real_url(value.get("base_url")) and value.get("table_id")
-                          and value.get("field_map"))
-    elif kind == "repositories":
+    if kind == "repositories":
         repos = cfg.get("repositories", [])
         configured = bool(repos and all(isinstance(r, dict) and r.get("name") and r.get("url")
                                        and r.get("base_branch") for r in repos))
@@ -63,7 +57,7 @@ def installation_plan(tool, root, cfg):
 
 def build_report(scene, include, root, cfg, config=None):
     catalog = workbench.read_json(ROOT / "config/tool-profiles.json")
-    scenes = list(ENABLED_SCENES) if scene == "all" else [scene]
+    scenes = list(catalog["scenes"]) if scene == "all" else [scene]
     applicable = [t for t in catalog["tools"]
                   if set(scenes) & set(t["required_in"] + t["conditional_in"])]
     unknown = set(include) - {t["id"] for t in applicable}
@@ -91,7 +85,7 @@ def build_report(scene, include, root, cfg, config=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--scene", choices=(*ENABLED_SCENES, "all"), required=True)
+    parser.add_argument("--scene", choices=("investigate", "execute", "all"), required=True)
     parser.add_argument("--include", action="append", default=[], metavar="TOOL_ID",
                         help="Select a conditional tool; repeat for several tools.")
     parser.add_argument("--data-dir")

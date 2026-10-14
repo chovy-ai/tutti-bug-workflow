@@ -1,63 +1,5 @@
 {
   "schema_version": 1,
-  "bug_report": {
-    "base_url": "https://ccn53rwonxso.feishu.cn/base/CEHMbNF8Zavq5wsAO3ecrpQ6nPc?table=tblieImZwMnvZ8My&view=vewoD2kiPo",
-    "base_token": "CEHMbNF8Zavq5wsAO3ecrpQ6nPc",
-    "table_id": "tblieImZwMnvZ8My",
-    "table_name": "Bug 管理",
-    "view_id": "vewoD2kiPo",
-    "view_name": "新框架（一期）",
-    "identity": "user",
-    "timezone": "Asia/Shanghai",
-    "field_map": {
-      "title": "fldWPXvPdp",
-      "attachments": "fld9gRMfIo",
-      "reporter": "fldqzaTpIW",
-      "assignee": "fldhK5l7ki",
-      "status": "flde3A945T",
-      "platform": "fldOM70Xsj",
-      "priority": "fldssWEn1b",
-      "issue_type": "fldAaKSJu5",
-      "module": "fldIpeAABN",
-      "record_time": "fldeyo0hFE",
-      "env_version": "fld766hlvY",
-      "page_url": "fldb3gv4M0",
-      "context": "fldqyueosk",
-      "root_cause": "fldTqpQGom",
-      "solution": "fld1KYGjrO",
-      "acceptance": "fldjWBiXnK",
-      "verification": "fldkbXHbtG",
-      "pull_requests": "fldeUIY2k9",
-      "diagrams": "fldlTE3qwJ",
-      "plan_status": "fld8Dz9R5w",
-      "rejection": "fldB6Bg8uL",
-      "fix_progress": "fldicn3CQW",
-      "fix_screenshots": "fldKqWaiE0",
-      "environment": "fldhDBEwJJ",
-      "cause": "fldjCtjdf8"
-    },
-    "plan_status": { "open": ["未处理", "已驳回"], "review": "待评审", "approved": "已批准", "rejected": "已驳回",
-                     "fixing": "修复中", "deployed": "已部署待验收", "fix_failed": "修复失败" },
-    "defaults": { "status": "未解决", "issue_type": "bug" },
-    "platform_choices": ["新框架一期-Mac", "新框架一期-Windows", "新框架一期-Web"],
-    "excluded_priorities": ["P2"],
-    "retired_options": {
-      "module": ["UI/导航", "Computer/安装与连接", "Agent执行链路", "UI/资产与图片生成", "Agent管理/归属与共享",
-                 "Connector/插件", "账号认证/会话", "房间/群聊", "Connector/共享权限"]
-    }
-  },
-  "solution_schedule": {
-    "interval_seconds": 3600,
-    "timeout_minutes": 45,
-    "keep_days": 7,
-    "codex_command": "codex"
-  },
-  "execute_schedule": {
-    "interval_seconds": 3600,
-    "timeout_minutes": 180,
-    "keep_days": 7,
-    "codex_command": "codex"
-  },
   "deploy": {
     "branch_prefix": "codex/bug-",
     "server": {
@@ -103,12 +45,9 @@
   },
   "tutti_ops": { "admin_url": "https://admin.tutti.sh" },
   "cli_dependencies": [
-    { "name": "lark-cli", "command": "lark-cli", "required": true, "installer": null },
     { "name": "git", "command": "git", "required": true, "installer": null },
     { "name": "gh", "command": "gh", "required": false, "installer": null },
-    { "name": "tutti-ops", "command": "tutti-ops", "required": true, "installer": { "type": "npm-global", "package": "@tutti-os/tutti-ops-cli" } },
-    { "name": "codex", "command": "codex", "required": false, "installer": null },
-    { "name": "mmdc", "command": "mmdc", "required": false, "installer": null }
+    { "name": "tutti-ops", "command": "tutti-ops", "required": true, "installer": { "type": "npm-global", "package": "@tutti-os/tutti-ops-cli" } }
   ],
   "mcp_servers": {},
   "trigger": { "mode": "manual", "service_url": null }

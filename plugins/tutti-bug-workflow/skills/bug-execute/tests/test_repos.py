@@ -58,19 +58,21 @@ class ReposTests(unittest.TestCase):
         self.identity(path)
         return started, path
 
-    def test_start_commit_finish_pushes_and_removes_the_worktree(self):
+    def test_start_commit_push_keeps_the_worktree_until_removed(self):
         started, path = self.start()
         self.assertEqual((started["base_sha"], git(path, "rev-parse", "HEAD")), (self.main, self.main))
         self.assertFalse(started["resumed"])
         self.assertEqual(path, self.data / "worktrees/tutti/codex-room-name")
-        self.assertIn("nothing to push", self.run_script("finish", "--path", str(path), expected=2)["error"])
+        self.assertIn("nothing to push", self.run_script("push", "--path", str(path), expected=2)["error"])
         (path / "file.txt").write_text("fixed")
-        self.assertIn("uncommitted", self.run_script("finish", "--path", str(path), expected=2)["error"])
+        self.assertIn("uncommitted", self.run_script("push", "--path", str(path), expected=2)["error"])
         git(path, "commit", "-qam", "fix")
         head = git(path, "rev-parse", "HEAD")
-        finished = self.run_script("finish", "--path", str(path))
-        self.assertEqual((finished["branch"], finished["pushed_sha"]), ("codex/room-name", head))
+        pushed = self.run_script("push", "--path", str(path))
+        self.assertEqual((pushed["branch"], pushed["pushed_sha"]), ("codex/room-name", head))
         self.assertEqual(git(self.remote, "rev-parse", "refs/heads/codex/room-name"), head)
+        self.assertTrue(path.exists())  # kept for the PR and the PPE deploy
+        self.assertFalse(self.run_script("remove", "--path", str(path))["discarded"])
         self.assertFalse(path.exists())
         cache = self.data / "repositories/tutti.git"
         self.assertEqual(git(cache, "for-each-ref", "refs/heads/codex/room-name"), "")
@@ -87,7 +89,7 @@ class ReposTests(unittest.TestCase):
         self.start()  # the branch name is free again
 
     def test_only_worktrees_from_start_are_accepted(self):
-        self.assertIn("not a worktree", self.run_script("finish", "--path", str(self.base / "work"), expected=2)["error"])
+        self.assertIn("not a worktree", self.run_script("push", "--path", str(self.base / "work"), expected=2)["error"])
         self.assertIn("Cut a fix branch",
                       self.run_script("start", "--repo", "tutti", "--branch", "main", expected=2)["error"])
 

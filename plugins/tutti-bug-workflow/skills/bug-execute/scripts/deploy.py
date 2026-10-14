@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Deploy a fix branch to PPE through the repositories' GitHub workflows, and wait for it.
 
-- `lane-name --record-id REC`: the per-bug lane name (`ppe-bug-<record id>`), shared by
+- `fix-names --task-id UUID`: the per-bug names derived from the Task: fix branch
+  `codex/bug-<first 8 hex of the Task ID>` and lane `ppe-bug-<same>`, shared by
   tutti-server and tsh-websocket (both deploy into namespace `lane-<lane>`).
 - `server --branch B --lane L`: tutti-server `deploy-lane.yml` on the branch, with the
   configured inputs (connector authorization off for fresh lanes).
@@ -17,15 +18,8 @@
 
 Each command dispatches with `gh workflow run`, finds the run, waits with `gh run watch`
 and reports the run URL and conclusion, plus the tail of the failed steps' log when it
-fails. Order is the caller's job: server, websocket, web, then computer.
-
-With `--record-id REC` the outcome goes onto the bug record as well: a successful web
-deploy puts its preview link into 访问环境 (a Computer-only fix gets the canary run page
-there), and every deploy appends a 修复进度 line with the lane or canary version and the
-run link. Inside a scheduled fix session the
-record ID comes from BUG_EXECUTE_RECORD_ID when the flag is left out, and every deploy is
-also logged to BUG_EXECUTE_RUN_DIR/deploys.jsonl, from which the round re-fills
-访问环境 after the session.
+fails, and the link to try the fix (`access_url`: the web preview, or the canary run page
+for a Computer-only fix). Order is the caller's job: server, websocket, web, then computer.
 """
 
 import argparse
@@ -34,6 +28,7 @@ import json
 import os
 from pathlib import Path
 import re
+import uuid
 import subprocess
 import sys
 import time
@@ -61,11 +56,16 @@ def gh(*arguments, timeout=120):
     return result.stdout
 
 
-def lane_name(cfg, record_id):
-    name = f"{deploy_config(cfg)['server']['lane_prefix']}{record_id}".lower()
-    if not LANE.fullmatch(name) or not WS_LANE.fullmatch(name):
-        raise ValueError(f"Lane {name!r} must suit both tutti-server and tsh-websocket lane names.")
-    return name
+def fix_names(cfg, task_id):
+    try:
+        short = uuid.UUID(task_id).hex[:8]
+    except ValueError:
+        raise ValueError(f"Task ID must be a UUID: {task_id!r}.") from None
+    config = deploy_config(cfg)
+    lane = f"{config['server']['lane_prefix']}{short}"
+    if not LANE.fullmatch(lane) or not WS_LANE.fullmatch(lane):
+        raise ValueError(f"Lane {lane!r} must suit both tutti-server and tsh-websocket lane names.")
+    return {"short_id": short, "branch": f"{config['branch_prefix']}{short}", "lane": lane}
 
 
 def find_run(repository, workflow, ref, since, output):
@@ -117,52 +117,6 @@ def dispatch_and_wait(repository, workflow, ref, fields, wait, timeout_minutes):
 def access_url(service, result):
     """The clickable link to try a deployed side, if it has one."""
     return {"web": result.get("preview_url"), "computer": result.get("url")}.get(service)
-
-
-def summary(service, args, result):
-    if service == "web":
-        backend = f"Server 泳道 {args.server_lane}" if args.server_lane else "线上 Server"
-        return f"{result['preview_url']}（前端分支 {args.branch}，{backend}）"
-    if service == "computer":
-        return f"{result.get('canary_version') or '版本未知'}（分支 {args.branch}）"
-    return f"{args.lane}（namespace lane-{args.lane}，分支 {args.branch}）"
-
-
-def log_deploy(service, args, result):
-    """Append this deploy to the scheduled session's deploys.jsonl, if there is one."""
-    run_dir = os.environ.get("BUG_EXECUTE_RUN_DIR")
-    if not run_dir:
-        return
-    entry = {"service": service, "ok": result["ok"], "url": result.get("url"), "branch": args.branch,
-             "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-    if result["ok"]:
-        entry["summary"] = summary(service, args, result)
-        entry["link"] = access_url(service, result)
-    with (Path(run_dir) / "deploys.jsonl").open("a", encoding="utf-8") as stream:
-        stream.write(json.dumps(entry, ensure_ascii=False) + "\n")
-
-
-def record_outcome(cfg, service, args, result):
-    """Write a deploy's outcome to the bug record; returns an error message or None."""
-    import feishu  # only needed with --record-id
-
-    try:
-        client = feishu.Feishu(cfg)
-        name = feishu.SIDES[service]
-        if result["ok"]:
-            line = summary(service, args, result)
-            if access_url(service, result):
-                result["access_url"], _ = feishu.set_access(client, args.record_id, service,
-                                                            access_url(service, result))
-            message = f"部署成功 {name}：{line}，run {result['url']}"
-        elif args.no_wait:
-            message = f"已触发部署 {name}：run {result['url']}"
-        else:
-            message = f"部署失败 {name}（{result.get('conclusion') or result.get('status')}）：run {result['url']}"
-        feishu.append_progress(client, args.record_id, message)
-    except (ValueError, OSError, subprocess.TimeoutExpired) as error:
-        return f"部署结果没能写回 bug 单：{error}"
-    return None
 
 
 def server(args, cfg):
@@ -222,16 +176,15 @@ def destroy(args, cfg):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="operation", required=True)
-    for name in ("lane-name", "server", "websocket", "web", "computer", "destroy-lane"):
+    for name in ("fix-names", "server", "websocket", "web", "computer", "destroy-lane"):
         command = commands.add_parser(name)
         command.add_argument("--data-dir")
         command.add_argument("--config")
-        if name == "lane-name":
-            command.add_argument("--record-id", required=True)
+        if name == "fix-names":
+            command.add_argument("--task-id", required=True)
             continue
         if name in ("server", "websocket", "web", "computer"):
             command.add_argument("--branch", required=True)
-            command.add_argument("--record-id", help="Bug record: fill 访问环境 and 修复进度 with the outcome.")
         if name in ("server", "websocket", "destroy-lane"):
             command.add_argument("--lane", required=True)
         if name == "destroy-lane":
@@ -246,20 +199,15 @@ def main():
     try:
         root = wb.data_root(args)
         cfg = wb.load_config(args, root)
-        if args.operation == "lane-name":
-            wb.emit({"ok": True, "lane": lane_name(cfg, args.record_id)})
+        if args.operation == "fix-names":
+            wb.emit({"ok": True, **fix_names(cfg, args.task_id)})
             return 0
         result = {"server": server, "websocket": websocket, "web": web, "computer": computer,
                   "destroy-lane": destroy}[args.operation](args, cfg)
-        if args.operation in ("server", "websocket", "web", "computer"):
-            log_deploy(args.operation, args, result)
-            args.record_id = args.record_id or os.environ.get("BUG_EXECUTE_RECORD_ID")
-        if getattr(args, "record_id", None):
-            error = record_outcome(cfg, args.operation, args, result)
-            if error:
-                result["record_error"] = error
+        if result["ok"] and access_url(args.operation, result):
+            result["access_url"] = access_url(args.operation, result)
         wb.emit(result)
-        return 0 if (result["ok"] or args.no_wait) and "record_error" not in result else 1
+        return 0 if result["ok"] or args.no_wait else 1
     except (ValueError, OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as error:
         wb.emit({"ok": False, "error": str(error)})
         return 2
