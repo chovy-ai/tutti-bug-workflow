@@ -1,6 +1,6 @@
 # 现场材料与附件
 
-每次提 Bug 固定采集三类现场日志：Web（页面日志）、Server（tutti-server 日志）、Computer（召回包）。全部原样作为 Task 附件上传，不脱敏。文件放在数据目录下的 `$REPORT`（`bug-reports/<operation_id>/`），上传后 Room 里的 Task 与它的附件是唯一的事实来源。
+每次提 Bug 固定采集两类现场日志：Web（页面日志）、Computer（召回包）；tutti-server 日志不在提 Bug 时拉，相关请求的 request id 记进排查线索，RD 排查时再查。全部原样作为 Task 附件上传，不脱敏。文件放在数据目录下的 `$REPORT`（`bug-reports/<operation_id>/`），上传后 Room 里的 Task 与它的附件是唯一的事实来源。
 
 ## 采集结果状态
 
@@ -23,7 +23,6 @@
 | QA 发来的截图、视频 | 原文件，先复制到 `$REPORT` |
 | 排查线索 | `排查线索.txt`（见 [排查线索](report-fields.md#排查线索附件)） |
 | Web 日志 | `merge_web_logs.py` 合并的 `web-logs.log`；或 QA 导出的 `tutti-web-diagnostics-*.zip` |
-| Server | `collect_server.py` 生成的 `server-logs.log`；按 Computer 日志补拉的那份复制成 `server-logs-computer.log` |
 | Computer | 召回包原件（`*.tar.gz`），不拆包 |
 
 规则：

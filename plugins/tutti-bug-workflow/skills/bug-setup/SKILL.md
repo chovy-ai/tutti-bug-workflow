@@ -60,7 +60,6 @@ python3 scripts/prepare.py fix --scene solution --scene execute
 | 飞书应用未配置 | 后台运行 `lark-cli config init --new`，取出链接 | 打开链接，按页面创建应用 |
 | 飞书登录 | `lark-cli auth login --domain base,contact,drive --no-wait --json` → `open <verification_url>` 在本机打开浏览器 → `lark-cli auth login --device-code <code>` 等待完成 | 在弹出的浏览器里点「授权」，不用回复 |
 | Codex 登录 | 直接运行 `codex login`（会自己打开浏览器并等待） | 在浏览器里登录，不用回复 |
-| AWS SSO 过期 | 直接运行 `aws sso login`（会自己打开浏览器并等待） | 在浏览器里点「允许」，不用回复 |
 | Tutti CLI 未登录 | 后台运行 `tutti-cli login`（会自己打开 Tutti 登录页并等待，最长 5 分钟），返回后 `tutti-cli whoami --json` 确认 | 在浏览器里用要建 Bug 的账号登录，不用回复 |
 | Tutti CLI 需要 Node.js 24+ | 给出 `nvm install 24 && nvm use 24 && nvm alias default 24`，完成后再 `fix` 自动安装 `@tutti-os/tutti-cli` | 在终端运行这一行，回复「已完成」 |
 | Chrome 连接（`host`） | 调用 chrome-devtools 的 `list_pages`（提 Bug 场景再 `list_webmcp_tools`） | Chrome 弹窗点「允许」；没开远程调试或 WebMCP flag 时按 `guide` 打开 |
@@ -85,7 +84,7 @@ python3 scripts/prepare.py fix --scene solution --scene execute
 再跑一次 `check`，用一张表交付：每个场景「已就绪／等你操作／等管理员」，以及受影响的能力。
 
 - **定时分析／定时修复**：全部就绪后询问「要现在开启吗？默认跟进人是你（当前飞书登录用户），每小时一轮，处理全部优先级；可以指定跟进人或只处理某个优先级以上」。用户同意后用 `$tutti-bug-workflow:bug-solution`／`$tutti-bug-workflow:bug-execute` 的「定时任务管理」开启，并告诉用户先看一眼当前有几条待处理。
-- **QA 提 Bug**：告诉用户怎么用：在本机 Codex 里说「记个 bug：<现象>」，带上 Room 链接和截图即可；Task 用 `tutti-cli login` 登录的账号建在该 Room，创建后在任务看板指派跟进人。
+- **QA 提 Bug**：告诉用户怎么用：在本机 Codex 里说「记个 bug：<现象>」，带上房间名（或房主名字、Room ID）和截图即可，会先在你的本地房间里找；Task 用 `tutti-cli login` 登录的账号建在该 Room，创建后在任务看板指派跟进人。
 
 ## 默认配置
 
@@ -102,11 +101,9 @@ python3 scripts/prepare.py fix --scene solution --scene execute
 | 定时任务跟进人 | 当前飞书登录用户；不限优先级 |
 | tutti-ops 管理端 | `https://admin.tutti.sh` |
 | 本机 Computer 日志 | `~/.tutti-amp/computer/logs/` 下的 companion、desktopd、runtime-host 日志，以及 `${TMPDIR}/tutti-codex-appserver-startup.jsonl` |
-| AWS | 当前凭证链，区域 `us-east-1`（只在选 AWS 日志时用） |
 
 ## 可选与参考
 
-- **AWS 服务端日志**：用户明确要用时加 `--include aws`，安装与登录见 [AWS CLI](references/aws-cli.md)。
-- 单项工具命令仍可直接用：`scripts/workbench.py doctor`、`setup-tutti-ops --install`、`configure-tutti-token --admin-url https://admin.tutti.sh`、`setup-aws-cli --install|--check-auth`、`configure-mcp`。
+- 单项工具命令仍可直接用：`scripts/workbench.py doctor`、`setup-tutti-ops --install`、`configure-tutti-token --admin-url https://admin.tutti.sh`、`configure-mcp`。
 - 引导话术与各入口的授权细节：[易懂的准备与授权流程](references/setup-user-guide.md)。
 - 各能力的背景：[Web 日志](references/web-logs.md)、[tutti-ops 获取日志](references/tutti-ops-computer-logs.md)、[Computer 日志](references/computer-logs.md)、[提 Bug 后的会话上传](references/session-upload.md)、[代码缓存](references/repository-cache.md)、[工具目录](references/tool-setup.md)、[工作流与交接](references/workflow.md)。

@@ -68,7 +68,7 @@ class ToolSetupTests(unittest.TestCase):
         tools = {t["id"]: t for t in self.invoke("investigate", "--include", "remote-computer")["tools"]}
         self.assertTrue(tools["remote-computer"]["selected"])
         self.assertEqual(tools["remote-computer"]["install_plan"]["status"], "review_custom_configuration")
-        self.assertFalse(tools["aws-logs"]["selected"])
+        self.assertNotIn("aws-logs", tools)  # QA 提 Bug only records request ids
         self.assertEqual(self.config.read_bytes(), before)
         self.assertFalse((self.data / "tools").exists())
 
@@ -97,7 +97,7 @@ class ToolSetupTests(unittest.TestCase):
 
     def test_inapplicable_selection_rejected_without_modification(self):
         before = self.config.read_bytes()
-        report = self.invoke("solution", "--include", "aws-logs", expected=2)
+        report = self.invoke("solution", "--include", "web-logs", expected=2)
         self.assertFalse(report["ok"])
         self.assertEqual(self.config.read_bytes(), before)
 
@@ -111,7 +111,7 @@ class ToolSetupTests(unittest.TestCase):
         report = self.invoke("all")
         ids = [t["id"] for t in report["tools"]]
         self.assertEqual(len(ids), len(set(ids)))
-        self.assertFalse(next(t for t in report["tools"] if t["id"] == "aws-logs")["selected"])
+        self.assertFalse(next(t for t in report["tools"] if t["id"] == "web-logs")["selected"])
         self.assertTrue(next(t for t in report["tools"] if t["id"] == "browser-validation")["selected"])
 
 

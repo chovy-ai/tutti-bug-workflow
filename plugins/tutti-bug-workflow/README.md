@@ -24,7 +24,7 @@ Agent 会先问你要准备哪个场景：**QA 提 Bug**、**定时分析**、**
 
 只想先看看要准备什么：「使用 $tutti-bug-workflow:bug-setup，只列出准备情况」。
 
-默认配置（Bug 表与字段、三个仓库、定时任务、PPE 部署、tutti-ops 管理端、本机 Computer 日志路径等）都已内置，不需要你提供，见 [Setup Skill](skills/bug-setup/SKILL.md#默认配置)。数据目录默认 `~/.local/share/bug-workbench`（可用 `BUG_WORKBENCH_DATA` 覆盖），配置、代码缓存与运行记录都在这里，插件更新不影响。单项工具命令（`workbench.py doctor`、`setup-tutti-ops`、`configure-tutti-token`、`setup-aws-cli`）仍可直接使用，见 [准备与授权教程](skills/bug-setup/references/setup-user-guide.md)。
+默认配置（Bug 表与字段、三个仓库、定时任务、PPE 部署、tutti-ops 管理端、本机 Computer 日志路径等）都已内置，不需要你提供，见 [Setup Skill](skills/bug-setup/SKILL.md#默认配置)。数据目录默认 `~/.local/share/bug-workbench`（可用 `BUG_WORKBENCH_DATA` 覆盖），配置、代码缓存与运行记录都在这里，插件更新不影响。单项工具命令（`workbench.py doctor`、`setup-tutti-ops`、`configure-tutti-token`）仍可直接使用，见 [准备与授权教程](skills/bug-setup/references/setup-user-guide.md)。
 
 ## 飞书 Bug 管理表
 
@@ -38,15 +38,13 @@ Agent 会先问你要准备哪个场景：**QA 提 Bug**、**定时分析**、**
 
 ### QA 提 Bug（`bug-investigate`）
 
-**不写飞书 Bug 表**，而是用全局安装的 `tutti-cli`（npm `@tutti-os/tutti-cli`，Node.js 24+，`tutti-cli login` 用浏览器登录 Tutti 账号）在 QA 指定的 Room 建 Task。在 QA 本机的 Codex 会话里运行即可，不需要 Room Agent；Room 由 QA 给的 Room 链接确定（`--room-id`）。不做根因分析，只把当时的现场带全。流程见 [SKILL.md](skills/bug-investigate/SKILL.md)：
+**不写飞书 Bug 表**，而是用全局安装的 `tutti-cli`（npm `@tutti-os/tutti-cli`，Node.js 24+，`tutti-cli login` 用浏览器登录 Tutti 账号）在 QA 指定的 Room 建 Task。在 QA 本机的 Codex 会话里运行即可，不需要 Room Agent。不做根因分析，只把当时的现场带全。流程见 [SKILL.md](skills/bug-investigate/SKILL.md)：
 
 1. 接收上报，判断所属端、优先级、业务模块，生成 `operation_id`（即 Task ID 与幂等键）。
-2. `task list` 查重，`task create` 按 QA 描述先建 Task（优先级只能在此时设置），`user list` 找到跟进人后 `task assign`。
-3. Web 日志：本机 Chrome WebMCP 读页面日志（`merge_web_logs.py` 合并），不可用时用 QA 导出的诊断包；并行跑 Computer 召回（`collect_computer.py`，后台）与 Server 日志（`collect_server.py`，subagent，按 Web／Computer 日志里的 request id 查 AWS CloudWatch 并识别生产／PPE）。
-4. `task edit` 把标题改成一句话 Bug 简介，描述只写 Bug 表现（问题、复现步骤、实际、期望），用 `--file` 挂上截图、录屏；`task show` 回读。日志核对、关联 ID、环境与版本写进一条「排查线索」评论，全部日志用 `task comment add --file` 挂在这条评论上（Task 私有附件，本地和云端房间都可用）。
-5. 召回完成后另发一条评论附召回包；缺的一次问完，用户补充后在同一会话里 `task edit`／`assign`／`comment add`。最后上传本次会话。
-
-Computer 版本较旧、只有 `task create` 时，退回「采集完最后一次建好」；`task edit` 没有 `--file` 时，附件退回 `artifact publish` 发布到当前 Room。
+2. `find_room.py` 用 `tutti-cli room list` 按 QA 给的 Room ID／链接、房间名或用户名找房间（本地房间优先，多个候选时请 QA 选），`task create --room-id` 按 QA 描述先建 Task（优先级只能在此时设置）。
+3. Web 日志：本机 Chrome WebMCP 读页面日志（`merge_web_logs.py` 合并），不可用时用 QA 导出的诊断包；并行跑 Computer 召回（`collect_computer.py`，后台）；`web_requests.py` 列出失败请求及其 request id（`x-zk-request-id`），连同 Computer 日志里失败出站请求的 request id 写进排查线索。提 Bug 不查服务端日志、不依赖 AWS，RD 排查时再按 request id 查。
+4. 现场齐了以后一次 `task edit`：标题改成一句话 Bug 简介，描述只写 Bug 表现（问题、复现步骤、实际、期望），截图、`排查线索.txt`（日志核对、关联 ID、环境与版本）和全部日志用 `--file` 作为 Task 私有附件挂上；`task show` 回读。
+5. 缺的一次问完，用户补充后带上全部文件再 `task edit` 一次；CLI 不能指派，请 QA 在任务看板指派跟进人。最后上传本次会话。
 
 ### 根因与方案（`bug-solution`）
 
@@ -72,15 +70,14 @@ Computer 版本较旧、只有 `task create` 时，退回「采集完最后一�
 - 根因、方案、验收与验证模板。
 - 幂等初始化、环境检查、私有目录下的固定版本 npm CLI 安装。
 - setup 复用已有 tutti-ops，缺少时按 `npm install -g @tutti-os/tutti-ops-cli` 全局安装，记录实际版本和入口；根据已安装命令的帮助与 schema 读取 Computer。
-- setup 准备 AWS CLI v2，复用已有安装，缺少时通过 AWS 官方安装器补齐；完整 Setup 接续身份检查和缺口处理，完成必要的本人操作后复查实际访问。
 - bare 代码缓存增量同步、全局分析检出、修复 worktree 的创建／推送／解除，均加文件锁。
 - 按跟进人安装的本机定时根因分析（launchd + codex exec），Mermaid 图渲染 PNG。
 - 从实际配置生成便携 MCP 配置与旧版 Codex 兼容配置。
 - 执行前确认方案状态为「已批准」且根因、方案、验收齐全。
 
-AWS CLI 使用专用官方安装器，新安装固定版本，核对安装脚本摘要和最终版本，详见 [AWS CLI 安装](skills/bug-setup/references/aws-cli.md)。tutti-ops 使用用户指定的全局 npm 安装方式，要求 Node.js >=20 和 npm，详见 [tutti-ops 安装与认证](skills/bug-setup/references/tutti-ops-computer-logs.md)。其他 CLI 先填写可信 npm 包名与精确版本，再显式调用 `install-cli`；通用私有 npm 安装器不运行包的安装脚本，其他原生工具按实际安装方法适配。
+tutti-ops 使用用户指定的全局 npm 安装方式，要求 Node.js >=20 和 npm，详见 [tutti-ops 安装与认证](skills/bug-setup/references/tutti-ops-computer-logs.md)。其他 CLI 先填写可信 npm 包名与精确版本，再显式调用 `install-cli`；通用私有 npm 安装器不运行包的安装脚本，其他原生工具按实际安装方法适配。
 
-插件不自带 MCP server；AWS 默认使用 CLI。确认 CLI 可用后，仅清理由旧插件创建且未被改动的 AWS MCP，保留其他连接。AWS MCP 仅在用户明确要求恢复时按 [兼容接入](skills/bug-setup/references/aws-mcp.md) 配置。其他 MCP 填写真实服务后使用 `configure-mcp --config CONFIG --output-dir PLUGIN_SOURCE` 生成配置，再通过安装流程更新插件。配置生成不代表服务已经部署、登录或连接成功。
+插件不自带 MCP server（chrome-devtools 除外）。setup 不安装、不登录 AWS。其他 MCP 填写真实服务后使用 `configure-mcp --config CONFIG --output-dir PLUGIN_SOURCE` 生成配置，再通过安装流程更新插件。配置生成不代表服务已经部署、登录或连接成功。
 
 Web 日志由 QA 在出问题的浏览器里自行导出：Tutti「设置 → 诊断 → 浏览器日志」选择覆盖故障时间的范围，点「导出日志」，得到 `tutti-web-diagnostics-<时间>.zip`（`manifest.json`、`errors.jsonl`、`logs.jsonl`，已脱敏）。Agent 把这个包原样作为 Task 附件上传，再解包阅读；QA 没附带时，排查到需要时连同其他问题一起请 QA 导出。详见 [Web 日志](skills/bug-investigate/references/web-logs.md)。
 
@@ -94,7 +91,7 @@ QA 提 Bug 用全局 tutti-cli 在指定 Room 建 Task；定时分析与定时�
 
 本地执行仍可能把选取的代码、日志片段和工具输出提交给模型。共享源码和分发包不包含真实业务数据或凭证。
 
-服务端日志判断必需或建议补／可辅助后，在本轮立即调用实际Tutti CLI或已确认AWS来源的AWS CLI，先保存易失证据，挂到排查线索评论并写进线索；不会停在建议或等待QA追问。成功访问记录不能用HTTP失败归因空结果代替。详见 [服务端日志](skills/bug-investigate/references/server-logs.md)。
+提 Bug 不拉服务端日志：Web 与 Computer 日志里的请求都带网关 request id，记进排查线索，RD 排查时再按 id 查 tutti-server 日志。
 
 ## 验证插件源码
 

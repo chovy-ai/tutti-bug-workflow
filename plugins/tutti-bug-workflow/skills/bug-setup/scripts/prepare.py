@@ -154,8 +154,10 @@ def check_tutti_cli():
     """QA 提 Bug creates the Room Task with the global account CLI (@tutti-os/tutti-cli, Node 24+)."""
     label = "Tutti CLI（tutti-cli，账号登录版）"
     code, out = run(["tutti-cli", "--help"]) if shutil.which("tutti-cli") else (127, "")
-    if code or "tutti-cli login" not in out:
-        detail = "未安装" if not shutil.which("tutti-cli") else "PATH 里的 tutti-cli 不是账号登录版（没有 login 命令）"
+    if code or "tutti-cli login" not in out or "tutti-cli room list" not in out:
+        detail = ("未安装" if not shutil.which("tutti-cli") else
+                  "PATH 里的 tutti-cli 不是账号登录版（没有 login 命令）" if "tutti-cli login" not in out else
+                  "版本过旧，没有 room list（按房间名查房间）")
         version = run(["node", "--version"])[1].strip()
         major = re.match(r"v(\d+)\.", version)
         if major and int(major[1]) >= 24 and shutil.which("npm"):
@@ -165,7 +167,7 @@ def check_tutti_cli():
                     guide=["QA 提 Bug 用全局安装的 tutti-cli 以你的 Tutti 账号在指定 Room 建 Task，它要求 Node.js 24 及以上。",
                            "用 nvm：`nvm install 24 && nvm use 24`（或 `brew install node`），然后回复「已完成」，"
                            "Agent 会运行 `npm install -g @tutti-os/tutti-cli`。"],
-                    verify="`tutti-cli --help` 列出 login、whoami 与 task create")
+                    verify="`tutti-cli --help` 列出 login、room list 与 task create")
     code, out = run(["tutti-cli", "whoami", "--json"])
     if code == 0:
         try:
@@ -380,7 +382,7 @@ def check_schedule(scene):
                         "每小时一轮、处理全部优先级；可以指定跟进人和最低优先级（例如「只处理 P1 以上」）。"])]
 
 
-def check(root, scenes, include_aws=False):
+def check(root, scenes):
     items = [item("python", "Python 3.10+", "ok" if sys.version_info >= (3, 10) else "user",
                   platform.python_version()), check_config(root)]
     cfg = wb.read_json(root / "config.json") if (root / "config.json").is_file() else example()
@@ -399,11 +401,6 @@ def check(root, scenes, include_aws=False):
         items.append(check_tutti_cli())
         items += check_tutti_ops(root, cfg)
         items += check_computer_logs(cfg)
-    if include_aws:
-        code, out = run([sys.executable, str(SCRIPT.parent / "workbench.py"), "setup-aws-cli", "--check-auth",
-                         "--data-dir", str(root)], timeout=120)
-        items.append(item("aws", "AWS CLI 与登录", "ok" if code == 0 and '"authenticated"' in out else "user",
-                          out.strip()[-300:], guide=["按 references/aws-cli.md 完成 AWS SSO 登录后回复「已完成」。"]))
     for scene in ("solution", "execute"):
         if scene in scenes:
             items += check_schedule(scene)
@@ -454,13 +451,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("operation", choices=("check", "fix"))
     parser.add_argument("--scene", action="append", choices=(*SCENES, "all"), required=True)
-    parser.add_argument("--include", action="append", choices=("aws",), default=[])
     parser.add_argument("--data-dir")
     args = parser.parse_args()
     try:
         root = wb.data_root(argparse.Namespace(data_dir=args.data_dir))
         scenes = set(SCENES) if "all" in args.scene else set(args.scene)
-        items = check(root, scenes, "aws" in args.include)
+        items = check(root, scenes)
         if args.operation == "check":
             wb.emit(report(scenes, items))
             return 0
@@ -471,7 +467,7 @@ def main():
                     done.append(apply_fix(root, entry["fix"]))
                 except (ValueError, OSError) as error:
                     errors.append({"id": entry["id"], "error": str(error)})
-        wb.emit(report(scenes, check(root, scenes, "aws" in args.include), done, errors))
+        wb.emit(report(scenes, check(root, scenes), done, errors))
         return 0 if not errors else 1
     except (ValueError, OSError) as error:
         wb.emit({"ok": False, "error": str(error)})

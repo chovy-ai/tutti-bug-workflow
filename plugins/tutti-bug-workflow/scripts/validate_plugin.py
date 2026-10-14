@@ -46,7 +46,7 @@ def main():
                 or identifier in identifiers or not (required | conditional)
                 or (required | conditional) - scene_names or required & conditional
                 or not tool.get("requirements") or not isinstance(tool.get("commands"), list)
-                or tool.get("install_operation") not in (None, "setup-tutti-ops", "setup-aws-cli")):
+                or tool.get("install_operation") not in (None, "setup-tutti-ops")):
             errors.append(f"Invalid tool definition: {identifier}")
         identifiers.add(identifier)
     actual = {p.parent.name for p in (ROOT / "skills").glob("*/SKILL.md")}

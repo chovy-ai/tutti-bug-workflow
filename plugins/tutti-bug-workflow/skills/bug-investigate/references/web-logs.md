@@ -25,7 +25,7 @@ Web 端只取页面日志（请求等其他现场由 Tutti Web 记入日志）�
    脚本核对页面与 Account、提问前 10 分钟的固定窗口、序号连续与去重，写出 JSON Lines（首行 metadata）；`collectionStatus: partial` 表示翻页中断。
 4. **设备列表**：`execute_webmcp_tool` 调 `list_my_computers`；房间相关时加 `list_rooms`、`list_room_agents({roomId})`，按 `nextCursor` 读完。用于定位 Computer，不上传。
 
-`web-logs.log` 上传到「截图、视频、日志」，并作为 `collect_server.py --web-logs` 的输入（脚本从中提取 request id）。调用失败是维护侧问题，写在回复里，改用方式二。
+`web-logs.log` 上传到「截图、视频、日志」，并作为 `web_requests.py --web-logs` 的输入（列出失败请求和 request id）。调用失败是维护侧问题，写在回复里，改用方式二。
 
 ## 方式二：QA 导出的诊断包
 
@@ -39,6 +39,6 @@ Web 端只取页面日志（请求等其他现场由 Tutti Web 记入日志）�
 | `errors.jsonl` | warn 与 error |
 | `logs.jsonl` | 全部记录，含 `requestId`（折叠的重复请求另有 `requestIds`）、`computerRefs`、`path` |
 
-诊断包导出时已脱敏。zip 直接作为 `collect_server.py --web-logs` 的输入（脚本读取 `logs.jsonl` 里的 `requestId`），`manifest.computers[]` 用来定位 Computer。
+诊断包导出时已脱敏。zip 直接作为 `web_requests.py --web-logs` 的输入（脚本读取 `logs.jsonl` 里的 `requestId`），`manifest.computers[]` 用来定位 Computer。
 
 两种方式都没有时记为 `pending`（`reason: no_export`），第 5 步请用户提供。

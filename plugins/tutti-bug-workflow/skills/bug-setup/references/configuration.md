@@ -12,8 +12,6 @@
 - `repositories`：默认配置 tutti（Web、Computer）、tutti-server（Server）、tsh-websocket（WebSocket）三个仓库的远端 main；每项提供 `name`、`url`、`base_branch`、`cache_path`（bare 缓存）和 `checkout_path`（全局分析检出）。修复 worktree 位于数据目录 `worktrees/` 下，推送后删除。操作见 [代码缓存](repository-cache.md)，其他分支需用户指定。
 - `log_sources`：每项提供 `name`、`kind`、`transport`、`environment` 及对应入口。Web 有两个来源：`chrome-devtools-mcp`（插件注册的 chrome-devtools MCP，见 [WebMCP 连接准备](web-logs.md)）与 `user-export`（QA 导出的诊断包）；`files` 使用明确的文件 `paths`，支持绝对路径、`~/`、`${TMPDIR}/` 和 `${TEMP}/`，读取前解析为本机绝对路径；`mcp` 使用 `mcp_server` 与实际 `tool`；兼容旧配置的 `cli` 使用 `argv` 与可选 `cwd`。Computer 的路径规则及远端协议见 [Computer 日志获取](computer-logs.md)。缺少入口时保留空值，检查逐个报告未配置；配置检查不表示已取得日志。
 - `validation`：实际环境、URL、浏览器工具，以及部署版本的读取方法。部署操作仍按当前任务授权执行。
-- `aws_cli`：默认 AWS 接入，保存 profile 与查询参考区域。执行 `setup-aws-cli --install` 准备 CLI v2；完整 Setup 或选择 AWS 时接续 `--check-auth` 并处理认证缺口，详见 [AWS CLI 安装与日志读取](aws-cli.md)。
-- `aws_mcp`：保留旧版显式 MCP 接入设置，当前 setup 不使用此项自动注册；CLI 可用后清理由插件创建且未被改动的旧 AWS MCP。
 - `trigger.mode`：本版只支持 `manual`。填写其他模式不会创建监听器。
 
 `doctor` 检查本地命令是否存在及配置是否齐备，不访问飞书、不验证仓库权限，也不替用户登录。它分别报告本地工具和外部接入的配置状态；执行模式的 Agent 还需按 [主动补齐授权](setup-user-guide.md#主动补齐授权) 验证权限、处理缺口并复查实际访问。
@@ -59,7 +57,7 @@ QA 所需的补充资料由当前未验证假设决定；通用接入或权限�
 }
 ```
 
-调用 `install-cli --name company-cli` 后，安装器在数据目录的 `tools/company-cli/` 运行固定版本 npm 安装，禁用 npm lifecycle scripts，检查对应可执行文件，并返回该可执行文件的路径。后续工具使用返回路径或将其 `.bin` 目录临时加入该任务 PATH。需要 postinstall 的 CLI 不适用 npm 安装器。AWS CLI 通过专用 `aws-official` 类型安装，支持复用现有 v2 和官方固定版本安装；返回实际命令路径，方法见 [AWS CLI](aws-cli.md)。
+调用 `install-cli --name company-cli` 后，安装器在数据目录的 `tools/company-cli/` 运行固定版本 npm 安装，禁用 npm lifecycle scripts，检查对应可执行文件，并返回该可执行文件的路径。后续工具使用返回路径或将其 `.bin` 目录临时加入该任务 PATH。需要 postinstall 的 CLI 不适用 npm 安装器。
 
 认证使用 CLI 自己的登录流程。飞书可先看 `lark-cli auth status --help`，确认当前身份；需要授权时仅申请任务所需 scope。凭证保存在 CLI 的认证存储中，配置文件只保存服务位置与非秘密设置。
 
@@ -85,8 +83,6 @@ python3 PLUGIN_SOURCE/skills/bug-setup/scripts/workbench.py configure-mcp --conf
 ```
 
 生成器会拒绝明显的占位地址，输出根部 `mcp.json` 和兼容 `.mcp.json`。对源码生成，再更新或重装插件；保持 installed cache 不变。需要的 OAuth、Bearer Token 或其他鉴权按服务要求通过宿主的 MCP 配置与凭证存储完成。生成器不会写入令牌，也不修改用户全局 Codex 设置。
-
-AWS 默认通过 CLI 接入，setup 不注册 AWS MCP。保留的 `setup-aws-mcp` 仅用于用户明确要求恢复 MCP 的场景，与上述配置生成分开。
 
 本地 STDIO 的 `command` 和 `args` 必须指向实际存在的运行时和入口；配置生成不能部署服务器。浏览器 MCP 的登录态、浏览器依赖和连接权限同样需要实际准备。
 
