@@ -158,7 +158,10 @@ def check_multica(root):
         state = multica.inspect(cfg, client)
     except ValueError as error:
         text = str(error)
-        if "未安装" in text:
+        if "brew upgrade multica" in text:
+            guide = ["运行 `brew upgrade multica`（tap 未受信任时先 `brew trust multica-ai/tap`），"
+                     "或 `brew uninstall multica` 改用 Multica 桌面端自带的 CLI；", "完成后回复「已完成」。"]
+        elif "未安装" in text:
             guide = ["安装 Multica 桌面端（https://multica.ai）并登录；它会装好 `multica` 命令并启动本机 daemon；",
                      "完成后回复「已完成」。"]
         else:

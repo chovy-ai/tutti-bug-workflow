@@ -33,6 +33,8 @@ def fail(message):
     sys.exit(1)
 
 
+if args == ["version"]:
+    done(table=f"multica {state.get('version', '0.6.2')} (commit: fake)")
 if option("--profile") != state.get("profile", "desktop-api.multica.ai") or not state.get("logged_in", True):
     fail("not authenticated: run 'multica login' first")
 words = [arg for index, arg in enumerate(args)

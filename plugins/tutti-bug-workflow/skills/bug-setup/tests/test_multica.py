@@ -89,7 +89,7 @@ class MulticaTests(unittest.TestCase):
         investigator = state["agents"][0]["instructions"]
         self.assertIn("噜妹Bug分析师", investigator)  # the hand-off target comes from the config
         # The profile is always explicit: a daemon task's MULTICA_* environment must not leak in.
-        self.assertTrue(all(call[:2] == ["--profile", "desktop-api.multica.ai"] for call in state["calls"]))
+        self.assertTrue(all(call[:2] == ["--profile", "desktop-api.multica.ai"] for call in state["calls"] if call != ["version"]))
         writes = len(state["calls"])
         self.multica("sync", expected=0)
         rewrites = [call for call in self.read()["calls"][writes:] if "upsert" in call or "delete" in call]
@@ -120,6 +120,12 @@ class MulticaTests(unittest.TestCase):
         state["cli"] = "legacy"
         self.write(state)
         self.assertEqual(self.multica("status", expected=1)["workspace_id"], WORKSPACE)
+
+    def test_a_cli_older_than_0_6_is_an_error(self):
+        state = self.read()
+        state["version"] = "0.2.4"
+        self.write(state)
+        self.assertIn("brew upgrade multica", self.multica("status", expected=2)["error"])
 
     def test_logged_out_profile_is_an_error(self):
         state = self.read()

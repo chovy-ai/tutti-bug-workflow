@@ -33,6 +33,7 @@ import workbench as wb  # noqa: E402
 
 ROLES = {"investigate": "bug-investigate", "analyze": "bug-analyze", "execute": "bug-execute"}
 LEGACY_SKILLS = ("bug-solution",)
+MINIMUM_CLI = (0, 6, 0)  # issue create --description-file, --allow-external-file for attachments
 SKIPPED = {"tests", "__pycache__"}
 UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 INSTRUCTIONS = {
@@ -117,9 +118,24 @@ def source_skill(name):
             "files": files, "skipped": skipped}
 
 
+def cli_version():
+    try:
+        output = subprocess.run([shutil.which("multica"), "version"], capture_output=True, text=True,
+                                timeout=30, check=False).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    match = re.search(r"(\d+)\.(\d+)\.(\d+)", output)
+    return tuple(map(int, match.groups())) if match else None
+
+
 def connect(cfg):
     if not shutil.which("multica"):
         raise ValueError("multica 未安装：先安装 Multica 桌面端或 CLI（brew install multica-ai/tap/multica）")
+    version = cli_version()
+    if version and version < MINIMUM_CLI:
+        raise ValueError(f"{shutil.which('multica')} 是 {'.'.join(map(str, version))}，低于 "
+                         f"{'.'.join(map(str, MINIMUM_CLI))}（没有 --allow-external-file 等参数，Agent 建 issue、"
+                         "传附件会失败）：brew upgrade multica，或删掉它让 PATH 用 Multica 桌面端自带的 CLI")
     client = Multica(cfg["profile"])
     try:
         workspaces = client.workspaces()

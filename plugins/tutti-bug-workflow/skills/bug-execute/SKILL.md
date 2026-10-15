@@ -88,12 +88,12 @@ python3 scripts/repos.py remove --path <worktree>
 按 [验证模板](assets/verification.md) 写 `$RUN/reply.md`，连同这次的全部截图（`fix-*`、`before-*`）作为附件发到 issue，再改状态：
 
 ```sh
-multica issue comment add <issueId> --content-stdin \
+multica issue comment add <issueId> --content-stdin --allow-external-file \
   --attachment <$RUN>/fix-<编号小写>-1-<时间>.png --attachment <$RUN>/before-<编号小写>-1-<时间>.png < <$RUN>/reply.md
 multica issue status <issueId> in_review     # 已部署待验收；修复失败时用 blocked
 ```
 
-- 每张截图一个 `--attachment`，附件显示的就是文件名，回复正文按文件名引用，不写本机路径。
+- 每张截图一个 `--attachment`，附件显示的就是文件名，回复正文按文件名引用，不写本机路径。`$RUN` 不在工作目录里，必须带 `--allow-external-file`，否则 CLI 拒绝读取。
 - 附件上传失败时评论不会发出：按报错修正（文件名重复、空文件、文件过大）后重发。结果不确定时先 `multica issue comment list` 回读，确实没发出再重发，不重复发评论。
 - 只发评论、改状态，不改 issue 的标题、描述和优先级，不把 issue 分配给别人；验收通过后由 QA 置为 `done`。
 - **失败时也要回复**：写清卡在哪一步、错误信息和链接，已部署成功的一端照样给出体验链接，状态置为 `blocked`。

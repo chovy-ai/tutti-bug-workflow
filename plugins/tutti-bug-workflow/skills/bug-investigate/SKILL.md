@@ -77,7 +77,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
    ```sh
    multica issue create --title "<标题>" --description "<QA 原话、发生时间；现场采集中>" \
      --project <Bug 项目 ID> --priority <urgent|high|medium|low|none> \
-     --attachment <$REPORT>/screenshot-1.png --output json
+     --allow-external-file --attachment <$REPORT>/screenshot-1.png --output json
    ```
    记下回执的 `id` 和 `identifier`（如 `TES-123`）。超时等结果不确定时先 `multica issue search "<标题>"` 核对，确实没建成再重跑，不重复建单。
 
@@ -122,7 +122,7 @@ python3 scripts/web_requests.py --web-logs <web-logs.log 或诊断包 zip> --que
 3. 等 Computer 召回结束（读 `$REPORT/computer.json`；召回在等用户确认设备时不等），先更新 issue，再把现场一次发出：
    ```sh
    multica issue update <issueId> --title "<标题>" --description "$(cat <$REPORT>/description.md)" --priority <优先级>
-   multica issue comment add <issueId> --content-stdin \
+   multica issue comment add <issueId> --content-stdin --allow-external-file \
      --attachment <$REPORT>/排查线索.txt --attachment <$REPORT>/web/web-logs.log \
      --attachment <$REPORT>/computer/<召回包>.tar.gz --attachment <$REPORT>/screenshot-1.png < <$REPORT>/evidence.md
    multica issue get <issueId> --output json          # 回读标题、描述、优先级
