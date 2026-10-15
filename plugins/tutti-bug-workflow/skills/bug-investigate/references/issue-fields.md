@@ -1,19 +1,18 @@
-# Task 字段与写入规则
+# issue 字段与写入规则
 
-提 Bug 用全局 `tutti-cli`（账号登录版）的 `task create --room-id` 在指定 Room 建一个 Task，采集后用 `task edit` 改标题、写全描述，截图、`排查线索.txt` 和全部日志作为附件挂在描述上。Task 字段只能写下面几个，不能指派、改优先级；根因分析用 `task run` 交给 Room Agent（见 [交给 Room Agent 分析](rd-analysis.md)）。
+提 Bug 在 Multica 的 Bug 项目（配置 `multica.project`）里登记一个 issue：建单时写 QA 原话，采集后用 `multica issue update` 改标题、写全描述、定优先级；QA 的截图挂在 issue 上，`排查线索.txt` 和全部日志作为附件发在「现场材料」评论里。根因分析交给分析 Agent（`multica issue assign`），本 Skill 不写分析、方案和验收。
 
-| 参数 | Task 字段 | 怎么填 |
+| 参数 | issue 字段 | 怎么填 |
 |---|---|---|
-| `--room-id` | 所在 Room | `find_room.py` 按 Room ID／链接、房间名或用户名从 `tutti-cli room list` 里找到的 ID；每条 `task` 命令都要带 |
-| `--operation-id` | Task ID／幂等键 | 第 1 步生成的 `operation_id`（UUID），重试时不变 |
-| `--title` | 标题 | 一行「类别：现象（触发条件／关键对照）」，见下；`task edit --title` 可改 |
-| `--description`（建单）／`--description-file`（编辑） | 描述 | 建单时写 QA 原话；采集后 `task edit --description-file` 整段替换为下面的「描述」，只写 Bug 表现。`task create` 只接受 `--description` |
-| `task edit --file`（可重复） | 描述里的附件 | QA 的截图、录屏，`排查线索.txt`，全部日志；描述是整段替换，每次带附件的 `task edit` 都带上全部文件 |
-| `--priority` | 优先级 | 建单时按下表从 QA 定级映射；**CLI 改不了**，之后只能在任务看板改 |
-| —— | 负责人 | **CLI 不能指派**：请 QA 在任务看板指派；QA 提到的人写进 `排查线索.txt`「建议跟进人」 |
-| `--project-id` | Project | 一般不填；QA 明确要求挂到该 Room 的某个 Project 时才填 |
+| `--title` | 标题 | 一行「功能：现象」，见下；`issue update --title` 可改 |
+| `--description` | 描述 | 建单时写 QA 原话；采集后 `issue update --description` 整段替换为下面的「描述」，只写 Bug 表现 |
+| `--priority` | 优先级 | 按下表从 QA 定级映射；之后可用 `issue update --priority` 改 |
+| `--project` | 所属项目 | Bug 项目的 ID（`multica project list --output json` 里按 `title` 找） |
+| `--attachment`（建单，可重复） | issue 附件 | QA 的截图、录屏；日志不挂在这里 |
+| `issue comment add --attachment`（可重复） | 评论附件 | 「现场材料」评论：`排查线索.txt`、全部日志、建单时没挂上的截图 |
+| `issue assign --to` | 负责人 | 现场发出后分配给分析 Agent；之后由 RD 分配给修复 Agent |
 
-创建者是 `tutti-cli login` 登录的账号（`whoami`）；新建为 `todo`、未指派，不会自动启动 Agent。本 Skill 不改状态，不关闭、不删除 Task。分析根因、修复方案和验收不在本 Skill 写。
+本 Skill 不改 issue 状态（分析 Agent 接手后会置为 `in_progress`），不关闭、不删除 issue。
 
 ## 优先级
 
@@ -23,13 +22,13 @@
 | P1（明显 Bug） | `high` |
 | P2（非核心 Bug） | `medium` |
 | P3 | `low` |
-| 拿不准 | `none`，描述「待 QA 确认」里写倾向和理由，QA 确认后在任务看板修改 |
+| 拿不准 | `none`，描述「待 QA 确认」里写倾向和理由，QA 确认后 `issue update --priority` 修改 |
 
 QA 的原始定级写进 `排查线索.txt`，便于对照。
 
 ## 标题
 
-标题就是这个 Bug 的一句话简介，RD 在任务看板里只看这一行：
+标题就是这个 Bug 的一句话简介，RD 在 issue 列表里只看这一行：
 
 - 格式：`功能：现象`，一行，20–40 字，最长不超过 60 字。功能用界面上的叫法（「Agent 会话」「任务看板」「房间-群聊」）。
 - 写用户看到了什么不对，用大白话；不写错误码、ID、模型名、日志字段，不加括号补充对照条件。
@@ -42,17 +41,17 @@ QA 的原始定级写进 `排查线索.txt`，便于对照。
 | 任务：执行失败 | 任务：Claude Agent 执行任务时报认证失败 |
 | 房间任务：同一路径文件更新后右侧显示3个同名产物（历史内容不同，未区分版本） | 房间任务：同一文件改两次后右侧出现 3 个同名文件，应只显示最新一份 |
 
-建单时（第 2 步）按 QA 的描述先起；采集后发现现象说得不准时，用 `task edit --title` 改。
+建单时（第 2 步）按 QA 的描述先起；采集后发现现象说得不准时，用 `issue update --title` 改。
 
 ## 描述
 
-描述只讲 **Bug 的表现**，写给没看过现场的人：做了什么、看到了什么、应该是什么样。纯文本，换行会保留，不渲染 Markdown；用空行分段，不用 `#`、`**`、表格。
+描述只讲 **Bug 的表现**，写给没看过现场的人：做了什么、看到了什么、应该是什么样。Markdown，按下面的小标题分段，不用表格。
 
-```
-问题
+```markdown
+### 问题
 <1–3 句大白话：在哪个页面、做了什么操作、看到了什么、哪里不对。界面上的报错文字原样照抄>
 
-复现步骤
+### 复现步骤
 1. ……
 2. ……
 
@@ -62,9 +61,9 @@ QA 的原始定级写进 `排查线索.txt`，便于对照。
 发生时间：2026-10-13 20:52（北京时间）
 环境：生产／PPE · Mac／Windows／Web · <Agent 名称>
 
-截图、录屏见下方附件；日志和排查线索见附件「排查线索.txt」和各日志文件。
+截图、录屏见附件；日志和排查线索见「现场材料」评论里的「排查线索.txt」和各日志文件。
 
-待 QA 确认
+### 待 QA 确认
 - <还在等 QA 回复的问题；没有就省略本段>
 ```
 
@@ -79,7 +78,7 @@ QA 的原始定级写进 `排查线索.txt`，便于对照。
 
 ## 排查线索（附件）
 
-RD 排查需要的东西一次写进 `$REPORT/排查线索.txt`，和截图、日志一起在 `task edit` 里用 `--file` 挂上（命令见 SKILL 第 4 步）。纯文本，按下面的顺序写，每条一行、带来源和时间，不写过程：
+RD 排查需要的东西一次写进 `$REPORT/排查线索.txt`，和日志一起在「现场材料」评论里用 `--attachment` 发出（命令见 SKILL 第 4 步）。纯文本，按下面的顺序写，每条一行、带来源和时间，不写过程：
 
 ```
 排查线索（现场事实，不是根因结论）
@@ -98,7 +97,6 @@ Computer：<computerId>（<名称>）
 Agent：<agentTargetId>
 request id：<出错或关键的几条，RD 用它查 tutti-server 日志>
 召回任务：<taskId>
-建 Task 账号：<whoami 的 name（userId）>
 
 环境与版本
 环境：生产／PPE（lane-ppe-xxx）
@@ -118,7 +116,7 @@ QA 定级：P1（或「待 QA 确认」）
 - <文件名>：<一句话说明，如「web-logs.log：问题前 10 分钟的页面日志」>
 ```
 
-现场后到（召回晚完成、QA 补了诊断包）时，在这个文件里补几行，再带上全部文件 `task edit` 一次。
+现场后到（召回晚完成、QA 补了诊断包）时，在这个文件里补几行，和新文件一起发「现场补充」评论。
 
-- 在回复里告诉用户的每一条发现，都必须能在描述或排查线索里找到；回复里说「已建 Task」之前先用 `tutti-cli task show` 回读确认。
-- 只记录核对过的事实并标注来源；推测写成「待确认：……」，不写根因结论（根因由 Room Agent 分析，见 [交给 Room Agent 分析](rd-analysis.md)）。
+- 在回复里告诉用户的每一条发现，都必须能在描述或排查线索里找到；回复里说「已登记」之前先用 `multica issue get` 回读确认。
+- 只记录核对过的事实并标注来源；推测写成「待确认：……」，不写根因结论（根因由分析 Agent 分析）。

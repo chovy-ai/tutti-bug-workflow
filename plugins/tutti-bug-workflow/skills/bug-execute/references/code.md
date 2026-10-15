@@ -1,6 +1,6 @@
 # 修复工作区
 
-每次修复从远端分支切出独立 worktree（新修复用最新 origin/main，重试时用远端已有的修复分支），修复后推送、提 PR 到 main、部署 PPE，最后移除 worktree，不保留本地工作区。根因分析用的固定检出（`repositories/<仓库名>`，Room Agent 分析时用）这里不碰。
+每次修复从远端分支切出独立 worktree（新修复用最新 origin/main，重试时用远端已有的修复分支），修复后推送、提 PR 到 main、部署 PPE，最后移除 worktree，不保留本地工作区。根因分析用的固定检出（`repositories/<仓库名>`，分析 Agent 用）这里不碰。
 
 ## 位置与命名
 
@@ -8,7 +8,7 @@
 |---|---|
 | bare 缓存 | `repositories/<仓库>.git`（`repositories[].cache_path`） |
 | 仓库 | tutti（Web、Computer）、tutti-server（Server）、tsh-websocket（WebSocket），见 `repositories` |
-| 分支 | `codex/bug-<Task ID 前 8 位>`（`deploy.branch_prefix`，`deploy.py fix-names` 给出），各仓库同名 |
+| 分支 | `codex/bug-<issue 编号小写>`（`deploy.branch_prefix`，`deploy.py fix-names` 给出），各仓库同名 |
 | worktree | `worktrees/<仓库>/<分支，/ 换成 ->` |
 
 路径都相对数据目录（默认 `~/.local/share/bug-workbench`）。
@@ -16,7 +16,7 @@
 ## 命令
 
 ```sh
-python3 scripts/repos.py start  --repo tutti --branch codex/bug-<短 ID>
+python3 scripts/repos.py start  --repo tutti --branch <branch>
 python3 scripts/repos.py push --path <worktree>
 python3 scripts/repos.py remove --path <worktree>          # PPE 部署结束后
 python3 scripts/repos.py remove --path <worktree> [--discard]

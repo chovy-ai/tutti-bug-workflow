@@ -1,5 +1,11 @@
 {
   "schema_version": 1,
+  "multica": {
+    "profile": "desktop-api.multica.ai",
+    "workspace_id": null,
+    "project": "Bug列表",
+    "agents": { "investigate": "噜噜Bug守门员", "analyze": "噜妹Bug分析师", "execute": "牛牛Bug解决专员" }
+  },
   "deploy": {
     "branch_prefix": "codex/bug-",
     "server": {

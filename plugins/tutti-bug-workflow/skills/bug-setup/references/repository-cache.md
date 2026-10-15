@@ -1,6 +1,6 @@
 # 代码缓存与检出
 
-Setup 保存仓库配置；修复工作区由 bug-execute 处理。根因分析由 Room Agent 在它所在的电脑上拉代码，见 bug-investigate 的分析指令。
+Setup 保存仓库配置；修复工作区由 bug-execute 处理。根因分析由 bug-analyze 在本机的固定检出里读最新代码。
 
 ## 布局
 
@@ -8,7 +8,7 @@ Setup 保存仓库配置；修复工作区由 bug-execute 处理。根因分析�
 
 ```text
 repositories/tutti.git            bare 缓存（cache_path）
-repositories/tutti                分析用的固定检出（Room Agent 在本机分析时使用），跟随最新 main，只读
+repositories/tutti                分析用的固定检出（bug-analyze 使用），跟随最新 main，只读
 repositories/tutti-server.git
 repositories/tutti-server
 repositories/tsh-websocket.git

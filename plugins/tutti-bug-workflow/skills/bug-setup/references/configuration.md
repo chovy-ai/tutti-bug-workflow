@@ -8,7 +8,7 @@
 
 ## 项目配置
 
-- Bug 记录在 Tutti 任务系统（Room 里的 Task），用全局 `tutti-cli` 读写，配置里不需要表格信息。场景交接见 [工作流](workflow.md)。
+- `multica`：Bug 记录在 Multica issue，三个 Agent 在本机 Codex runtime 上接力；`profile`、`workspace_id`、`project` 和 `agents` 的含义与同步方法见 [Multica 接入](multica.md)，场景交接见 [工作流](workflow.md)。
 - `repositories`：默认配置 tutti（Web、Computer）、tutti-server（Server）、tsh-websocket（WebSocket）三个仓库的远端 main；每项提供 `name`、`url`、`base_branch`、`cache_path`（bare 缓存）和 `checkout_path`（检出位置）。修复 worktree 位于数据目录 `worktrees/` 下，推送后删除。操作见 [代码缓存](repository-cache.md)，其他分支需用户指定。
 - `log_sources`：每项提供 `name`、`kind`、`transport`、`environment` 及对应入口。Web 有两个来源：`chrome-devtools-mcp`（插件注册的 chrome-devtools MCP，见 [WebMCP 连接准备](web-logs.md)）与 `user-export`（QA 导出的诊断包）；`files` 使用明确的文件 `paths`，支持绝对路径、`~/`、`${TMPDIR}/` 和 `${TEMP}/`，读取前解析为本机绝对路径；`mcp` 使用 `mcp_server` 与实际 `tool`；兼容旧配置的 `cli` 使用 `argv` 与可选 `cwd`。Computer 的路径规则及远端协议见 [Computer 日志获取](computer-logs.md)。缺少入口时保留空值，检查逐个报告未配置；配置检查不表示已取得日志。
 - `deploy`：修复分支前缀（`codex/bug-`）、各端 PPE 部署工作流、泳道前缀（`ppe-bug-`）和预览链接模板，供 bug-execute 使用。
@@ -60,7 +60,7 @@ QA 所需的补充资料由当前未验证假设决定；通用接入或权限�
 
 调用 `install-cli --name company-cli` 后，安装器在数据目录的 `tools/company-cli/` 运行固定版本 npm 安装，禁用 npm lifecycle scripts，检查对应可执行文件，并返回该可执行文件的路径。后续工具使用返回路径或将其 `.bin` 目录临时加入该任务 PATH。需要 postinstall 的 CLI 不适用 npm 安装器。
 
-认证使用 CLI 自己的登录流程（如 `tutti-cli login`、`gh auth login`）；需要授权时仅申请任务所需 scope。凭证保存在 CLI 的认证存储中，配置文件只保存服务位置与非秘密设置。
+认证使用 CLI 自己的登录流程（如 Multica 桌面端登录、`gh auth login`）；需要授权时仅申请任务所需 scope。凭证保存在 CLI 的认证存储中，配置文件只保存服务位置与非秘密设置。
 
 ## MCP
 

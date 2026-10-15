@@ -1,8 +1,8 @@
 # tutti-bug-workflow
 
-插件源码位于 [plugins/tutti-bug-workflow](plugins/tutti-bug-workflow/README.md)。三个 Skill：QA 提 Bug（bug-investigate）、修复与部署（bug-execute）和环境准备（bug-setup），只对接 Tutti 任务系统，不用飞书表，也没有定时任务。
+插件源码位于 [plugins/tutti-bug-workflow](plugins/tutti-bug-workflow/README.md)。四个 Skill：QA 提 Bug（bug-investigate）、根因分析（bug-analyze）、修复与部署（bug-execute）和环境准备（bug-setup）。Bug 记录在 Multica issue，三个业务 Skill 由本机 Multica 的三个 Agent 执行、靠分配 issue 交接。
 
-QA 提 Bug 带全现场后，用全局 `tutti-cli`（账号登录版）在指定 Room 建 Task，再交给该 Room 的 Agent 分析根因；Room 按 Room ID、房间名或用户名从本地房间里找。bug-execute 由 RD 指定一条 Task 和认可的方案，修复、提 PR、部署 PPE、自验证，结果回复到 Task。setup 按场景安装工具、补默认配置，引导登录、Token 和 Chrome 授权后复查。提 Bug 不拉服务端日志、不用 AWS，只记 request id。
+QA 提 Bug 带全现场后在 Multica 登记 issue，自动分配给分析 Agent；分析 Agent 拉最新代码给出根因和方案，等 RD 评审；RD 认可后分配给修复 Agent，修复、提 PR、部署 PPE、自验证，结果和截图回复到 issue。setup 按场景安装工具、补默认配置，把技能同步到 Multica 的三个 Agent，引导登录、Token 和 Chrome 授权后复查。提 Bug 不拉服务端日志、不用 AWS，只记 request id。
 
 完整的每步准备条件见 [Setup Skill](plugins/tutti-bug-workflow/skills/bug-setup/SKILL.md)，支持先梳理现状和待决策项，再按确定的方式初始化。
 

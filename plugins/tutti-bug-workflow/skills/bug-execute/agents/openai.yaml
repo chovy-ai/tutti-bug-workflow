@@ -1,4 +1,4 @@
 interface:
   display_name: "修复与部署"
-  short_description: "修复一条 Bug Task：提 PR、部署 PPE、自验证，结果回复到 Task"
-  default_prompt: "使用 $tutti-bug-workflow:bug-execute 修复这个 Task：<Task 链接>，按 Room Agent 分析里的根本方案修。"
+  short_description: "修复一条 Bug issue：按 RD 认可的方案提 PR、部署 PPE、自验证，结果和截图回复到 issue"
+  default_prompt: "使用 $tutti-bug-workflow:bug-execute 修复这个 issue：<issue 编号或链接>，按 issue 里 RD 认可的方案修。"

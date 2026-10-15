@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """Scene-based setup: check everything a scene needs, fix what can be fixed unattended.
 
-Scenes: `investigate` (QA 提 Bug) and `execute` (修复一条 Bug Task 并部署 PPE), or `all`.
-Both work only with the Tutti task system through tutti-cli. Each item comes back with one status:
+Scenes: `investigate` (QA 提 Bug), `analyze` (根因分析) and `execute` (修复一条 Bug 并部署 PPE),
+or `all`. Every scene runs as a Multica agent on this machine, with the Multica issue as the bug
+record. Each item comes back with one status:
 
 - `ok`: ready and verified (installed, logged in, resource reachable).
 - `fix`: missing but `prepare.py fix` can do it unattended (fill config defaults, npm or
-  Homebrew installs, `gh auth setup-git`).
+  Homebrew installs, `gh auth setup-git`, sync the skills to the Multica workspace).
 - `user`: needs the person (a login, a token, a permission from an owner); `guide` lists
   the exact steps and `verify` says how it is checked afterwards.
 - `host`: checked by the agent inside Codex (the chrome-devtools MCP and Chrome consent).
 - `optional`: not needed for the scene to work, e.g. no local Computer logs on this machine.
 
 `check` only reads and runs read-only probes. `fix` performs the `fix` items, then checks
-again. Nothing here creates Tasks, pushes or deploys.
+again. Nothing here creates issues or agents, pushes or deploys.
 """
 
 import argparse
@@ -27,10 +28,11 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import multica  # noqa: E402
 import workbench as wb  # noqa: E402
 
-SCENES = {"investigate": "QA 提 Bug", "execute": "修复与部署"}
-NPM_PACKAGES = {"tutti-ops": "@tutti-os/tutti-ops-cli", "tutti-cli": "@tutti-os/tutti-cli"}
+SCENES = {"investigate": "QA 提 Bug", "analyze": "根因分析", "execute": "修复与部署"}
+NPM_PACKAGES = {"tutti-ops": "@tutti-os/tutti-ops-cli"}
 SCRIPT = Path(__file__).resolve()
 
 
@@ -125,7 +127,7 @@ def check_node():
     if ready:
         return item("node", "Node.js 20+ 与 npm", "ok", version)
     return item("node", "Node.js 20+ 与 npm", "user", f"当前：{version or '未安装'}",
-                guide=["Node.js 用来安装 tutti-cli、tutti-ops，并运行 chrome-devtools MCP。",
+                guide=["Node.js 用来安装 tutti-ops，并运行 chrome-devtools MCP。",
                        "macOS 推荐：在终端运行 `brew install node`（没有 Homebrew 先看 https://brew.sh）；"
                        "或用 nvm：`nvm install 22 && nvm use 22`。",
                        "装好后重新打开终端，回复「已完成」。"],
@@ -147,47 +149,51 @@ def check_command(name, label, scene_hint):
                 verify=f"`{name}` 在 PATH 中可执行")
 
 
-def check_tutti_cli():
-    """Both scenes talk to Room Tasks through the global account CLI (@tutti-os/tutti-cli, Node 24+)."""
-    label = "Tutti CLI（tutti-cli，账号登录版）"
-    code, out = run(["tutti-cli", "--help"]) if shutil.which("tutti-cli") else (127, "")
-    detail = None
-    # The usage block of `task comment` runs until the next command line.
-    comment = re.search(r"tutti-cli task comment\b(.*?)(?=\n\s*tutti-cli |\n\s*\n|\Z)", out, re.S)
-    if code or any(f"tutti-cli {command}" not in out for command in ("login", "room list", "task run")):
-        detail = ("未安装" if not shutil.which("tutti-cli") else
-                  "PATH 里的 tutti-cli 不是账号登录版（没有 login 命令）" if "tutti-cli login" not in out else
-                  "版本过旧，没有 room list／task run（按房间名查房间、交给 Room Agent 分析根因）")
-    elif not comment or "--file" not in comment[1]:
-        detail = "版本过旧，task comment 不支持 --file（修复回复要把验证截图作为评论附件）"
-    elif shutil.which("npm"):
-        # Always run the latest release; when npm cannot be reached keep the installed one.
-        latest_code, latest = run(["npm", "view", "@tutti-os/tutti-cli", "version"])
-        current = run(["tutti-cli", "--version"])[1].strip()
-        if latest_code == 0 and latest.strip() and current != latest.strip():
-            detail = f"当前 {current or '未知版本'}，npm 最新 {latest.strip()}"
-    if detail:
-        version = run(["node", "--version"])[1].strip()
-        major = re.match(r"v(\d+)\.", version)
-        if major and int(major[1]) >= 24 and shutil.which("npm"):
-            return item("tutti-cli", label, "fix", f"{detail}，将运行 npm install -g @tutti-os/tutti-cli@latest",
-                        fix="npm:tutti-cli")
-        return item("tutti-cli", label, "user", f"{detail}；需要 Node.js 24+（当前：{version or '未安装'}）",
-                    guide=["提 Bug、修复回复都用全局安装的 tutti-cli 以你的 Tutti 账号读写 Room 里的 Task，它要求 Node.js 24 及以上。",
-                           "用 nvm：`nvm install 24 && nvm use 24`（或 `brew install node`），然后回复「已完成」，"
-                           "Agent 会运行 `npm install -g @tutti-os/tutti-cli@latest`。"],
-                    verify="`tutti-cli --help` 列出 login、room list、task create、task run，task comment 带 --file")
-    code, out = run(["tutti-cli", "whoami", "--json"])
-    if code == 0:
-        try:
-            user = json.loads(out[out.index("{"):])
-        except ValueError:
-            user = {}
-        return item("tutti-cli", label, "ok", f"已登录：{user.get('name') or user.get('userId') or '未知账号'}")
-    return item("tutti-cli", label, "user", f"未登录或登录已过期：{out.strip()[-200:]}",
-                guide=["在终端运行 `tutti-cli login`，浏览器会打开 Tutti 登录页，用你自己的 Tutti 账号完成登录（需是目标 Room 的成员）。",
-                       "登录完成后回复「已完成」。"],
-                verify="`tutti-cli whoami --json` 返回账号")
+def check_multica(root):
+    """The Multica side: CLI and login, project, the three agents online, skills in sync."""
+    label = "Multica（Bug 记录与三个 Agent）"
+    cfg = multica.settings(root)
+    try:
+        client = multica.connect(cfg)
+        state = multica.inspect(cfg, client)
+    except ValueError as error:
+        text = str(error)
+        if "未安装" in text:
+            guide = ["安装 Multica 桌面端（https://multica.ai）并登录；它会装好 `multica` 命令并启动本机 daemon；",
+                     "完成后回复「已完成」。"]
+        else:
+            guide = ["打开 Multica 桌面端，用你的账号登录（登录后桌面端会更新 `multica` 的登录态）；",
+                     f"有多个 workspace 时，告诉 Agent 用哪一个（写进配置 multica.workspace_id）；",
+                     "完成后回复「已完成」。"]
+        return [item("multica", label, "user", text, guide=guide,
+                     verify=f"`multica --profile {cfg['profile']} workspace list` 能列出 workspace")]
+    items = []
+    if not state["project"]:
+        items.append(item("multica-project", "Multica Bug 项目", "user", f"workspace 里没有项目「{cfg['project']}」",
+                          guide=[f"在 Multica 新建项目「{cfg['project']}」（或告诉 Agent 改用哪个项目，写进配置 multica.project）；",
+                                 "完成后回复「已完成」。"], verify="multica project list 里有这个项目"))
+    else:
+        items.append(item("multica-project", "Multica Bug 项目", "ok", state["project"]["title"]))
+    missing = {role: entry for role, entry in state["agents"].items() if "problem" in entry}
+    if missing:
+        items.append(item("multica-agents", "Multica Agent", "user",
+                          "；".join(f"{entry['agent']}：{entry['problem']}" for entry in missing.values()),
+                          guide=["在 Multica 里创建（或改名为）这三个 Agent，运行环境都选本机的 Codex runtime：" +
+                                 "、".join(f"{entry['agent']}（{multica.ROLES[role]}）" for role, entry in state["agents"].items()) + "；",
+                                 "runtime 不在线时打开 Multica 桌面端，确认本机 daemon 在运行；",
+                                 "名称不同时告诉 Agent，写进配置 multica.agents；完成后回复「已完成」。"],
+                          verify="multica agent list 里三个 Agent 都在，runtime 在线"))
+    drift = [skill for skill, value in state["skills"].items() if value != "ok"]
+    wrong = [entry["agent"] for entry in state["agents"].values()
+             if "assigned" in entry and (entry["assigned"] != [entry["skill"]] or not entry["instructions_current"])]
+    if drift or (wrong and not missing) or state["legacy_skills"]:
+        detail = "、".join([f"{skill} 与插件源码不一致" for skill in drift] + [f"{name} 的技能或指令需要更新" for name in wrong]
+                          + [f"旧技能 {name} 待删除" for name in state["legacy_skills"]])
+        items.append(item("multica-skills", "Multica 技能同步", "fix" if not missing else "user", detail,
+                          fix="multica-sync" if not missing else None))
+    elif not missing:
+        items.append(item("multica-skills", "Multica 技能同步", "ok", "三个技能与插件源码一致，Agent 指令已更新"))
+    return items
 
 
 def check_repositories(cfg):
@@ -301,11 +307,13 @@ def check(root, scenes):
                   platform.python_version()), check_config(root)]
     cfg = wb.read_json(root / "config.json") if (root / "config.json").is_file() else example()
     items.append(check_node())
-    items.append(check_tutti_cli())
-    if "execute" in scenes:
+    items += check_multica(root)
+    if scenes & {"analyze", "execute"}:
         items += check_repositories(cfg)
+    if "execute" in scenes:
         items += check_github(cfg)
-    items += check_chrome()
+    if scenes & {"investigate", "execute"}:
+        items += check_chrome()
     if "investigate" in scenes:
         items += check_tutti_ops(root, cfg)
         items += check_computer_logs(cfg)
@@ -321,11 +329,11 @@ def apply_fix(root, fix):
         name = fix[4:]
         if name == "tutti-ops":
             return f"tutti-ops：{wb.ensure_tutti_ops(root, install=True)['action']}"
-        package = NPM_PACKAGES[name] + ("@latest" if name == "tutti-cli" else "")
-        code, out = run(["npm", "install", "-g", package], timeout=600)
-        if code:
-            raise ValueError(f"npm install -g {package} 失败：{out.strip()[-400:]}")
-        return f"已安装 {package}"
+        raise ValueError(f"Unknown npm tool {name!r}")
+    if fix == "multica-sync":
+        cfg = multica.settings(root)
+        synced = multica.sync(cfg, multica.connect(cfg), prune=True)
+        return f"Multica 已同步 {len(synced)} 项"
     if fix == "brew:gh":
         code, out = run(["brew", "install", "gh"], timeout=900)
         if code:

@@ -1,27 +1,21 @@
 ---
 name: bug-investigate
-description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下这个问题」等都算）：每次调用都走完全程——固定采集当时的现场日志（Web 页面日志、Computer 日志），记下相关请求的 request id 供 RD 之后查服务端日志，用全局安装的 `tutti-cli`（账号登录版）以 QA 的账号在指定 Room 建 Task，再用 `task edit` 把标题改成一句话简介、描述写清 Bug 表现，截图、排查线索文件和全部日志作为附件挂上，最后用 `task run` 把组织好的分析指令交给该 Room 的 Agent（Codex 优先，用 gpt-6.1-sol 或 gpt-6-astra；其次 Claude Code 用 Opus 5.5；推理强度都是 high）分析根因、出方案、画修复前后流程图并回复在 Task 里；自己不做根因分析，只有遇到自己无法解决的卡点才向用户提问。
+description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下这个问题」，或 Multica 里分配给 Bug 守门员的 issue）：每次调用都走完全程——固定采集当时的现场日志（Web 页面日志、Computer 日志），记下相关请求的 request id 供 RD 之后查服务端日志，在 Multica 的 Bug 项目里登记 issue（标题是一句话简介，描述写清 Bug 表现），截图、排查线索文件和全部日志作为附件发在「现场材料」评论里，最后把 issue 分配给 Bug 分析 Agent 分析根因；自己不做根因分析，只有遇到自己无法解决的卡点才向用户提问。
 ---
 
 # QA 提 Bug
 
-你负责把一次上报变成指定 Room 里一个**上下文完整**的 Task，交给 RD 排查：建 Task、采集当时的全部现场、把现场作为附件挂到 Task、补全描述，再把根因分析交给 Room 里的 Agent。**自己不分析根因，不读代码**；时间花在把现场带全、把分析指令写清楚上。
+你负责把一次上报变成 Multica 里一个**上下文完整**的 issue，交给分析 Agent 排查：登记 issue、采集当时的全部现场、把现场作为附件发到 issue、补全描述，再把 issue 分配给分析 Agent。**自己不分析根因，不读代码**；时间花在把现场带全、把 Bug 表现写清楚上。
 
-**用全局安装的 `tutti-cli` 建 Task。** 它是 npm 包 `@tutti-os/tutti-cli`（Node.js 24+），以本机 `tutti-cli login` 登录的 Tutti 账号直接调用 Tutti 服务，不依赖 Computer 或 Room Agent，在 QA 本机的 Codex／Claude Code 里就能跑；创建者就是这个账号，权限按它在目标 Room 的成员身份判断。开始前运行 `tutti-cli --help` 和 `tutti-cli whoami --json`：
+**Multica issue 是这条 Bug 的唯一记录。** 分析结论、RD 的评审、修复结果都会落在同一个 issue 里，不另建 Tutti Task 或其他记录。
 
-- `--help` 里没有 `login`：没装，或 PATH 里先找到的是 Computer 自带的 Agent 版 `tutti-cli`。改用 `"$(npm prefix -g)/bin/tutti-cli"`；仍没有就按 `$tutti-bug-workflow:bug-setup` 安装，不改用别的建单方式。
-- `whoami` 报未登录或会话失效：按下面「登录过期」自动恢复。
+## Multica 命令
 
-它有 `login`／`whoami`／`logout`、`room list`、`agent list`／`models` 和 `task create`／`edit`／`show`／`comment`／`run`：**没有查重列表、指派、改优先级**，每条 `task` 和 `agent` 命令都要显式带 `--room-id`。排查线索写成一个文本文件，和日志一起作为附件挂在描述上（见下）；跟进人请 QA 在任务看板指派。
+在 Multica 分配的任务里运行时（环境里有 `MULTICA_TOKEN`），直接用 `multica`，issue ID 就是任务提示里的「assigned issue ID」。在本机 Codex 里直接调用时，从数据目录（默认 `~/.local/share/bug-workbench`）`config.json` 的 `multica` 读 `profile` 和 `workspace_id`，每条命令前加 `multica --profile <profile> --workspace-id <workspace_id>`；`multica` 报未登录或找不到 workspace 时按 `$tutti-bug-workflow:bug-setup` 处理，不改用别的记录方式。下文的 `multica` 都按这个规则。
 
-**先查房间，再定 Room。** 用 `scripts/find_room.py --query "<QA 给的线索>"` 在当前账号的房间列表（`tutti-cli room list --json`）里找要建单的 Room，线索可以是：
+同一份配置里还有：`multica.project`（Bug 项目的名称，`multica project list --output json` 里按 `title` 找到它的 `id`）和 `multica.agents.analyze`（分析 Agent 的名称）。Agent 指令里写了交给谁时以指令为准。
 
-- **Room ID**，或带 `/room/<roomId>` 的 Room／Task 链接：必须在列表里，否则当作没找到；
-- **房间名或用户名**（房间一般以主人命名，如「Tutti-Chovy 1012」「TIBO 本地房间」）：不区分大小写，先在**本地房间**里找，本地没有匹配才找云端房间；名称完全相同优先于部分包含。
-
-结果 `matched` 就用 `room.id` 作为 `--room-id`，回复里写上房间名；`ambiguous` 把 `candidates`（名称、本地／云端）列给 QA 选；`not_found` 把 `local_rooms` 列给 QA 选。QA 什么都没给时，用 WebMCP 页面 URL（3.1 第 1 步）里的 Room ID 当线索；仍没有就先采集，在第 5 步连同本地房间列表一起问。只能建到当前账号能看到的 Room。
-
-**一旦调用就走完全程。** 「记个 bug」「帮我提个 bug」「登记一下」都执行第 1–5 步，没有「只登记」的模式。建 Task 只是第 2 步，不能回复「已登记」就结束。
+**一旦调用就走完全程。** 「记个 bug」「帮我提个 bug」「登记一下」都执行第 1–5 步，没有「只登记」的模式。登记 issue 只是第 2 步，不能回复「已登记」就结束。
 
 **连续执行，一次做完。**
 
@@ -33,68 +27,59 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 **不查服务端日志。** Web 和 Computer 日志里的请求都带网关的 request id（`x-zk-request-id`），提 Bug 时只把相关请求和它们的 request id 记进排查线索，RD 排查时再按 id 去查 tutti-server 日志；本 Skill 不用 AWS、不拉 Server 日志。
 
-**先建 Task，再补全。** 第 2 步按 QA 的描述先建好 Task，采集完用 `tutti-cli task edit` 改标题、写全描述并挂上附件。**优先级只能在创建时设置**，CLI 不能修改，建单时就要定好。所有写操作都带 `--operation-id`，结果不确定时用同一个 ID 和相同输入重试；CLI 不会自动重试。带 `--file` 的写入例外：每次上传都会生成新的附件，结果不确定时先 `task show` 核对，确实没生效再换一个新的操作 ID 重跑，不用同一个 ID 配不同的附件。
+**描述只讲表现，线索放附件。** 标题是一句话 Bug 简介，描述只写问题、复现步骤、实际、期望等 Bug 表现，让没看过现场的人一看就懂；日志事实、各种 ID、版本这些排查线索写进附件 `排查线索.txt`。格式见 [issue 字段](references/issue-fields.md)。
 
-**描述只讲表现，线索放附件。** 标题是一句话 Bug 简介，描述只写问题、复现步骤、实际、期望等 Bug 表现，让没看过现场的人一看就懂；日志事实、各种 ID、版本这些排查线索写进附件 `排查线索.txt`。格式见 [Task 字段](references/report-fields.md)。
+**现场附件发在一条评论里。** `multica issue update` 不能加附件，所以 QA 的截图在建 issue 时用 `--attachment` 挂上（issue 已存在时和日志一起发），`排查线索.txt` 和全部日志等现场齐了在**一条**「现场材料」评论里用 `--attachment` 一次发出；后到的现场再发一条「现场补充」评论。限制和命名见 [现场材料与附件](references/registration-logs.md)。
 
-**现场附件直接挂在 Task 上。** `task edit` 的 `--file <路径>` 可重复，把本机文件上传为 Task 的私有附件，只有 Room 成员能下载，本地房间和云端房间都能用。附件嵌在描述里：带 `--file` 时必须同时给出新描述（`--description-file`），`task edit` 整段替换描述，**没有再次带上的文件会从 Task 上消失**。所以每次带附件的 `task edit` 都要带上全部文件（截图、`排查线索.txt`、全部日志），尽量等现场齐了只提交一次。限制和命名见 [现场材料与附件](references/registration-logs.md)。
+**登录过期就当场处理，不停下来问。** Multica 由桌面端登录：`multica` 报 401 或未登录时，请用户打开 Multica 桌面端重新登录（在 Multica 任务里运行时不会出现）；tutti-ops Token 失效需要在管理端重新创建，见 `$tutti-bug-workflow:bug-setup`。等了 10 分钟仍没完成才写进最终回复，并写清用户要做的一步。
 
-**登录过期就当场重新登录，不停下来问。** 认证失效不是卡点：
-
-| 入口 | 怎么自动恢复 |
-|---|---|
-| Tutti 账号（建 Task） | `whoami` 或 `task` 命令报 `No readable CLI session`、401、`run tutti-cli login` 时，后台运行 `tutti-cli login`：浏览器打开 Tutti 登录页，用户用自己的账号登录即可（最长等 5 分钟）。完成后 `whoami --json` 确认账号，再重跑刚才的命令；写操作仍按上面的规则判断能不能用同一个操作 ID |
-
-自动登录的同时在对话里说一句「Tutti 登录已过期，已在浏览器打开登录页，完成登录即可」，然后继续等待，不结束本轮。只有等了 10 分钟仍没完成，或者 tutti-ops Token 失效（需要在管理端重新创建，见 `$tutti-bug-workflow:bug-setup`），才写进最终回复，并写清用户要做的一步。
-
-**只说有证据的事实。** 对用户的每一句说明（包括解释某一步为什么失败、为什么没发出去）都要有命令输出、日志或代码作证，照原样转述返回的字段和报错；没证实的写成「待确认：……」，不把接口返回的状态当成真实情况来推断原因（例如目录返回 `requestable` 不等于「当时没共享」）。用户的说法和查到的结果对不上时，两边并列写出，以待确认处理，不替任何一方下结论。
+**只说有证据的事实。** 对用户的每一句说明（包括解释某一步为什么失败、为什么没发出去）都要有命令输出、日志或代码作证，照原样转述返回的字段和报错；没证实的写成「待确认：……」。用户的说法和查到的结果对不上时，两边并列写出，以待确认处理，不替任何一方下结论。
 
 **不脱敏。** 现场日志原样采集、原样上传。
 
-**无状态。** `operation_id`、`question_time`、采集结果都记在本次会话上下文中。日志、截图等放在数据目录（默认 `~/.local/share/bug-workbench`，可用 `BUG_WORKBENCH_DATA` 改）下的 `bug-reports/<operation_id>/`（下称 `$REPORT`，用绝对路径）。对外唯一的事实来源是 Room 里的 Task。脚本路径相对本 Skill 目录（`skills/bug-investigate/`），都输出一段 JSON。工具安装与认证由 `$tutti-bug-workflow:bug-setup` 负责，已有权限内的读取、召回、上传附件，以及建 Task、编辑属于本任务授权，无需逐项再问。
+**无状态。** `operation_id`、`question_time`、issue ID、采集结果都记在本次会话上下文中。日志、截图等放在数据目录（默认 `~/.local/share/bug-workbench`，可用 `BUG_WORKBENCH_DATA` 改）下的 `bug-reports/<operation_id>/`（下称 `$REPORT`，用绝对路径）。对外唯一的事实来源是 Multica issue。脚本路径相对本 Skill 目录（`skills/bug-investigate/`），都输出一段 JSON。工具安装与认证由 `$tutti-bug-workflow:bug-setup` 负责，已有权限内的读取、召回、上传附件，以及登记、编辑、分配 issue 属于本任务授权，无需逐项再问。
 
 写最终回复前逐项自查，任何一项没有结果且不是卡点，就回去做完：
 
 | 自查项 | 必须有的结果 |
 |---|---|
-| Room | `find_room.py` 结果为 `matched`，或 QA 从候选里选定；回复里写明房间名 |
-| Task | `task create --room-id` 成功，回执 `task.taskId` 等于 `operation_id`、`task.roomId` 是目标 Room（或复用了 QA 指定的已有 Task）；采集后已 `task edit` 写好描述；`task show` 回读标题、描述、优先级一致 |
-| 跟进人 | CLI 不能指派：回复里请 QA 在任务看板指派，QA 提到的人写进 `排查线索.txt` 的「建议跟进人」 |
+| issue | 在 Bug 项目里新建（回执带 `id`、`identifier`），或沿用 Multica 分配给你的 issue／QA 指定的已有 issue；采集后已 `issue update` 写好标题、描述和优先级；`issue get` 回读一致 |
 | 标题 | 一句话简介「功能：现象」，20–40 字，没有错误码、ID 和括号补充；说的是 QA 报的问题 |
-| 优先级 | 建单时按定义映射成 Task 优先级；拿不准时用 `none`，在描述「待 QA 确认」和回复里问，QA 确认后在任务看板修改 |
-| Web 日志 | `web-logs.log` 或 QA 导出包已挂到 Task；或写明缺什么、怎么提供 |
+| 优先级 | 按定义映射成 issue 优先级；拿不准时用 `none`，在描述「待 QA 确认」和回复里问 |
+| Web 日志 | `web-logs.log` 或 QA 导出包已发到 issue；或写明缺什么、怎么提供 |
 | request id | `web_requests.py` 列出的失败请求（没有失败时取问题时间附近的几条）和 Computer 日志里失败出站请求的 request id 已写进 `排查线索.txt` |
-| Computer 日志 | 召回已完成，召回包已挂到 Task；或写明受阻原因、待用户确认的设备 |
-| 附件 | 最后一次 `task edit` 带上了 QA 的截图／视频、`排查线索.txt` 和全部日志；`task show` 回读描述里的 `uploadedFile` 一个不少 |
+| Computer 日志 | 召回已完成，召回包已发到 issue；或写明受阻原因、待用户确认的设备 |
+| 附件 | QA 的截图／视频在 issue 或「现场材料」评论上；「现场材料」评论带上了 `排查线索.txt` 和全部日志；`issue comment list` 回读附件一个不少 |
 | 描述 | 只有问题、复现步骤、实际、期望、频率、发生时间、环境一行（和待 QA 确认），没有日志字段、ID、版本号 |
 | 排查线索 | `排查线索.txt` 记下日志核对、关联 ID、环境与版本、分类；回复里提到的每条发现都在描述或这个文件里 |
-| 根因分析 | 已按 [交给 Room Agent 分析](references/rd-analysis.md) 用 `task run` 发出分析指令，回执 `accepted` 且带 `invocationId`，记下 Agent、模型和 `invocationId`；重放后仍是 `pending` 的写明「Agent 尚未受理」；或写明为什么没发（没有可用的 Agent／模型、被拒） |
+| 交给分析 | `multica issue assign <issueId> --to <分析 Agent>` 成功，回执的 assignee 是分析 Agent；或写明为什么没交（Agent 不存在、分配失败的报错原文） |
 | 会话上传 | 全部完成后已上传一次 |
 
 ## 1. 接收
 
-1. 从用户消息整理：期望与实际表现、复现步骤与频率、发生时间与时区、操作账号、截图／视频（实际查看）、WebMCP 连接链接、QA 附带的 Web 诊断包、建议的跟进人、用到的设备。用户原话与你的推断分开记；QA 说的问题和期望原样保留，后面写标题、问题、期望都以它为准。
-2. 固定 `question_time`：触发本次上报的消息时间（含时区的 ISO 8601）；拿不到时用收到消息的时间并注明近似。
-3. 生成 `operation_id`：`python3 -c 'import uuid; print(uuid.uuid4())'`。它同时是 Task ID 和建 Task 的幂等键，本次上报全程只用这一个；建 Task 结果不确定时用同一个 ID 和相同参数重试，不会重复建单。创建 `$REPORT`。之后每次 `task edit` 各自生成一个新的操作 ID，重试同一次写入时不变。
-4. 判断分类（所属端、业务模块写进排查线索的「分类」，Task 没有对应字段）：
+1. 从用户消息或分配给你的 issue（`multica issue get <issueId> --output json`、`multica issue comment list <issueId> --output json`）整理：期望与实际表现、复现步骤与频率、发生时间与时区、操作账号、截图／视频（附件用 `multica attachment download <attachmentId> -o $REPORT` 下载后实际查看）、WebMCP 连接链接、QA 附带的 Web 诊断包、建议的跟进人、用到的设备。用户原话与你的推断分开记；QA 说的问题和期望原样保留，后面写标题、问题、期望都以它为准。
+2. 固定 `question_time`：触发本次上报的消息时间（含时区的 ISO 8601），issue 里没写时用 issue 的 `created_at`；拿不到时用收到消息的时间并注明近似。
+3. 生成 `operation_id`：`python3 -c 'import uuid; print(uuid.uuid4())'`，创建 `$REPORT`。
+4. 判断分类（所属端、业务模块写进排查线索的「分类」）：
    - **所属端**：Mac／Windows／Web，按问题出现的位置判断。
    - **优先级**：用户（QA）给了就照填。没给时按定义判断：
      - **P0**：严重阻塞，核心流程走不下去、没有绕过办法，或数据丢失；
      - **P1**：明显的 Bug，功能结果不对、用户一眼能看出来；
      - **P2**：非核心功能的问题，或体验、展示上的小问题。
 
-     对照描述能明确落到某一级才自己定；拿不准就用 `none` 建单，在第 5 步问 QA（说明你倾向哪一级、为什么），QA 确认后在任务看板修改（CLI 改不了优先级）。Task 优先级的映射见 [Task 字段](references/report-fields.md#优先级)。
+     对照描述能明确落到某一级才自己定；拿不准就用 `none`，在第 5 步问 QA（说明你倾向哪一级、为什么）。issue 优先级的映射见 [issue 字段](references/issue-fields.md#优先级)。
    - **业务模块**：用界面上的功能名称描述问题所在的功能（如「房间-群聊」「任务看板」），不确定时写「待 QA 确认」。
 
-## 2. 建 Task
+## 2. 登记 issue
 
-1. **确定 Room 和是否复用**：按开头「先查房间」的规则用 `find_room.py` 取 `roomId`。QA 给的是已有 Task 链接（带 `task=<taskId>`）并说是同一个问题时，`tutti-cli task show --room-id <roomId> --task-id <taskId> --json` 确认后复用它，后面的编辑都作用于它。CLI 不能列出 Task，不做自动查重。还拿不到 `roomId`（没线索、多个候选或没找到）时跳过本步，先做第 3 步，Web 日志给出页面 URL 后再查一次。
-2. **建单**：按 QA 的描述先起一个标题（规则见 [Task 字段](references/report-fields.md#标题)），描述先写 QA 原话、发生时间和「现场采集中」：
+1. **沿用还是新建**：Multica 把 issue 分配给你时就用它，不再新建；QA 给了已有 issue（编号如 `TES-123` 或链接）并说是同一个问题时，`multica issue get` 确认后沿用。否则新建。
+2. **新建**：按 QA 的描述先起一个标题（规则见 [issue 字段](references/issue-fields.md#标题)），描述先写 QA 原话、发生时间和「现场采集中」，QA 的截图一起挂上：
    ```sh
-   tutti-cli task create --room-id <roomId> --operation-id <operation_id> --title "<标题>" \
-     --description "<QA 原话、发生时间；现场采集中>" --priority <urgent|high|medium|low|none> --json
+   multica issue create --title "<标题>" --description "<QA 原话、发生时间；现场采集中>" \
+     --project <Bug 项目 ID> --priority <urgent|high|medium|low|none> \
+     --attachment <$REPORT>/screenshot-1.png --output json
    ```
-   回执 `task.taskId` 应等于 `operation_id`、`task.roomId` 等于 `roomId`。超时等结果不确定时用同一个 `--operation-id` 和相同参数重试；参数校验错误先修正再重试。报无权限时，核对 `whoami` 的账号是否是该 Room 成员，记为卡点问 QA。
+   记下回执的 `id` 和 `identifier`（如 `TES-123`）。超时等结果不确定时先 `multica issue search "<标题>"` 核对，确实没建成再重跑，不重复建单。
 
 ## 3. 采集现场
 
@@ -130,39 +115,41 @@ python3 scripts/web_requests.py --web-logs <web-logs.log 或诊断包 zip> --que
 
 环境按页面链接和 QA 的说法判断：`tutti.sh` 是生产，PPE 写泳道名；拿不准写「待 QA 确认」。
 
-## 4. 补全描述与排查线索
+## 4. 补全描述与发出现场
 
 1. 按 [现场材料与附件](references/registration-logs.md) 整理文件：QA 的截图／视频复制到 `$REPORT`，日志留在各自目录。
-2. 按 [Task 字段](references/report-fields.md) 把描述写到 `$REPORT/description.txt`、排查线索写到 `$REPORT/排查线索.txt`，标题按规则改成一句话简介。
-3. 等 Computer 召回结束（读 `$REPORT/computer.json`；召回在等用户确认设备时不等），描述、线索和全部文件在**一次** `task edit` 里提交：
+2. 按 [issue 字段](references/issue-fields.md) 把描述写到 `$REPORT/description.md`、排查线索写到 `$REPORT/排查线索.txt`，标题按规则改成一句话简介。召回包里 `desktopd.log` 故障时间附近失败的出站请求（`desktop.outbound_network.api_request`）的 `request_id` 也写进排查线索（见 [Computer 日志里的 request id](references/computer-logs.md#日志里的-request-id)）。
+3. 等 Computer 召回结束（读 `$REPORT/computer.json`；召回在等用户确认设备时不等），先更新 issue，再把现场一次发出：
    ```sh
-   tutti-cli task edit --room-id <roomId> --task-id <taskId> --title "<标题>" \
-     --description-file <$REPORT>/description.txt \
-     --file <$REPORT>/screenshot-1.png --file <$REPORT>/排查线索.txt \
-     --file <$REPORT>/web/web-logs.log \
-     --file <$REPORT>/computer/<召回包>.tar.gz --operation-id <新 UUID> --json
-   tutti-cli task show --room-id <roomId> --task-id <taskId> --json   # 回读标题、描述和附件
+   multica issue update <issueId> --title "<标题>" --description "$(cat <$REPORT>/description.md)" --priority <优先级>
+   multica issue comment add <issueId> --content-stdin \
+     --attachment <$REPORT>/排查线索.txt --attachment <$REPORT>/web/web-logs.log \
+     --attachment <$REPORT>/computer/<召回包>.tar.gz --attachment <$REPORT>/screenshot-1.png < <$REPORT>/evidence.md
+   multica issue get <issueId> --output json          # 回读标题、描述、优先级
+   multica issue comment list <issueId> --output json # 回读「现场材料」评论和附件
    ```
-   召回包里 `desktopd.log` 故障时间附近失败的出站请求（`desktop.outbound_network.api_request`）的 `request_id` 也写进排查线索（见 [Computer 日志里的 request id](references/computer-logs.md#日志里的-request-id)）。
+   `evidence.md` 是这条评论的正文：第一行「现场材料」，然后每个附件一行说明（同 `排查线索.txt` 的「附件」一节），最后列出各类现场的采集状态（见 [采集结果状态](references/registration-logs.md#采集结果状态)）。建 issue 时已挂上的截图不再重复发。
 
-上传失败时 Task 不会被修改：按报错修正（文件名重复、空文件、超过 500 MiB、HTML／SVG 等）后重跑；修不了的文件去掉，在排查线索里写一句缺什么，继续。
+上传失败时评论不会发出：按报错修正（文件名重复、空文件、文件过大）后重发；修不了的文件去掉，在排查线索里写一句缺什么和本机路径，继续。
 
-4. **交给 Room Agent 分析根因。** Task 回读无误后，按 [交给 Room Agent 分析](references/rd-analysis.md) 选该 Room 的 Agent 和模型（Codex 优先，用 `gpt-6.1-sol`，其次 `gpt-6-astra`；没有再用 Claude Code 的 Opus 5.5；推理强度都用 `high`），用模板把 Bug 表现和关键现场线索组织成 `$REPORT/rd-analysis.txt`，`tutti-cli task run` 发出。指令要求 Agent 拉代码分析根因、先弄清模块整体设计再出方案、画修复前后的工作流程图，结果回复在 Task 的评论线程里。**确保发送成功，然后就不管了**：回执是 `accepted` 且带 `invocationId` 才算成功；`pending` 用同一个操作 ID 重放、`rejected` 换下一个 Agent／模型，细则见引用文档。成功后直接继续第 5 步，不等 Agent 执行、不轮询它的回复、不转述分析结果。现场有缺项（召回在等设备、QA 还没给诊断包）时也照常发，缺什么写进指令的现场线索。
+4. **交给分析 Agent。** issue 回读无误后分配给分析 Agent，Multica 会让它立刻开始：
+   ```sh
+   multica issue assign <issueId> --to "<分析 Agent 名称>"
+   ```
+   回执的 assignee 是分析 Agent 才算交出。**交出就不管了**：不等它分析、不轮询、不转述分析结果。现场有缺项（召回在等设备、QA 还没给诊断包）时也照常交，缺什么已经写在「现场材料」评论里。分配失败（Agent 不存在、名称不对）时写进最终回复，带上报错原文。
 
 ## 5. 收尾
 
-1. 第 4 步提交时还有现场没到（召回在等设备确认、QA 还没给 Web 诊断包）：到齐后补进 `排查线索.txt`，再 `task edit` 一次，**带上全部文件**（之前挂过的也要再带，否则会从 Task 上消失）。
+1. 第 4 步交出时还有现场没到（召回在等设备确认、QA 还没给 Web 诊断包）：到齐后补进 `排查线索.txt`，发一条「现场补充」评论，带上新到的文件和更新后的 `排查线索.txt`。
 2. 需要用户提供的东西一次列出，每项说明怎么获取：
 
    | 缺什么 | 怎么请用户提供 |
    |---|---|
    | Web 现场 | 在出问题的 Tutti 页面打开「设置 → 诊断」，点「复制 WebMCP 连接链接」发过来并保持页面不刷新；或在同一浏览器「导出日志」（范围覆盖问题发生时间），把 zip 发过来 |
    | 故障设备 | 从列出的候选（名称、平台、版本）里选当时用的那台；或直接提供设备名称／Computer ID |
-   | Room（拿不到 `roomId` 时） | 「这条 Bug 建在哪个房间？回复房间名、房主名字或 Room ID 都行」，附上 `find_room.py` 给出的候选或本地房间列表（名称 + 本地／云端） |
-   | 跟进人 | CLI 不能指派：「建好了，请在任务看板把这条 Bug 指派给跟进人」 |
-   | 优先级（拿不准时） | 「这条按 P1（明显 Bug，对应 high）合适吗？」，附一句判断理由；确认后请 QA 在任务看板修改 |
+   | 优先级（拿不准时） | 「这条按 P1（明显 Bug，对应 high）合适吗？」，附一句判断理由；确认后 `multica issue update --priority` 修改 |
    | 期望（没说清，或现场事实与 QA 的说法不一致时） | 把 QA 的说法和查到的事实并列，请 QA 确认期望，例如「你说是同一份文件，记录里三条内容各不相同：期望只显示最新一份，还是保留历史但标出版本？」 |
 
-   登录过期按上面的规则当场自动恢复，不列在这里；真正的工具缺失、权限不足才写进回复交给维护方。用户补充后在同一会话里继续：更新 `description.txt`／`排查线索.txt`，带上全部文件 `task edit` 一次；不再建第二个 Task。
+   在 Multica 任务里运行时，这些问题写成 issue 评论；QA 在评论里补充后同一个 issue 继续：更新 `description.md`／`排查线索.txt`，`issue update` 一次，新文件发「现场补充」评论；不再建第二个 issue。
 3. 按开头的自查表逐项确认；全部完成后按 [会话上传](references/session-upload.md) 上传本次会话一次。
-4. 最终回复：房间名、Task 标题与链接（`https://tutti.sh/platform/room/<roomId>?surface=task-board&task=<taskId>`）、建单账号、优先级、请 QA 指派跟进人、环境、已挂上的截图和日志、根因分析交给了哪个 Agent 和模型（结果会回复在 Task 评论里）、缺失项及需要用户提供的内容。
+4. 最终回复：issue 编号与标题、优先级、环境、已发出的截图和日志、交给了哪个分析 Agent（结果会回复在 issue 评论里）、缺失项及需要用户提供的内容。
