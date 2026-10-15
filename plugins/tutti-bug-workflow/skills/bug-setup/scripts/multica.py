@@ -19,6 +19,7 @@ Agents and the project are created by the person in Multica; sync never creates 
 """
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -77,13 +78,25 @@ class Multica:
         return json.loads(result.stdout) if data and result.stdout.strip() else result.stdout
 
     def workspaces(self):
-        # `workspace list` only prints a table: ID and NAME columns.
+        try:
+            return [{"id": entry["id"], "name": entry["name"]}
+                    for entry in self.run("workspace", "list", workspace=False)]
+        except (ValueError, KeyError, TypeError):
+            pass
+        # CLIs before 0.6 only print a table with full IDs: ID and NAME columns.
         rows = []
         for line in self.run("workspace", "list", workspace=False, data=False).splitlines():
             match = UUID.match(line.strip())
             if match:
                 rows.append({"id": match[0], "name": line.strip()[len(match[0]):].strip()})
         return rows
+
+
+def same(remote, text):
+    """Older CLIs return the text itself, 0.6+ only its sha256."""
+    if "content" in remote:
+        return remote["content"] == text
+    return remote.get("content_hash") == hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def source_skill(name):
@@ -153,10 +166,10 @@ def inspect(cfg, client):
             drift[skill] = "missing"
             continue
         detail = client.run("skill", "get", remote["id"])
-        remote_files = {f["path"]: f["content"] for f in detail.get("files") or []}
-        changed = sorted(p for p, text in source["files"].items() if remote_files.get(p) != text)
+        remote_files = {f["path"]: f for f in detail.get("files") or []}
+        changed = sorted(p for p, text in source["files"].items() if not same(remote_files.get(p) or {}, text))
         stale = sorted(set(remote_files) - set(source["files"]))
-        if detail.get("content") != source["content"] or detail.get("description") != source["description"]:
+        if not same(detail, source["content"]) or detail.get("description") != source["description"]:
             changed.insert(0, "SKILL.md")
         drift[skill] = {"changed": changed, "stale": stale} if changed or stale else "ok"
     return {"workspace_id": client.workspace_id, "project": project and {"id": project["id"], "title": project["title"]},
@@ -183,7 +196,7 @@ def sync(cfg, client, prune):
             done.append(f"创建技能 {skill}")
         remote = {f["path"]: f for f in client.run("skill", "get", ids[skill]).get("files") or []}
         for path, text in source["files"].items():
-            if (remote.get(path) or {}).get("content") != text:
+            if not same(remote.get(path) or {}, text):
                 client.run("skill", "files", "upsert", ids[skill], "--path", path, "--content", text)
                 done.append(f"{skill}/{path}")
         for path in sorted(set(remote) - set(source["files"])):

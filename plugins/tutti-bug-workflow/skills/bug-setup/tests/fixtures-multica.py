@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Fake `multica` CLI backed by a JSON state file (FAKE_MULTICA_STATE); logs every call."""
 
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -37,6 +38,8 @@ if option("--profile") != state.get("profile", "desktop-api.multica.ai") or not 
 words = [arg for index, arg in enumerate(args)
          if not arg.startswith("--") and (index == 0 or not args[index - 1].startswith("--"))]
 if words[:2] == ["workspace", "list"]:
+    if state.get("cli") != "legacy":
+        done([{"id": entry["id"], "name": entry["name"]} for entry in state["workspaces"]])
     done(table="ID                                    NAME\n" + "\n".join(
         f"{entry['id']}  {entry['name']}" for entry in state["workspaces"]))
 if option("--workspace-id") not in {entry["id"] for entry in state["workspaces"]}:
@@ -53,7 +56,11 @@ match words[:3]:
     case ["skill", "list", *_]:
         done([{k: v for k, v in entry.items() if k not in ("content", "files")} for entry in state["skills"]])
     case ["skill", "get", skill_id]:
-        done(skills[skill_id])
+        if state.get("cli") == "legacy":
+            done(skills[skill_id])
+        digest = lambda entry: {**{k: v for k, v in entry.items() if k != "content"},  # noqa: E731
+                                "content_hash": hashlib.sha256(entry["content"].encode()).hexdigest()}
+        done({**digest(skills[skill_id]), "files": [digest(f) for f in skills[skill_id]["files"]]})
     case ["skill", "create", *_]:
         entry = {"id": str(uuid.uuid4()), "name": option("--name"), "content": option("--content"),
                  "description": option("--description"), "files": []}

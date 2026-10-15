@@ -115,6 +115,12 @@ class MulticaTests(unittest.TestCase):
         (self.base / "data/config.json").write_text(json.dumps({"multica": {"workspace_id": WORKSPACE}}))
         self.assertEqual(self.multica("status", expected=1)["workspace_id"], WORKSPACE)
 
+    def test_an_old_cli_that_only_prints_a_workspace_table_still_works(self):
+        state = self.read()
+        state["cli"] = "legacy"
+        self.write(state)
+        self.assertEqual(self.multica("status", expected=1)["workspace_id"], WORKSPACE)
+
     def test_logged_out_profile_is_an_error(self):
         state = self.read()
         state["logged_in"] = False
