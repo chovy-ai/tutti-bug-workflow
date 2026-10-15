@@ -1,6 +1,6 @@
 ---
 name: bug-execute
-description: 修复 Multica 里的一条 Tutti Bug issue 并部署 PPE（RD 认可分析方案后把 issue 分配给 Bug 解决 Agent，或手动说「修复这个 issue <编号>」）：读 issue 的 Bug 表现、现场和分析 Agent 的根因方案及 RD 的评审意见，从远端分支切出 worktree 修复、提 PR 到 main，部署 PPE（server 泳道 → ws 泳道 → 前端预览，涉及 Computer 发分支 canary）后移除 worktree，按验收要点自验证，最后把原因、PR、体验链接、验证结果和截图回复到 issue；也用于销毁某条 Bug 的 PPE 泳道。
+description: 修复 Multica 里的一条 Tutti Bug issue 并部署 PPE（RD 认可分析方案后把 issue 分配给 Bug 解决 Agent，或手动说「修复这个 issue <编号>」）：读 issue 的 Bug 表现、现场和分析 Agent 的根因方案及 RD 的评审意见，从远端基线分支（默认 main）切出 worktree 修复、提 PR 到基线，基线上已修好时直接部署，部署 PPE（server 泳道 → ws 泳道 → 前端预览，涉及 Computer 发分支 canary）后移除 worktree，按验收要点自验证，最后把原因、PR、体验链接、验证结果和截图回复到 issue；也用于销毁某条 Bug 的 PPE 泳道。
 ---
 
 # 修复与部署
@@ -30,18 +30,22 @@ description: 修复 Multica 里的一条 Tutti Bug issue 并部署 PPE（RD 认�
    python3 scripts/deploy.py fix-names --issue <issue 编号>
    ```
    返回 `branch`（`codex/bug-<编号小写>`，如 `codex/bug-tes-123`）和 `lane`（`ppe-bug-<同样>`）。同一条 issue 每次修复都用这两个名字，重试时接着原分支。
+5. **基线分支**：默认 `main`。Bug 出在还没合并的功能分支上（分析或 RD 评论指定了分支，或问题代码只在某个打开的 PR 里）时，以那个分支为基线：从它切 worktree，PR 也提到它。RD 在评论里指定的基线优先；需要问 RD 才能确定时，评论问清楚后置 `blocked`。
 
-方案和最新 main 的代码对不上（已被修复、根因不成立）或修复必须超出方案范围时，先停下来：在 issue 里评论说明，置为 `blocked`，不自行扩大范围。
+拿方案和基线最新代码核对：
+
+- **基线上已经修好**（问题代码已改掉，比如修复已经合进基线）：不改代码、不提 PR，**照常部署 PPE**（用基线分支部署第 5 步涉及的各端），按第 7 步自验证，按第 8 步回复，正文写明「基线 <分支>@<SHA> 已包含修复 <提交／PR 链接>，本次未改代码，直接部署验证」。
+- **根因不成立**，或修复必须超出方案范围：先停下来，在 issue 里评论说明，置为 `blocked`，不自行扩大范围。
 
 ## 2. 从远端分支切出 worktree
 
-每个要改的仓库（worktree 从远端最新 main 切出；远端已有这条 Bug 的修复分支时从它切出，接着上次的改动）：tutti（Web、Computer）、tutti-server（Server）、tsh-websocket（WebSocket，基础设施，方案没要求就不改）。
+每个要改的仓库（worktree 从远端最新基线切出；远端已有这条 Bug 的修复分支时从它切出，接着上次的改动）：tutti（Web、Computer）、tutti-server（Server）、tsh-websocket（WebSocket，基础设施，方案没要求就不改）。
 
 ```sh
-python3 scripts/repos.py start --repo tutti --branch <branch>
+python3 scripts/repos.py start --repo tutti --branch <branch> [--base <基线分支>]   # 基线是 main 时不传
 ```
 
-返回 `resumed: true` 表示接着上一次的分支；`behind_main` 大于 0 时先 `git rebase origin/main`（冲突解决不了就判失败）。详见 [修复工作区](references/code.md)。
+返回 `resumed: true` 表示接着上一次的分支；`behind_main`（落后基线的提交数）大于 0 时先 `git rebase origin/<基线分支>`（冲突解决不了就判失败）。详见 [修复工作区](references/code.md)。
 
 ## 3. 修复
 
@@ -52,7 +56,7 @@ python3 scripts/repos.py start --repo tutti --branch <branch>
 ```sh
 git -C <worktree> add -A && git -C <worktree> commit -m "fix: <摘要>（<issue 编号>）"
 python3 scripts/repos.py push --path <worktree>     # 推送分支，worktree 保留到部署完
-gh pr create -R tutti-lab/<repo> --base main --head <branch> --title "fix: …" --body "…"
+gh pr create -R tutti-lab/<repo> --base <基线分支> --head <branch> --title "fix: …" --body "…"
 ```
 
 分支已有打开的 PR（`gh pr view -R … <branch>`）就复用，不重复创建。PR 描述写 issue（编号、标题、链接）、根因一句话、改动、测试结果、PPE 部署信息（部署后用 `gh pr comment` 补上）。
@@ -63,7 +67,7 @@ gh pr create -R tutti-lab/<repo> --base main --head <branch> --title "fix: …" 
 
 - 改了 tutti-server：`python3 scripts/deploy.py server --branch <branch> --lane <lane>`，等它成功。
 - 改了 tsh-websocket（只在方案明确要求时修改，没改就跳过）：`python3 scripts/deploy.py websocket --branch <branch> --lane <lane>`。新泳道缺 WebSocket V2 基础设施会失败（看 `failed_log_tail` 和 `hint`）：其他端照常部署，最后判失败，写明需要人工先建 ws 基础设施。
-- 改了前端（或改了 server，前端需要对接这个泳道）：`python3 scripts/deploy.py web --branch <tutti 分支> --server-lane <lane>`。只改了 server 时，用 `main` 作为前端分支部署预览并指向泳道。
+- 改了前端（或改了 server，前端需要对接这个泳道）：`python3 scripts/deploy.py web --branch <tutti 分支> --server-lane <lane>`。只改了 server 时，用基线分支作为前端分支部署预览并指向泳道；基线上已修好、本次没改代码时，用基线分支部署。
 - 改了 Computer（desktopd、runtime 等）：`python3 scripts/deploy.py computer --branch <branch>`，记下 canary 版本。
 - 泳道部署时关闭了连接器授权。修复依赖连接器授权才能验证时，PR 照提、部署照做，然后判失败，说明「新泳道需要人工预配 connector task-platform binding 后重试」。
 

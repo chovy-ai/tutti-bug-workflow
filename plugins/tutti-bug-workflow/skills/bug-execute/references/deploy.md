@@ -33,7 +33,7 @@
 
 - **server**：tutti-server 仓库有提交。
 - **websocket**：tsh-websocket 仓库有提交。ws 是很少改动的基础设施，只有方案明确要改 ws 时才会动它，绝大多数修复不涉及这一步。
-- **前端**：tutti 的 `apps/web`、以及 Web 依赖的 `packages/*` 有改动；或改了 server、需要从页面验证。只改 server 时前端分支用 `main`。
+- **前端**：tutti 的 `apps/web`、以及 Web 依赖的 `packages/*` 有改动；或改了 server、需要从页面验证。只改 server 时前端分支用基线分支（默认 `main`）。基线上已修好、本次没改代码时，各端都用基线分支部署。
 - **Computer**：tutti 的 desktopd、runtime、Computer 相关 Go 包有改动（如 `cmd/`、`runtime/`、`gopackages/`）。拿不准时按涉及处理，多部署一次只是多花时间。
 
 ## 连接器授权

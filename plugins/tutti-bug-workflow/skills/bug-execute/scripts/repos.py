@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Per-fix worktrees cut from the remote branch, pushed, kept through the PPE deploy, then removed.
 
-`start` fetches main into the repository's bare cache (`cache_path`) and adds a
-worktree on a new branch at `worktrees/<repo>/<branch>` in the data directory, cut from
-the latest origin main; when the branch already exists on origin (a retried fix) it is
-cut from that remote branch instead. `push` requires a clean tree with new commits,
+`start` fetches the base branch (`--base`, default the configured main) into the
+repository's bare cache (`cache_path`) and adds a worktree on a new branch at
+`worktrees/<repo>/<branch>` in the data directory, cut from the latest origin base; when the
+branch already exists on origin (a retried fix) it is cut from that remote branch instead.
+The base is remembered on the branch so `push` and `remove` compare against it. `push` requires a clean tree with new commits,
 pushes the branch to origin and checks the remote now points at the local HEAD; the
 worktree stays for the PR and the PPE deploy. `remove` detaches the worktree and the
 local branch at the end; it refuses unpushed work unless `--discard` (failed or
@@ -128,6 +129,16 @@ def owner(root, repos, path):
     return repo, path
 
 
+def with_base(repo, path):
+    """The repository as seen by the fix branch at path: its recorded base replaces main."""
+    branch = git(path, "symbolic-ref", "--short", "HEAD")
+    try:
+        base = git(repo["cache"], "config", f"branch.{branch}.bugBase")
+    except ValueError:
+        base = ""
+    return {**repo, "branch": base or repo["branch"]}, branch
+
+
 def detach(repo, path, branch):
     git(repo["cache"], "worktree", "remove", str(path))
     git(repo["cache"], "branch", "-D", branch)
@@ -135,6 +146,11 @@ def detach(repo, path, branch):
 
 def start(args, root, repos):
     repo = repos[0]
+    if args.base:
+        if args.base.startswith("-"):
+            raise ValueError(f"Invalid base branch {args.base!r}.")
+        git(root, "check-ref-format", f"refs/heads/{args.base}")
+        repo = {**repo, "branch": args.base}
     git(root, "check-ref-format", f"refs/heads/{args.branch}")
     if args.branch == repo["branch"]:
         raise ValueError(f"Cut a fix branch, not {repo['branch']}.")
@@ -154,6 +170,7 @@ def start(args, root, repos):
         git(repo["cache"], "fetch", "--no-tags", "origin", f"+refs/heads/{args.branch}:{remote_ref}")
         start_point = git(repo["cache"], "rev-parse", "--verify", f"{remote_ref}^{{commit}}")
     git(repo["cache"], "worktree", "add", "--no-track", "-b", args.branch, str(path), start_point)
+    git(repo["cache"], "config", f"branch.{args.branch}.bugBase", repo["branch"])
     return {"repository": repo["name"], "branch": args.branch, "worktree": str(path), "resumed": resumed,
             "head": start_point, "base_branch": repo["branch"], "base_sha": sha,
             "behind_main": int(git(path, "rev-list", "--count", f"HEAD..{reference}")) if resumed else 0}
@@ -161,7 +178,7 @@ def start(args, root, repos):
 
 def push(args, root, repos):
     repo, path = owner(root, repos, args.path)
-    branch = git(path, "symbolic-ref", "--short", "HEAD")
+    repo, branch = with_base(repo, path)
     if git(path, "status", "--porcelain"):
         raise ValueError(f"{path} has uncommitted changes; commit them before pushing.")
     reference, base = fetch(repo)
@@ -173,12 +190,12 @@ def push(args, root, repos):
     if not remote or remote[0] != head:
         raise ValueError(f"origin/{branch} is not at {head} after push.")
     return {"repository": repo["name"], "branch": branch, "pushed_sha": head,
-            "main_sha": base, "url": repo["url"], "worktree": str(path)}
+            "base_branch": repo["branch"], "main_sha": base, "url": repo["url"], "worktree": str(path)}
 
 
 def remove(args, root, repos):
     repo, path = owner(root, repos, args.path)
-    branch = git(path, "symbolic-ref", "--short", "HEAD")
+    repo, branch = with_base(repo, path)
     if not args.discard:
         if git(path, "status", "--porcelain"):
             raise ValueError(f"{path} has uncommitted changes; pass --discard to drop them.")
@@ -206,6 +223,8 @@ def main():
         if name == "start":
             command.add_argument("--repo", required=True, help="Repository name from config.")
             command.add_argument("--branch", required=True, help="New fix branch, e.g. codex/room-name-sync.")
+            command.add_argument("--base", help="Branch to cut from and open the PR against; default main. "
+                                                "Use the feature branch when the bug is in unmerged work.")
         else:
             command.add_argument("--path", required=True, help="Worktree path returned by `start`.")
         if name == "remove":

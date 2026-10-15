@@ -88,6 +88,26 @@ class ReposTests(unittest.TestCase):
         self.assertFalse(path.exists())
         self.start()  # the branch name is free again
 
+    def test_a_feature_base_is_cut_from_and_compared_against(self):
+        work = self.base / "work"
+        git(work, "switch", "-qc", "codex/feature")
+        (work / "feature.txt").write_text("feature")
+        git(work, "add", ".")
+        git(work, "commit", "-qm", "feature")
+        git(work, "push", "-q", "origin", "HEAD:codex/feature")
+        feature = git(work, "rev-parse", "HEAD")
+        started = self.run_script("start", "--repo", "tutti", "--branch", "codex/bug-tes-1", "--base", "codex/feature")
+        path = Path(started["worktree"])
+        self.identity(path)
+        self.assertEqual((started["base_branch"], started["base_sha"], git(path, "rev-parse", "HEAD")),
+                         ("codex/feature", feature, feature))
+        # The feature's own commits are not a fix: nothing beyond the base yet.
+        self.assertIn("nothing to push", self.run_script("push", "--path", str(path), expected=2)["error"])
+        (path / "feature.txt").write_text("fixed")
+        git(path, "commit", "-qam", "fix")
+        self.assertEqual(self.run_script("push", "--path", str(path))["base_branch"], "codex/feature")
+        self.run_script("remove", "--path", str(path))
+
     def test_only_worktrees_from_start_are_accepted(self):
         self.assertIn("not a worktree", self.run_script("push", "--path", str(self.base / "work"), expected=2)["error"])
         self.assertIn("Cut a fix branch",

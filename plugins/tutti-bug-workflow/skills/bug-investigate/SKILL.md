@@ -91,7 +91,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 2. `execute_webmcp_tool` 分页读 `get_web_logs`，每页存一个文件，用 `scripts/merge_web_logs.py` 合并成 `$REPORT/web/web-logs.log`。
 3. `execute_webmcp_tool` 调 `list_my_computers`（房间相关时加 `list_room_agents`），用于定位 Computer。
 
-不刷新、不跳转页面。WebMCP 不可用、用户在另一台机器上或页面已刷新时，用 QA 导出的诊断包；两者都没有时记为 `pending`，第 5 步请用户导出。
+不刷新、不跳转用户的页面。**链接对应的页面找不到（已刷新或关闭）时，不要直接记 `pending`**：只要本机 Chrome 里还有同一 Account 的 Tutti 页面，就自己新开一个标签页，从「设置 → 诊断」导出这个账号的历史日志（含已刷新的那次页面会话），见 [Web 日志 · 方式二](references/web-logs.md#方式二本机导出历史日志)。本机没有这个账号（用户在另一台机器上）时用 QA 导出的诊断包；都没有才记为 `pending`，第 5 步请用户导出。
 
 ### 3.2 Computer 日志（后台进程）
 
