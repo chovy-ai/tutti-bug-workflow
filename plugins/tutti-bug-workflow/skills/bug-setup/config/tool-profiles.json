@@ -2,7 +2,8 @@
   "schema_version": 1,
   "scenes": {
     "investigate": "QA 提 Bug",
-    "execute": "修复一条 Bug Task 并部署 PPE"
+    "analyze": "根因分析",
+    "execute": "修复一条 Bug 并部署 PPE"
   },
   "tools": [
     {
@@ -10,6 +11,7 @@
       "label": "本地文件、搜索、终端与图片查看",
       "required_in": [
         "investigate",
+        "analyze",
         "execute"
       ],
       "conditional_in": [],
@@ -24,29 +26,31 @@
       "install_operation": null
     },
     {
-      "id": "tutti-task",
-      "label": "用全局 tutti-cli（账号登录版）读写 Room 里的 Task：提 Bug 建 Task、挂附件，修复后回复结果",
+      "id": "multica",
+      "label": "Multica：issue 是 Bug 的唯一记录，三个 Agent 在本机 Codex runtime 上按 issue 分配接力",
       "required_in": [
         "investigate",
+        "analyze",
         "execute"
       ],
       "conditional_in": [],
       "commands": [
-        "tutti-cli"
+        "multica"
       ],
       "configuration": "host",
       "requirements": [
-        "全局安装 npm 包 @tutti-os/tutti-cli（Node.js 24+），`tutti-cli --help` 列出 login 与 task create／edit／show",
-        "`tutti-cli login` 已登录，`tutti-cli whoami --json` 返回 QA 的账号",
-        "该账号是目标 Room 的成员；Room ID 取自 Room 链接，每条 task 命令带 --room-id",
-        "CLI 不能指派、改优先级：排查线索作为附件，跟进人在任务看板指派；`agent list`／`agent models`／`task run` 把根因分析交给 Room 里的 Agent（Codex 优先，其次 Claude Code）"
+        "Multica 桌面端已登录，`multica --profile <multica.profile> workspace list` 能列出 workspace",
+        "Bug 项目（multica.project）与三个 Agent（multica.agents）已在 Multica 创建，runtime 为本机在线的 Codex",
+        "`multica.py sync` 已把 bug-investigate、bug-analyze、bug-execute 同步到 workspace 并分配给对应 Agent",
+        "登记、分析、修复结果都写在同一个 issue：描述、评论与评论附件；状态 in_progress → in_review／blocked，QA 验收后 done"
       ],
       "install_operation": null
     },
     {
       "id": "code",
-      "label": "Git、共享代码缓存与修复 worktree",
+      "label": "Git、共享代码缓存（分析用固定检出）与修复 worktree",
       "required_in": [
+        "analyze",
         "execute"
       ],
       "conditional_in": [],
@@ -224,7 +228,7 @@
       "requirements": [
         "选定的 GitHub CLI 或宿主工具",
         "目标分支推送/PR 权限",
-        "PR 链接写进 Task 回复"
+        "PR 链接写进 issue 回复"
       ],
       "install_operation": null
     },

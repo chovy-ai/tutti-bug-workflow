@@ -7,7 +7,7 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-SCENES = {"bug-investigate", "bug-execute", "bug-setup"}
+SCENES = {"bug-investigate", "bug-analyze", "bug-execute", "bug-setup"}
 
 
 def main():
@@ -35,7 +35,7 @@ def main():
     if converted != legacy_mcp.get("mcpServers"):
         errors.append("Portable/compatibility MCP configurations differ.")
     catalog = json.loads((ROOT / "skills/bug-setup/config/tool-profiles.json").read_text())
-    scene_names = {"investigate", "execute"}
+    scene_names = {"investigate", "analyze", "execute"}
     if catalog.get("schema_version") != 1 or set(catalog.get("scenes", {})) != scene_names:
         errors.append("Invalid tool scene catalog.")
     identifiers = set()
@@ -51,7 +51,7 @@ def main():
         identifiers.add(identifier)
     actual = {p.parent.name for p in (ROOT / "skills").glob("*/SKILL.md")}
     if actual != SCENES:
-        errors.append("Expected only bug-investigate, bug-execute and bug-setup under skills/.")
+        errors.append("Expected only bug-investigate, bug-analyze, bug-execute and bug-setup under skills/.")
     for name in actual:
         file = ROOT / "skills" / name / "SKILL.md"
         body = file.read_text()

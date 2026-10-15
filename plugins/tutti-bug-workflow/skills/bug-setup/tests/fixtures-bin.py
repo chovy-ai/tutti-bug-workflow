@@ -12,7 +12,7 @@ args = sys.argv[1:]
 tools = json.loads(os.environ.get("FAKE_TOOLS", "{}"))
 log = Path(os.environ["FAKE_TOOLS_LOG"])
 log.write_text(log.read_text() + json.dumps([name, *args]) + "\n" if log.exists() else json.dumps([name, *args]) + "\n")
-PACKAGES = {"@tutti-os/tutti-ops-cli": "tutti-ops", "@tutti-os/tutti-cli": "tutti-cli"}
+PACKAGES = {"@tutti-os/tutti-ops-cli": "tutti-ops"}
 
 
 def out(value):
@@ -28,13 +28,7 @@ if name == "npm":
         target = Path(sys.argv[0]).parent / PACKAGES[package]
         shutil.copyfile(__file__, target)
         target.chmod(0o755)
-        if package == "@tutti-os/tutti-cli":
-            (target.parent / ".tutti-cli-version").write_text(tools.get("tutti_cli_latest", "0.1.0"))
         out("added 1 package")
-    if args[:2] == ["view", "@tutti-os/tutti-cli"]:
-        if tools.get("npm_offline"):
-            sys.exit(1)
-        out(tools.get("tutti_cli_latest", "0.1.0"))
     if args[:2] == ["prefix", "-g"]:
         out(str(Path(sys.argv[0]).parent.parent))
 if name == "git":
@@ -54,24 +48,5 @@ if name == "tutti-ops":
         out({"ok": tools.get("tutti_token", True)})
     if args[:2] == ["computer", "--help"]:
         out("computer commands")
-if name == "tutti-cli":
-    if args == ["--help"]:
-        out("Tutti CLI — account login, Rooms and Tasks\n  tutti-cli login [--no-browser] [--json]\n"
-            + ("  tutti-cli room list [--type all|local|cloud] [--json]\n"
-               "  tutti-cli task comment --room-id ID --task-id UUID\n"
-               "                  (--content TEXT | --content-file PATH|-)\n"
-               + ("                  [--file PATH] [--room-file /room/PATH] [--json]\n"
-                  if tools.get("tutti_cli_comment_files", True) else "                  [--json]\n")
-               + "  tutti-cli task run --room-id ID --task-id UUID\n"
-               "                  [--file PATH] [--room-file /room/PATH] [--json]\n"
-               if tools.get("tutti_cli_rooms", True) else ""))
-    if args == ["--version"]:
-        marker = Path(sys.argv[0]).parent / ".tutti-cli-version"
-        out(marker.read_text() if marker.exists() else tools.get("tutti_cli_version", "0.1.0"))
-    if args[:1] == ["whoami"]:
-        if tools.get("tutti_cli_logged_in", True):
-            out({"userId": "1", "name": "QA", "email": "qa@example.com"})
-        print("tutti-cli: No readable CLI session; run tutti-cli login", file=sys.stderr)
-        sys.exit(1)
 print(f"unsupported {name} {args}", file=sys.stderr)
 sys.exit(1)

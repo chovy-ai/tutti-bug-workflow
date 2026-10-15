@@ -5,7 +5,7 @@
 体验链接：<前端预览链接；只改 Computer 时为 canary 发布页；都没部署成功写「无」>
 
 修复：
-- 分支：codex/bug-<短 ID>（tutti@<sha>，tutti-server@<sha>，tsh-websocket@<sha>，没改的仓库不写）
+- 分支：<branch>（tutti@<sha>，tutti-server@<sha>，tsh-websocket@<sha>，没改的仓库不写）
 - PR：<链接>
 - 改动：<模块与实际行为变化，对应方案的哪一部分>
 
@@ -13,14 +13,14 @@
 - <命令>：<结果>
 
 PPE 部署：
-- Server 泳道：ppe-bug-<短 ID>，<run 链接>，<结论>
-- WebSocket 泳道：ppe-bug-<短 ID>，<run 链接>，<结论>
+- Server 泳道：<lane>，<run 链接>，<结论>
+- WebSocket 泳道：<lane>，<run 链接>，<结论>
 - 前端预览：<预览链接>，<run 链接>，<结论>
 - Computer canary：<版本>，<run 链接>，<结论>
 （没涉及的一端写「未涉及」）
 
 自验证（本机 Chrome，预览链接 <链接>；截图见本条评论附件）：
-1. <用例名>：passed／failed／not_run；<实际结果>；截图：附件 fix-<短 ID>-1-<时间>.png
+1. <用例名>：passed／failed／not_run；<实际结果>；截图：附件 fix-<编号小写>-1-<时间>.png
 2. ……
 修复前对照：<附件 before- 截图文件名，或「未截」>
 

@@ -100,7 +100,7 @@ class ToolSetupTests(unittest.TestCase):
         self.assertEqual(len(ids), len(set(ids)))
         self.assertFalse(next(t for t in report["tools"] if t["id"] == "web-logs")["selected"])
         self.assertTrue(next(t for t in report["tools"] if t["id"] == "browser-validation")["selected"])
-        self.assertTrue({"tutti-task", "code", "deployment"} <= set(ids))
+        self.assertTrue({"multica", "code", "deployment"} <= set(ids))
         self.assertTrue({"feishu", "diagrams", "approval"}.isdisjoint(ids))  # only the task system now
         self.assertNotIn("session-upload", {t["id"] for t in self.invoke("execute")["tools"]})
 

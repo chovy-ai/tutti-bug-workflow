@@ -85,7 +85,7 @@ def build_report(scene, include, root, cfg, config=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--scene", choices=("investigate", "execute", "all"), required=True)
+    parser.add_argument("--scene", choices=("investigate", "analyze", "execute", "all"), required=True)
     parser.add_argument("--include", action="append", default=[], metavar="TOOL_ID",
                         help="Select a conditional tool; repeat for several tools.")
     parser.add_argument("--data-dir")

@@ -1,41 +1,44 @@
 ---
 name: bug-execute
-description: 修复 Room 里的一条 Bug Task 并部署 PPE（RD 手动触发，如「修复这个 Task <链接>」「按根本方案修一下这个 bug」）：用 tutti-cli 读 Task 的 Bug 表现，按 RD 认可的方案（通常是 Room Agent 在 Task 评论里给的根因分析）从远端分支切出 worktree 修复、提 PR 到 main，部署 PPE（server 泳道 → ws 泳道 → 前端预览，涉及 Computer 发分支 canary）后移除 worktree，按验收要点自验证，最后把原因、PR、体验链接和验证结果回复到 Task；也用于销毁某条 Bug 的 PPE 泳道。
+description: 修复 Multica 里的一条 Tutti Bug issue 并部署 PPE（RD 认可分析方案后把 issue 分配给 Bug 解决 Agent，或手动说「修复这个 issue <编号>」）：读 issue 的 Bug 表现、现场和分析 Agent 的根因方案及 RD 的评审意见，从远端分支切出 worktree 修复、提 PR 到 main，部署 PPE（server 泳道 → ws 泳道 → 前端预览，涉及 Computer 发分支 canary）后移除 worktree，按验收要点自验证，最后把原因、PR、体验链接、验证结果和截图回复到 issue；也用于销毁某条 Bug 的 PPE 泳道。
 ---
 
 # 修复与部署
 
-你负责把一条 Bug Task 的修复方案落成代码，部署到 PPE 并验证，结果回复到这个 Task。
+你负责把一条 Bug 的修复方案落成代码，部署到 PPE 并验证，结果回复到这条 Bug 的 Multica issue。
 
-**由 RD 手动触发，一次一条 Task。** 没有定时任务，也不扫描 Bug 列表。Task 是唯一的对外记录：修复完成或失败，都要回复到 Task 的评论里。脚本路径相对本 Skill 目录（`skills/bug-execute/`），都输出一段 JSON。工具安装与认证由 `$tutti-bug-workflow:bug-setup`（「修复与部署」场景）负责。
+**由 RD 触发，一次一条 issue。** RD 评审分析方案后把 issue 分配给你（Multica 会让你立刻开始），或在本机 Codex 里手动让你修；不扫描 Bug 列表。**Multica issue 是唯一的对外记录**：修复完成或失败，都要回复到 issue 的评论里。脚本路径相对本 Skill 目录（`skills/bug-execute/`），都输出一段 JSON。工具安装与认证由 `$tutti-bug-workflow:bug-setup`（「修复与部署」场景）负责。
 
-**修复部署后，体验环境必须写进 Task 回复。** 只要有任何一端部署成功，不论最后成功还是失败，回复里都要有一个点开就能体验修复的链接：前端预览链接（指向这条 Bug 的 Server 泳道）；只改了 Computer 时是 canary 发布页。RD 和 QA 靠它去体验修复，漏写等于没交付。
+**Multica 命令。** 在 Multica 分配的任务里运行时（环境里有 `MULTICA_TOKEN`），直接用 `multica`，issue ID 就是任务提示里的「assigned issue ID」。在本机 Codex 里直接调用时，从数据目录（默认 `~/.local/share/bug-workbench`）`config.json` 的 `multica` 读 `profile` 和 `workspace_id`，每条命令前加 `multica --profile <profile> --workspace-id <workspace_id>`。下文的 `multica` 都按这个规则。
+
+**修复部署后，体验环境必须写进 issue 回复。** 只要有任何一端部署成功，不论最后成功还是失败，回复里都要有一个点开就能体验修复的链接：前端预览链接（指向这条 Bug 的 Server 泳道）；只改了 Computer 时是 canary 发布页。RD 和 QA 靠它去体验修复，漏写等于没交付。
 
 **只说有证据的事实。** 回复和对话里的每条结论都要有代码、测试输出、部署结果或截图作证；没证实的写成「待确认」。
 
-## 1. 确定 Task 和方案
+## 1. 确定 issue 和方案
 
-1. **Task**：从用户消息里取 Room ID 和 Task ID（Task 链接里通常两个都有）。只有 Task ID 时问用户是哪个房间（可给房间名，用 `tutti-cli room list --all --json` 找）。然后读 Task：
+1. **issue**：Multica 分配给你的 issue，或用户给的编号（如 `TES-123`）／链接。读 issue 和全部评论：
    ```sh
-   tutti-cli task show --room-id <roomId> --task-id <taskId> --json
+   multica issue get <issueId> --output json
+   multica issue comment list <issueId> --output json
    ```
-   读不到（403、不存在、未登录）就停下，告诉用户原因；未登录时后台运行 `tutti-cli login`，用户在浏览器登录后重试。
-2. **方案**：`tutti-cli` 读不到 Task 的评论，所以方案以用户在对话里给的为准，通常是 Room Agent 在 Task 里回复的根因分析（根因、根本方案／兼容方案、修改范围、验收要点）。用户只说「按根本方案修」却没贴分析内容时，**请用户把那条分析回复贴过来**（或直接说明要怎么改），拿到之前不动代码。
-3. 把 Task 的描述、附件清单和方案整理成运行目录里的 `context.md`。运行目录：数据目录（默认 `~/.local/share/bug-workbench`）下的 `bug-fixes/<taskId>/`。
+   读不到（不存在、未登录）就停下，告诉用户原因。记下 `identifier`（如 `TES-123`），开始时把状态置为 `in_progress`：`multica issue status <issueId> in_progress`。
+2. **方案**：以 issue 评论里分析 Agent 的根因分析为准（根因、根本方案／兼容方案、修改范围、验收要点），再叠加 RD 在它之后的评审评论。**RD 把 issue 分配给你就表示认可分析里的推荐方案**；评论里指定了另一个方案或提了修改意见时以评论为准，多条意见冲突时以最新的为准。issue 里还没有分析结论、或 RD 的意见不足以确定改法时，不动代码：在 issue 里评论缺什么，`multica issue status <issueId> blocked`，结束。
+3. 附件（「现场材料」评论里的排查线索、日志，截图）按需用 `multica attachment download <attachmentId> -o $RUN` 下载。把 issue 的描述、方案和 RD 意见整理成运行目录里的 `context.md`。运行目录（`$RUN`）：数据目录下的 `bug-fixes/<issue 编号>/`。
 4. 固定这条 Bug 的分支和泳道：
    ```sh
-   python3 scripts/deploy.py fix-names --task-id <taskId>
+   python3 scripts/deploy.py fix-names --issue <issue 编号>
    ```
-   返回 `branch`（`codex/bug-<Task ID 前 8 位>`）和 `lane`（`ppe-bug-<同样 8 位>`）。同一条 Task 每次修复都用这两个名字，重试时接着原分支。
+   返回 `branch`（`codex/bug-<编号小写>`，如 `codex/bug-tes-123`）和 `lane`（`ppe-bug-<同样>`）。同一条 issue 每次修复都用这两个名字，重试时接着原分支。
 
-方案和最新 main 的代码对不上（已被修复、根因不成立）或修复必须超出方案范围时，先停下来和用户说明，不自行扩大范围。
+方案和最新 main 的代码对不上（已被修复、根因不成立）或修复必须超出方案范围时，先停下来：在 issue 里评论说明，置为 `blocked`，不自行扩大范围。
 
 ## 2. 从远端分支切出 worktree
 
 每个要改的仓库（worktree 从远端最新 main 切出；远端已有这条 Bug 的修复分支时从它切出，接着上次的改动）：tutti（Web、Computer）、tutti-server（Server）、tsh-websocket（WebSocket，基础设施，方案没要求就不改）。
 
 ```sh
-python3 scripts/repos.py start --repo tutti --branch codex/bug-<短 ID>
+python3 scripts/repos.py start --repo tutti --branch <branch>
 ```
 
 返回 `resumed: true` 表示接着上一次的分支；`behind_main` 大于 0 时先 `git rebase origin/main`（冲突解决不了就判失败）。详见 [修复工作区](references/code.md)。
@@ -47,21 +50,21 @@ python3 scripts/repos.py start --repo tutti --branch codex/bug-<短 ID>
 ## 4. 提交、推送、提 PR
 
 ```sh
-git -C <worktree> add -A && git -C <worktree> commit -m "fix: <摘要>（task <短 ID>）"
+git -C <worktree> add -A && git -C <worktree> commit -m "fix: <摘要>（<issue 编号>）"
 python3 scripts/repos.py push --path <worktree>     # 推送分支，worktree 保留到部署完
-gh pr create -R tutti-lab/<repo> --base main --head codex/bug-<短 ID> --title "fix: …" --body "…"
+gh pr create -R tutti-lab/<repo> --base main --head <branch> --title "fix: …" --body "…"
 ```
 
-分支已有打开的 PR（`gh pr view -R … codex/bug-<短 ID>`）就复用，不重复创建。PR 描述写 Task（Room ID、Task ID、标题）、根因一句话、改动、测试结果、PPE 部署信息（部署后用 `gh pr comment` 补上）。
+分支已有打开的 PR（`gh pr view -R … <branch>`）就复用，不重复创建。PR 描述写 issue（编号、标题、链接）、根因一句话、改动、测试结果、PPE 部署信息（部署后用 `gh pr comment` 补上）。
 
 ## 5. 部署 PPE
 
 顺序固定，前一步失败就不做后一步，详见 [PPE 部署](references/deploy.md)。每条命令返回 run 链接和结论；成功的 web／computer 部署带 `access_url`（体验链接）。
 
-- 改了 tutti-server：`python3 scripts/deploy.py server --branch codex/bug-<短 ID> --lane <lane>`，等它成功。
-- 改了 tsh-websocket（只在方案明确要求时修改，没改就跳过）：`python3 scripts/deploy.py websocket --branch codex/bug-<短 ID> --lane <lane>`。新泳道缺 WebSocket V2 基础设施会失败（看 `failed_log_tail` 和 `hint`）：其他端照常部署，最后判失败，写明需要人工先建 ws 基础设施。
+- 改了 tutti-server：`python3 scripts/deploy.py server --branch <branch> --lane <lane>`，等它成功。
+- 改了 tsh-websocket（只在方案明确要求时修改，没改就跳过）：`python3 scripts/deploy.py websocket --branch <branch> --lane <lane>`。新泳道缺 WebSocket V2 基础设施会失败（看 `failed_log_tail` 和 `hint`）：其他端照常部署，最后判失败，写明需要人工先建 ws 基础设施。
 - 改了前端（或改了 server，前端需要对接这个泳道）：`python3 scripts/deploy.py web --branch <tutti 分支> --server-lane <lane>`。只改了 server 时，用 `main` 作为前端分支部署预览并指向泳道。
-- 改了 Computer（desktopd、runtime 等）：`python3 scripts/deploy.py computer --branch codex/bug-<短 ID>`，记下 canary 版本。
+- 改了 Computer（desktopd、runtime 等）：`python3 scripts/deploy.py computer --branch <branch>`，记下 canary 版本。
 - 泳道部署时关闭了连接器授权。修复依赖连接器授权才能验证时，PR 照提、部署照做，然后判失败，说明「新泳道需要人工预配 connector task-platform binding 后重试」。
 
 ## 6. 移除 worktree
@@ -78,34 +81,33 @@ python3 scripts/repos.py remove --path <worktree>
 
 部署成功后自己按方案里的验收要点逐条验证，完整流程见 [部署后自验证](references/verify.md)：用 `chrome-devtools` MCP 连接本机 Chrome（用它的 tutti.sh 登录态），只操作自己新开的标签页；涉及 UI 的用例每条都要截图，存到运行目录，回复时作为评论附件上传。任何必需用例失败，或涉及 UI 却没能截图（Chrome 不可用、未登录）→ 判失败。
 
-## 8. 回复到 Task
+## 8. 回复到 issue
 
 先写「一句话原因」：`gh pr diff` 看这次 PR 实际改了什么，用一句话告诉 QA 和产品这个 Bug 为什么会出现。讲原因不讲改法，不用类名、函数名、接口名、错误码；单行、最好 50 字以内；实际修的和方案里的根因不一样时，按 PR 写。例：「切换房间时顶部标题没跟着刷新，一直显示上一个房间的名字」。
 
-按 [验证模板](assets/verification.md) 写 `$RUN/reply.txt`，连同这次的全部截图（`fix-*`、`before-*`）作为附件发到 Task：
+按 [验证模板](assets/verification.md) 写 `$RUN/reply.md`，连同这次的全部截图（`fix-*`、`before-*`）作为附件发到 issue，再改状态：
 
 ```sh
-tutti-cli task comment --room-id <roomId> --task-id <taskId> --content-file <$RUN>/reply.txt \
-  --file <$RUN>/fix-<短 ID>-1-<时间>.png --file <$RUN>/before-<短 ID>-1-<时间>.png \
-  --operation-id <新 UUID> --json
+multica issue comment add <issueId> --content-stdin \
+  --attachment <$RUN>/fix-<编号小写>-1-<时间>.png --attachment <$RUN>/before-<编号小写>-1-<时间>.png < <$RUN>/reply.md
+multica issue status <issueId> in_review     # 已部署待验收；修复失败时用 blocked
 ```
 
-- 每张截图一个 `--file`，附件显示的就是文件名，回复正文按文件名引用，不写本机路径。
-- 回执 `status: posted` 才算发出；超时或没拿到回执时用同一个 `--operation-id`、同一份文件和同一组附件重试一次。重试返回 `COMMENT_IDEMPOTENCY_CONFLICT` 说明第一次已经发出（重新上传的附件 ID 不同），不再重发。
-- 附件上传失败时评论不会发出：按报错修正（文件名重复、空文件、超过 500 MiB）后重发；`--file` 不被支持说明 `tutti-cli` 过旧，按 `$tutti-bug-workflow:bug-setup` 升级后重发。
-- 只发评论，不带 `--agent-target-id`，不触发任何 Agent；不改 Task 的标题、描述和附件（`task edit` 带附件会整段替换描述，可能弄丢 QA 的附件）。
-- **失败时也要回复**：写清卡在哪一步、错误信息和链接，已部署成功的一端照样给出体验链接。
+- 每张截图一个 `--attachment`，附件显示的就是文件名，回复正文按文件名引用，不写本机路径。
+- 附件上传失败时评论不会发出：按报错修正（文件名重复、空文件、文件过大）后重发。结果不确定时先 `multica issue comment list` 回读，确实没发出再重发，不重复发评论。
+- 只发评论、改状态，不改 issue 的标题、描述和优先级，不把 issue 分配给别人；验收通过后由 QA 置为 `done`。
+- **失败时也要回复**：写清卡在哪一步、错误信息和链接，已部署成功的一端照样给出体验链接，状态置为 `blocked`。
 
-最后在对话里给用户一行结论：一句话原因、PR、体验链接、验证结果，以及 Task 回复是否已发出。
+最后在对话里给用户一行结论：一句话原因、PR、体验链接、验证结果，以及 issue 回复是否已发出、当前状态。
 
 ## 泳道回收
 
 泳道不自动销毁。用户要求销毁某条 Bug 的泳道时：
 
 ```sh
-python3 scripts/deploy.py fix-names --task-id <taskId>
-python3 scripts/deploy.py destroy-lane --lane ppe-bug-<短 ID>                      # server
-python3 scripts/deploy.py destroy-lane --lane ppe-bug-<短 ID> --service websocket  # 部署过 ws 时
+python3 scripts/deploy.py fix-names --issue <issue 编号>
+python3 scripts/deploy.py destroy-lane --lane <lane>                      # server
+python3 scripts/deploy.py destroy-lane --lane <lane> --service websocket  # 部署过 ws 时
 ```
 
-销毁后在 Task 里回复一句「已销毁 PPE 泳道 ppe-bug-<短 ID>：<run 链接>」。
+销毁后在 issue 里回复一句「已销毁 PPE 泳道 <lane>：<run 链接>」。

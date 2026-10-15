@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Deploy a fix branch to PPE through the repositories' GitHub workflows, and wait for it.
 
-- `fix-names --task-id UUID`: the per-bug names derived from the Task: fix branch
-  `codex/bug-<first 8 hex of the Task ID>` and lane `ppe-bug-<same>`, shared by
+- `fix-names --issue KEY`: the per-bug names derived from the Multica issue key (`TES-123`):
+  fix branch `codex/bug-<key in lower case>` and lane `ppe-bug-<same>`, shared by
   tutti-server and tsh-websocket (both deploy into namespace `lane-<lane>`).
 - `server --branch B --lane L`: tutti-server `deploy-lane.yml` on the branch, with the
   configured inputs (connector authorization off for fresh lanes).
@@ -28,7 +28,6 @@ import json
 import os
 from pathlib import Path
 import re
-import uuid
 import subprocess
 import sys
 import time
@@ -38,6 +37,7 @@ import common as wb  # noqa: E402
 
 LANE = re.compile(r"[a-z]([a-z0-9-]{0,38}[a-z0-9])?\Z")  # tutti-server
 WS_LANE = re.compile(r"ppe-[a-z0-9]+(-[a-z0-9]+)*\Z")  # tsh-websocket
+ISSUE_KEY = re.compile(r"[A-Za-z][A-Za-z0-9]*-[0-9]+\Z")
 RUN_URL = re.compile(r"https://github\.com/[^\s]+/actions/runs/(\d+)")
 
 
@@ -56,11 +56,10 @@ def gh(*arguments, timeout=120):
     return result.stdout
 
 
-def fix_names(cfg, task_id):
-    try:
-        short = uuid.UUID(task_id).hex[:8]
-    except ValueError:
-        raise ValueError(f"Task ID must be a UUID: {task_id!r}.") from None
+def fix_names(cfg, issue):
+    if not ISSUE_KEY.fullmatch(issue or ""):
+        raise ValueError(f"Issue must be a Multica issue key like TES-123: {issue!r}.")
+    short = issue.lower()
     config = deploy_config(cfg)
     lane = f"{config['server']['lane_prefix']}{short}"
     if not LANE.fullmatch(lane) or not WS_LANE.fullmatch(lane):
@@ -181,7 +180,7 @@ def main():
         command.add_argument("--data-dir")
         command.add_argument("--config")
         if name == "fix-names":
-            command.add_argument("--task-id", required=True)
+            command.add_argument("--issue", required=True, help="Multica issue key, e.g. TES-123.")
             continue
         if name in ("server", "websocket", "web", "computer"):
             command.add_argument("--branch", required=True)
@@ -200,7 +199,7 @@ def main():
         root = wb.data_root(args)
         cfg = wb.load_config(args, root)
         if args.operation == "fix-names":
-            wb.emit({"ok": True, **fix_names(cfg, args.task_id)})
+            wb.emit({"ok": True, **fix_names(cfg, args.issue)})
             return 0
         result = {"server": server, "websocket": websocket, "web": web, "computer": computer,
                   "destroy-lane": destroy}[args.operation](args, cfg)

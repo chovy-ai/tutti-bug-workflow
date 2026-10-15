@@ -1,0 +1,4 @@
+interface:
+  display_name: "根因分析"
+  short_description: "分析 Multica issue 里的一条 Tutti Bug：拉最新代码找根因、出修复方案和流程图，回复在 issue 里等 RD 评审"
+  default_prompt: "使用 $tutti-bug-workflow:bug-analyze 分析这个 issue：<issue 链接或编号>。"

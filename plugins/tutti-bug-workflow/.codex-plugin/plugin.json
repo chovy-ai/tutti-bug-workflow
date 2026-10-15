@@ -1,21 +1,22 @@
 {
   "name": "tutti-bug-workflow",
-  "version": "0.5.0",
-  "description": "在 Codex 本地环境中完成 QA 提 Bug（带全现场日志，用全局 tutti-cli 在指定 Room 建 Task，交给 Room Agent 分析根因）和修复与部署（按 Task 修复、提 PR、部署 PPE、自验证并回复到 Task）；只对接 Tutti 任务系统，附带环境准备。",
+  "version": "0.6.0",
+  "description": "在 Codex 本地环境中、以 Multica issue 为 Bug 记录完成 QA 提 Bug（带全现场日志登记 issue）、根因分析（拉最新代码出方案，等 RD 评审）和修复与部署（按 RD 认可的方案修复、提 PR、部署 PPE、自验证并回复到 issue）；三个 Skill 分别由本机 Multica 的三个 Agent 执行、靠分配 issue 交接，附带环境准备与技能同步。",
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "tutti-bug-workflow",
-    "shortDescription": "QA 提 Bug、修复与部署、环境准备",
-    "longDescription": "QA 提 Bug：每次调用都走完全程，采集当时的 Web 页面日志和 Computer 日志，把相关请求的 request id 记进排查线索，用全局 tutti-cli（账号登录版）以 QA 的账号在指定 Room 建 Task，截图、排查线索和日志作为附件上传；再用 task run 把组织好的分析指令交给该 Room 的 Agent（Codex 优先，用 gpt-6.1-sol 或 gpt-6-astra；其次 Claude Code 用 Opus 5.5；推理强度 high），由它拉代码分析根因、按模块设计出方案、画修复前后流程图并回复在 Task 里。Room 按 Room ID、房间名或用户名从本地房间里找。提 Bug 不拉 Server 日志，RD 排查时再按 request id 查。bug-execute 修复与部署：RD 指定一条 Bug Task 和认可的方案（通常是 Room Agent 的分析回复），从最新 main 切分支修复、提 PR，部署 PPE（server 泳道 → ws 泳道 → 前端预览 → Computer canary），按验收要点自验证，用 task comment 把原因、PR、体验链接和验证结果回复到 Task。bug-setup 按场景（QA 提 Bug／修复与部署）自动安装工具、补默认配置，一步步引导登录和授权并复查。只对接 Tutti 任务系统，不用飞书表，没有定时任务。",
+    "shortDescription": "提 Bug、根因分析、修复部署（Multica）",
+    "longDescription": "QA 提 Bug：每次调用都走完全程，采集当时的 Web 页面日志和 Computer 日志，把相关请求的 request id 记进排查线索，在 Multica 的 Bug 项目里登记 issue（标题一句话简介、描述只写 Bug 表现），截图、排查线索和日志作为附件发在「现场材料」评论里，然后分配给分析 Agent。根因分析：分析 Agent 把 tutti、tutti-server 更新到最新 main，找出根因，弄清模块设计后给出根本方案与兼容方案、修复前后流程图和验收要点，回复在 issue 里并置为 in_review 等 RD 评审，RD 的追问在同一 issue 里补充。修复与部署：RD 认可方案后把 issue 分配给修复 Agent，它从最新 main 切分支修复、提 PR，部署 PPE（server 泳道 → ws 泳道 → 前端预览 → Computer canary），按验收要点自验证，把原因、PR、体验链接、验证结果和截图回复到 issue。bug-setup 按场景自动安装工具、补默认配置，把三个技能同步到 Multica workspace 并分配给对应 Agent，一步步引导登录和授权并复查。提 Bug 不拉 Server 日志，RD 排查时再按 request id 查。",
     "category": "Productivity",
     "capabilities": [
       "Read",
       "Write"
     ],
     "defaultPrompt": [
-      "记个 bug：<现象>，房间是 <房间名或房主名字>，截图见附件。",
-      "修复这个 Task：<Task 链接>，按 Room Agent 分析里的根本方案修。",
+      "记个 bug：<现象>，截图见附件。",
+      "分析一下这个 issue：<编号>。",
+      "修复这个 issue：<编号>，按评论里认可的方案修。",
       "使用 $tutti-bug-workflow:bug-setup 帮我准备环境。"
     ]
   }

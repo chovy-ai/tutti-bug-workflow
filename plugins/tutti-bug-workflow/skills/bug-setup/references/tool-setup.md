@@ -4,12 +4,13 @@
 
 ## 场景边界
 
-> 两个场景都只对接 Tutti 任务系统（`tutti-cli`），不用飞书表，也没有定时任务。`prepare.py` 与 `tool_setup.py` 接受 `--scene investigate`、`execute` 或 `all`。
+> Bug 记录在 Multica issue，三个场景由 Multica 里的三个 Agent 在本机执行（见 [Multica 接入](multica.md)）。`prepare.py` 与 `tool_setup.py` 接受 `--scene investigate`、`analyze`、`execute` 或 `all`。
 
 | 场景 | 每次需要的工具 | 按实际任务启用 |
 |---|---|---|
-| `investigate`：QA 提 Bug，记录现场 | 本地文件/搜索/终端/图片查看、Room Task 创建与附件上传（全局 `tutti-cli task … --room-id --file`，账号登录版）、提 Bug 结束后的 session 上传 | Web 日志、Computer 目录、本地或远端 Computer 日志；必要的测试或浏览器复现 |
-| `execute`：修复一条 Bug Task 并部署 PPE（RD 手动触发） | 本地/Git 能力、tutti-cli（读 Task、回复结果）、gh（推送、PR、触发部署工作流）、项目测试/类型检查/lint、浏览器验收与证据保存 | 排查或验证需要的日志来源 |
+| `investigate`：QA 提 Bug，记录现场 | 本地文件/搜索/终端/图片查看、Multica issue 登记与评论附件（`multica issue create／update／comment add --attachment`）、提 Bug 结束后的 session 上传 | Web 日志、Computer 目录、本地或远端 Computer 日志；必要的测试或浏览器复现 |
+| `analyze`：根因分析（登记后自动分配） | 本地文件/搜索/终端、Git 与固定检出、Multica（读 issue 与附件、回复分析、改状态） | 复现需要的项目检查 |
+| `execute`：修复一条 Bug 并部署 PPE（RD 分配） | 本地/Git 能力、Multica（读 issue 与方案、回复结果与截图、改状态）、gh（推送、PR、触发部署工作流）、项目测试/类型检查/lint、浏览器验收与证据保存 | 排查或验证需要的日志来源 |
 
 根因分析使用跟随最新 main 的全局检出，修复每次从远端最新 main 切 worktree。RD 所需图可以先交付 Mermaid 源码，专用图服务或图片渲染工具属于条件项。
 
@@ -20,7 +21,7 @@
 | 工具 ID | 工具 / 提供方式 | 安装或复用条件 | 授权与真实验证条件 |
 |---|---|---|---|
 | `local-workspace` | Codex 本地文件、搜索、终端与图片查看 | Python 3.10+；实际宿主能力；可读源码/附件及可写证据目录 | 分别核对文件访问与执行范围；跨机器资源不能由本地路径代替 |
-| `tutti-task` | 全局 `tutti-cli`（npm `@tutti-os/tutti-cli`，账号登录版） | Node.js 24+；`prepare.py fix` 运行 `npm install -g @tutti-os/tutti-cli`；PATH 里同名的 Agent 版没有 `login`，不能复用，见 [Tutti CLI](tutti-cli.md) | `tutti-cli login` 浏览器登录，`whoami --json` 返回 QA 账号；该账号是目标 Room 成员；不试建 Task |
+| `multica` | Multica 桌面端带的 `multica` CLI 与本机 daemon | 本人安装并登录桌面端，建好项目与三个 Agent（本机 Codex runtime）；`prepare.py fix` 运行 `multica.py sync` 同步技能与指令，见 [Multica 接入](multica.md) | `multica.py status` 无问题：profile 已登录、项目存在、三个 Agent 的 runtime 在线、技能与源码一致；不试建 issue |
 | `code` | Git、bare 缓存、worktree | 复用 Git；三个仓库 URL/main、缓存目录与空间 | GitHub 网络与三个仓库读取权限；执行交付另需写权限 |
 | `session-upload` | tutti-ops Session JSONL 上传 | `setup-tutti-ops --install` 先复用；按 [session 能力检查](session-upload.md#1-核对-cli目标与权限) 核对命令，旧版缺能力时升级官方包；当前宿主提供会话定位/导出 | 管理端认证、diagnostics write、`session_logs.write`；核对当前 provider/session 身份，实际确认 uploaded 才表示上传完成 |
 | `project-checks` | 项目实际运行时、依赖与测试工具 | 读取对应 checkout 的 AGENTS.md、开发说明、锁文件和检查命令后准备 | 相关测试/类型检查/lint 实际通过；环境阻塞与测试失败分开记录 |
@@ -39,7 +40,7 @@
 
 1. **选择场景**：根据任务选 `investigate` 或 `execute`；未指定时用 `all` 展示全目录。按问题实际链路选择日志来源；条件工具不会因为出现在目录中就自动安装。
 2. **输出准备清单**：运行下面的只读命令。每个必需工具都选中，条件工具用 `--include` 启用。无配置时先用 Setup 梳理模式说明缺口；执行模式才初始化配置。
-3. **安装与复用**：已授权进行工具准备时，对选中的工具执行已有准备入口。当前自动准备入口只有 tutti-ops（tutti-cli 由 `prepare.py fix` 安装）；其他工具列出已核实的方法或待决策提供方。保存入口、版本和安装结果，自定义入口先核对。先完成全部选中工具的安装和可执行检查；失败项处理或记录具体阻塞后，立即进入下一阶段。
+3. **安装与复用**：已授权进行工具准备时，对选中的工具执行已有准备入口。当前自动准备入口只有 tutti-ops 和 Multica 技能同步（`prepare.py fix`）；其他工具列出已核实的方法或待决策提供方。保存入口、版本和安装结果，自定义入口先核对。先完成全部选中工具的安装和可执行检查；失败项处理或记录具体阻塞后，立即进入下一阶段。
 4. **立即进入授权**：安装阶段结束后自动开始，无需再次询问是否授权。已确定的 Tutti CLI、仓库、浏览器、Computer、验证环境分别按对应来源准备。复用有效认证；发现缺口时按 [主动补齐授权](setup-user-guide.md#主动补齐授权) 修复配置、发起登录并给出真实入口；本人完成后接续登录、复查目标访问。用户明确跳过时才延期；MCP 按实际选择接入。
 5. **验证真实能力**：在授权范围内逐项核对。宿主工具、浏览器桥、图渲染、项目检查与远端权限需要实际发现/执行；清单脚本只检查 CLI 路径及已有配置形状，不运行工具或测试。
 6. **交付场景结果**：列出选中工具、未启用的条件项、已安装/已配置/待授权/待验证/已验证状态和受影响能力。后续场景复用已有准备，只补新增工具。

@@ -35,10 +35,10 @@ class DeployTests(unittest.TestCase):
     def dispatches(self):
         return [call for call in json.loads(self.log.read_text()) if call[:2] == ["workflow", "run"]]
 
-    def test_fix_names_come_from_the_task_id(self):
-        names = self.deploy("fix-names", "--task-id", "0F3A9C21-7037-4b89-87e7-d503f811be8d")
-        self.assertEqual((names["branch"], names["lane"]), ("codex/bug-0f3a9c21", "ppe-bug-0f3a9c21"))
-        self.assertIn("UUID", self.deploy("fix-names", "--task-id", "rec1", expected=2)["error"])
+    def test_fix_names_come_from_the_issue_key(self):
+        names = self.deploy("fix-names", "--issue", "TES-123")
+        self.assertEqual((names["branch"], names["lane"]), ("codex/bug-tes-123", "ppe-bug-tes-123"))
+        self.assertIn("TES-123", self.deploy("fix-names", "--issue", "01a13d13-2641", expected=2)["error"])
 
     def test_server_then_websocket_then_web_then_computer(self):
         server = self.deploy("server", "--branch", "codex/bug-rec1", "--lane", "ppe-bug-rec1")
