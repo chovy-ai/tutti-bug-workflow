@@ -33,14 +33,14 @@ class MergeWebLogsTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.base = Path(temporary.name)
 
-    def run_merge(self, *pages, expected=0):
+    def run_merge(self, *pages, expected=0, link=LINK, extra=()):
         paths = []
         for index, page in enumerate(pages):
             path = self.base / f"page{index}.json"
             path.write_text(json.dumps(page))
             paths += ["--page", str(path)]
-        result = subprocess.run([sys.executable, str(SCRIPT), "--connection-url", LINK, "--question-time", QUESTION,
-                                 *paths, "--output", str(self.base / "web-logs.log")],
+        result = subprocess.run([sys.executable, str(SCRIPT), "--connection-url", link, "--question-time", QUESTION,
+                                 *extra, *paths, "--output", str(self.base / "web-logs.log")],
                                 capture_output=True, text=True, timeout=20, check=False)
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return json.loads(result.stdout)
@@ -64,6 +64,42 @@ class MergeWebLogsTests(unittest.TestCase):
         self.run_merge(snapshot([record(1, 1000)], False, since=SINCE - 1), expected=2)
         self.run_merge(snapshot([record(1, 700000)], False), expected=2)
         self.run_merge({"status": "Error", "errorText": "denied"}, expected=2)
+
+    def test_until_ms_comes_from_the_same_question_time(self):
+        result = subprocess.run([sys.executable, str(SCRIPT), "--question-time", "2026-10-09T07:00:00.250+08:00",
+                                 "--until-ms"], capture_output=True, text=True, timeout=20, check=False)
+        self.assertEqual(json.loads(result.stdout)["untilUnixMs"], UNTIL + 250)
+        self.assertEqual(json.loads(subprocess.run(
+            [sys.executable, str(SCRIPT), "--question-time", QUESTION, "--until-ms"],
+            capture_output=True, text=True, timeout=20, check=False).stdout)["untilUnixMs"], UNTIL)
+
+    def test_late_report_reads_up_to_five_minutes_after_the_incident(self):
+        def until(*extra):
+            return json.loads(subprocess.run([sys.executable, str(SCRIPT), "--question-time", QUESTION, *extra,
+                                              "--until-ms"], capture_output=True, text=True, timeout=20,
+                                             check=False).stdout)["untilUnixMs"]
+        self.assertEqual(until("--incident-at", "2026-10-08T22:30:00Z"), UNTIL - 30 * 60000 + 5 * 60000)
+        self.assertEqual(until("--incident-at", "2026-10-08T22:58:00Z"), UNTIL)  # capped by the report time
+        page = snapshot([record(1, 1000)], False)
+        page["untilUnixMs"], page["sinceUnixMs"] = UNTIL - 25 * 60000, UNTIL - 35 * 60000
+        page["records"][0]["occurredAtUnixMs"] = UNTIL - 26 * 60000
+        result = self.run_merge(page, extra=("--incident-at", "2026-10-08T22:30:00Z"))
+        self.assertEqual((result["incidentAt"], result["recordCount"]), ("2026-10-08T22:30:00Z", 1))
+
+    def test_window_mismatch_names_both_values(self):
+        page = snapshot([record(1, 1000)], False)
+        page["untilUnixMs"] = UNTIL + 594
+        error = self.run_merge(page, expected=2)["error"]
+        self.assertIn(str(UNTIL + 594), error)
+        self.assertIn(str(UNTIL), error)
+        self.assertIn("--until-ms", error)
+
+    def test_page_identity_without_link_still_checks_the_account(self):
+        page = snapshot([record(1, 1000)], False)
+        self.run_merge(page, link=PAGE, expected=2)  # no Account to check against
+        self.assertEqual(self.run_merge(page, link=PAGE, extra=("--account-id", "user-a"))["accountId"], "user-a")
+        self.run_merge(page, link=PAGE, extra=("--account-id", "user-b"), expected=2)
+        self.run_merge(page, extra=("--account-id", "user-b"), expected=2)  # differs from the link
 
 
 if __name__ == "__main__":

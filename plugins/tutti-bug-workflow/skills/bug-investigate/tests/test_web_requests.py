@@ -41,7 +41,7 @@ class WebRequestsTest(unittest.TestCase):
         self.assertEqual([(item["status"], item["request_ids"]) for item in result["failed_requests"]],
                          [(500, [RID1, RID2]), (429, [])])
         self.assertEqual(result["failed_requests"][0]["path"], "/v2/rooms/r1/messages")
-        self.assertEqual(result["nearest_requests"], [])
+        self.assertEqual(len(result["nearest_requests"]), 3)  # always listed, failures or not
 
     def test_diagnostics_zip_without_failures_lists_nearest(self):
         archive = self.base / "tutti-web-diagnostics.zip"
@@ -53,6 +53,23 @@ class WebRequestsTest(unittest.TestCase):
         result = self.run_script("--web-logs", str(archive), "--question-time", "2026-10-10T09:49:40Z")
         self.assertEqual(result["failed_requests"], [])
         self.assertEqual(result["nearest_requests"][0]["request_ids"], [RID2])
+
+    def test_diagnostics_zip_counts_each_record_once_and_windows_failures(self):
+        old = http(BASE - 3600000, "GET", "https://tutti.sh/api/desktop/v2/rooms/r1", 502, "error", requestId=RID1)
+        near = http(BASE, "POST", "https://tutti.sh/api/desktop/v2/rooms/r1/messages", 500, "error", requestId=RID2)
+        ok = http(BASE + 5000, "GET", "https://tutti.sh/api/desktop/v2/rooms/r1", 200)
+        archive = self.base / "tutti-web-diagnostics.zip"
+        with zipfile.ZipFile(archive, "w") as zipped:
+            zipped.writestr("logs.jsonl", "\n".join(json.dumps(item) for item in (old, near, ok)) + "\n")
+            zipped.writestr("errors.jsonl", "\n".join(json.dumps(item) for item in (old, near)) + "\n")
+        result = self.run_script("--web-logs", str(archive), "--incident-at", "2026-10-10T09:49:40Z")
+        self.assertEqual(result["http_requests"], 3)
+        self.assertEqual([item["request_ids"] for item in result["failed_requests"]], [[RID2]])
+        self.assertEqual([item["request_ids"] for item in result["failed_outside_window"]], [[RID1]])
+        self.assertEqual(len(result["nearest_requests"]), 3)
+        with zipfile.ZipFile(archive, "w") as zipped:  # an export without logs.jsonl still reads errors.jsonl
+            zipped.writestr("errors.jsonl", json.dumps(near) + "\n")
+        self.assertEqual(self.run_script("--web-logs", str(archive))["http_requests"], 1)
 
     def test_invalid_input(self):
         self.run_script("--web-logs", str(self.base / "missing.log"), expected=2)

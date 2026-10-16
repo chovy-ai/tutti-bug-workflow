@@ -4,8 +4,14 @@
 The agent pages with input {"range": "10m", "limit": 200, "untilUnixMs": Q} and then
 {"...", "beforeSequence": nextBeforeSequence} while truncated, saving each raw tool
 result to a file. This script checks page/Account identity, the fixed window
-[question_time - 10 min, question_time], sequence continuity and duplicates, then writes
+[until - 10 min, until], sequence continuity and duplicates, then writes
 JSON Lines (metadata first, records by occurrence time). Stateless; standard library only.
+
+until is --question-time (when the bug was reported), or 5 minutes after --incident-at
+(when it happened) if that is earlier, so a late report still reads the failure itself.
+Q must be computed from the same arguments, to the millisecond; `--until-ms` prints it. --connection-url takes the WebMCP connection link,
+or the bare page identity (web-diagnostics:<uuid>) when the page was found without a link;
+then pass --account-id with the signed-in userId so the Account is still checked.
 """
 
 import argparse
@@ -20,6 +26,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import emit  # noqa: E402
 
 WINDOW_MS = 10 * 60 * 1000
+AFTER_MS = 5 * 60 * 1000
+
+
+def until_of(question_time, incident_at=None):
+    moments = [datetime.fromisoformat(value.replace("Z", "+00:00")) for value in (question_time, incident_at) if value]
+    if any(moment.tzinfo is None for moment in moments):
+        raise ValueError("--question-time and --incident-at need a timezone.")
+    until = int(moments[0].timestamp() * 1000)
+    if len(moments) == 2:
+        until = min(until, int(moments[1].timestamp() * 1000) + AFTER_MS)
+    return until
 
 
 def parse_link(link):
@@ -58,8 +75,8 @@ def snapshot_of(raw):
     raise ValueError("Not a get_web_logs snapshot.")
 
 
-def merge(pages, page_id, account, question_time):
-    until = int(datetime.fromisoformat(question_time.replace("Z", "+00:00")).timestamp() * 1000)
+def merge(pages, page_id, account, question_time, incident_at=None):
+    until = until_of(question_time, incident_at)
     since = until - WINDOW_MS
     records, seen, before, complete = [], set(), None, False
     for index, raw in enumerate(pages):
@@ -68,7 +85,10 @@ def merge(pages, page_id, account, question_time):
             raise ValueError(f"Page {index + 1} belongs to another page or Account.")
         account = account or snapshot.get("accountId")
         if snapshot.get("sinceUnixMs") != since or snapshot.get("untilUnixMs") != until:
-            raise ValueError(f"Page {index + 1} was not read with untilUnixMs={until} and range 10m.")
+            raise ValueError(f"Page {index + 1} was read with untilUnixMs={snapshot.get('untilUnixMs')}, "
+                             f"sinceUnixMs={snapshot.get('sinceUnixMs')}; --question-time/--incident-at give untilUnixMs={until} "
+                             "with range 10m. Read every page with the untilUnixMs printed by --until-ms for the same "
+                             "question_time and incident_at.")
         for record in snapshot["records"]:
             rid = record.get("id")
             if (not isinstance(rid, int) or rid in seen or (before is not None and rid >= before)
@@ -88,7 +108,8 @@ def merge(pages, page_id, account, question_time):
     records.sort(key=lambda record: (record["occurredAtUnixMs"], record["id"]))
     metadata = {
         "type": "metadata", "source": "chrome-devtools-webmcp", "pageSessionId": page_id,
-        "accountId": account, "questionTime": question_time, "sinceUnixMs": since, "untilUnixMs": until,
+        "accountId": account, "questionTime": question_time, "incidentAt": incident_at,
+        "sinceUnixMs": since, "untilUnixMs": until,
         "pages": len(pages), "recordCount": len(records), "redacted": False,
         "collectionStatus": "complete" if complete else "partial",
         "earliestRecordUnixMs": records[0]["occurredAtUnixMs"] if records else None,
@@ -100,19 +121,33 @@ def merge(pages, page_id, account, question_time):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--connection-url", required=True)
-    parser.add_argument("--question-time", required=True, help="ISO 8601 with timezone.")
-    parser.add_argument("--page", action="append", required=True, help="Saved tool result, in read order.")
-    parser.add_argument("--output", required=True, help="Path ending in web-logs.log.")
+    parser.add_argument("--connection-url", help="WebMCP connection link, or the page identity web-diagnostics:<uuid>.")
+    parser.add_argument("--account-id", help="Signed-in userId; required with a bare page identity.")
+    parser.add_argument("--question-time", required=True, help="ISO 8601 with timezone: when it was reported.")
+    parser.add_argument("--incident-at", help="ISO 8601 with timezone: when it happened, if earlier.")
+    parser.add_argument("--until-ms", action="store_true", help="Only print the untilUnixMs to read pages with.")
+    parser.add_argument("--page", action="append", help="Saved tool result, in read order.")
+    parser.add_argument("--output", help="Path ending in web-logs.log.")
     args = parser.parse_args()
     try:
+        until = until_of(args.question_time, args.incident_at)
+        if args.until_ms:
+            emit({"ok": True, "questionTime": args.question_time, "incidentAt": args.incident_at,
+                  "untilUnixMs": until})
+            return 0
+        if not args.connection_url or not args.page or not args.output:
+            raise ValueError("--connection-url, --page and --output are required to merge.")
         if not args.output.endswith("web-logs.log"):
             raise ValueError("--output must end with web-logs.log.")
-        if datetime.fromisoformat(args.question_time.replace("Z", "+00:00")).tzinfo is None:
-            raise ValueError("--question-time needs a timezone.")
         page_id, account = parse_link(args.connection_url)
+        if args.account_id:
+            if account and account != args.account_id:
+                raise ValueError("--account-id differs from the connection link's accountId.")
+            account = args.account_id
+        elif not account:
+            raise ValueError("A bare page identity needs --account-id (the signed-in userId).")
         pages = [json.loads(Path(path).read_text(encoding="utf-8")) for path in args.page]
-        metadata, records = merge(pages, page_id, account, args.question_time)
+        metadata, records = merge(pages, page_id, account, args.question_time, args.incident_at)
     except (ValueError, OSError, KeyError, StopIteration) as error:
         emit({"ok": False, "error": str(error)})
         return 2

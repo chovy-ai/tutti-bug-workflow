@@ -44,7 +44,25 @@ tutti-cli task run --room-id <roomId> --task-id <taskId> --agent-target-id <agen
 发送成功以后不再管它：不等 Agent 执行，不用 `task show` 轮询进度或回复，不读、不转述它的分析结果；最终回复里只写交给了哪个 Agent 和模型，分析结果会出现在 Task 的评论里。
 
 - Agent 会把代码拉到它所在电脑的固定目录 `~/.local/share/bug-workbench/repositories/<仓库名>`，同一台电脑上后面的分析直接复用，只增量更新。
-- 每个 Task 只发一次。QA 之后补充现场、再 `task edit` 时不重发；QA 明确要求重新分析时再发。
+- 每个 Task 只发一次完整分析。QA 明确要求重新分析时再发；指令发出时缺的关键现场后来补齐时，发一次复核（见下）。
+
+## 补齐现场后复核
+
+指令发出时缺了 Web 日志或 Computer 召回（指令的现场线索里写了缺什么），之后补齐并 `task edit` 挂上时，Agent 可能已经按不全的现场下了结论。补齐后发一次复核，回到同一个线程：
+
+```sh
+tutti-cli task run --room-id <roomId> --task-id <taskId> --agent-target-id <同一个 Agent> \
+  --reply-to <分析指令的 commentId> --model <同一个模型> --reasoning-effort high \
+  --instruction-file <$REPORT>/rd-review.txt --operation-id <新 UUID> --json
+```
+
+`rd-review.txt` 只写增量，例如：
+
+```text
+现场已补齐：<补了什么，如「Computer 召回包 <文件名>（覆盖 10:50–11:00）」「Web 诊断包 <文件名>」>，已挂在 Task 描述的附件里。之前的分析是在缺这份现场时做的。请读新附件，核对上面的结论：结论不变就回复一句「复核：结论不变」并说明依据；有变化就按原来的回复格式给出更新后的完整结论，并写明哪里变了、为什么。仍然只分析，不改代码、不改 Task。
+```
+
+回执规则同上：`accepted` 带 `invocationId` 就不再管它。每批补齐的现场最多复核一次；不影响分析的补充（如 QA 改了期望的措辞、补了一张同样的截图）不发。
 
 ## 指令模板
 

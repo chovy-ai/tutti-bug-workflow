@@ -5,7 +5,9 @@ Stateless: inputs come from arguments, the result is one JSON object on stdout,
 and downloaded files are temporary working files for this session.
 
 - Local: when `tutti-computer status --json` reports the target computerId, copy
-  the configured `computer-local` log files.
+  the configured `computer-local` log files and read each file's first and last
+  timestamp. `captured` only when a file spans the whole incident window; otherwise
+  `partial` with the coverage, so the caller can recall remotely (--source remote).
 - Remote: reuse a downloadable or in-flight Tutti runtime-log recall that covers
   the incident, otherwise create one; wait until it finishes, download the
   package, verify its SHA-256 and extract it safely.
@@ -105,7 +107,33 @@ def local_paths(cfg):
     return source.get("paths") or []
 
 
-def collect_local(cfg, output):
+STAMP = re.compile(rb"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})")
+EDGE = 256 * 1024
+
+
+def stamp_of(line):
+    match = STAMP.search(line)
+    if not match:
+        return None
+    try:
+        return parse_time(match.group(0).decode())
+    except ValueError:
+        return None
+
+
+def time_span(path):
+    """First and last timestamp of a log, read from its first and last 256 KiB."""
+    with path.open("rb") as handle:
+        head = handle.read(EDGE)
+        size = handle.seek(0, os.SEEK_END)
+        handle.seek(max(0, size - EDGE))
+        tail = handle.read()
+    first = next((value for value in map(stamp_of, head.splitlines()) if value), None)
+    last = next((value for value in map(stamp_of, reversed(tail.splitlines())) if value), None)
+    return first, last
+
+
+def collect_local(cfg, output, since, until):
     paths = local_paths(cfg)
     if not paths:
         raise Blocked("computer-local.paths is not configured")
@@ -121,12 +149,25 @@ def collect_local(cfg, output):
             continue
         target = output / path.name
         shutil.copy2(path, target)
-        files.append(file_entry(target))
+        entry = file_entry(target)
+        first, last = time_span(target)
+        entry["first_at"], entry["last_at"] = (iso(first) if first else None), (iso(last) if last else None)
+        entry["coverage"] = ("unknown" if not (first and last) else
+                             "full" if first <= since and last >= until else
+                             "none" if last < since or first > until else "partial")
+        files.append(entry)
     if not files:
         raise Blocked("none of the configured local log files exist", gaps=gaps)
-    # Local files may have rotated; coverage of the incident is not verified here.
-    gaps.append("local file coverage of the incident window is not verified; check timestamps")
-    return {"status": "partial" if len(gaps) > 1 else "captured", "files": files, "gaps": gaps}
+    covering = [entry["name"] for entry in files if entry["coverage"] == "full"]
+    if not covering:
+        gaps.append(f"no local log spans {iso(since)}..{iso(until)} (rotated or not written then); "
+                    "recall the logs remotely with --source remote")
+    for entry in files:
+        if entry["coverage"] != "full":
+            gaps.append(f"{entry['name']}: coverage {entry['coverage']} "
+                        f"({entry['first_at'] or '?'}..{entry['last_at'] or '?'})")
+    return {"status": "captured" if covering else "partial", "covering_files": covering,
+            "files": files, "gaps": gaps}
 
 
 # ---------- remote ----------
@@ -337,7 +378,7 @@ def main():
             local = local_computer_id(command_for(cfg, "tutti-computer", "TUTTI_COMPUTER"))
             source = "local" if local == args.computer_id and local_paths(cfg) else "remote"
         result["source"] = source
-        result.update(collect_local(cfg, output) if source == "local"
+        result.update(collect_local(cfg, output, since, until) if source == "local"
                       else collect_remote(cfg, args, output, since, until))
     except Blocked as blocked:
         result.update({"status": "blocked", "reason": blocked.reason, **blocked.details})

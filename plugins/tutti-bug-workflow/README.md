@@ -30,7 +30,7 @@ Agent 会先问你要准备哪个场景：**QA 提 Bug**、**修复与部署**�
 
 用全局安装的 `tutti-cli`（npm `@tutti-os/tutti-cli`，Node.js 24+，`tutti-cli login` 用浏览器登录 Tutti 账号）在 QA 指定的 Room 建 Task。在 QA 本机的 Codex 会话里运行；自己不做根因分析，把现场带全后交给该 Room 的 Agent 分析。流程见 [SKILL.md](skills/bug-investigate/SKILL.md)：
 
-1. 接收上报，判断所属端、优先级、业务模块，生成 `operation_id`（即 Task ID 与幂等键）。
+1. 接收上报，判断所属端、优先级、业务模块，生成 `operation_id`（即 Task ID 与幂等键）；上报时间和故障发生时间分开记，日志按故障时间取（QA 晚报也能取到当时的现场）。
 2. `find_room.py` 用 `tutti-cli room list` 按 QA 给的 Room ID／链接、房间名或用户名找房间（本地房间优先，多个候选时请 QA 选），`task create --room-id` 按 QA 描述先建 Task（优先级只能在此时设置）。
 3. Web 日志：本机 Chrome WebMCP 读页面日志（`merge_web_logs.py` 合并），不可用时用 QA 导出的诊断包；并行跑 Computer 召回（`collect_computer.py`，后台）；`web_requests.py` 列出失败请求及其 request id（`x-zk-request-id`），连同 Computer 日志里失败出站请求的 request id 写进排查线索。提 Bug 不查服务端日志、不依赖 AWS，RD 排查时再按 request id 查。
 4. 现场齐了以后一次 `task edit`：标题改成一句话 Bug 简介，描述只写 Bug 表现（问题、复现步骤、实际、期望），截图、`排查线索.txt`（日志核对、关联 ID、环境与版本）和全部日志用 `--file` 作为 Task 私有附件挂上；`task show` 回读。

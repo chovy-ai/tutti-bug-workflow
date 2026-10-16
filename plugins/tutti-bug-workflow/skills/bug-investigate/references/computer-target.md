@@ -26,11 +26,11 @@
 ## 3. 采集
 
 ```sh
-python3 scripts/collect_computer.py --computer-id ID --incident-at <question_time> --output-dir $REPORT/computer
+python3 scripts/collect_computer.py --computer-id ID --incident-at <incident_at> --output-dir $REPORT/computer
 ```
 
 - **本机**：`tutti-computer status --json` 返回的 `computerId` 与目标一致且配置了 `computer-local.paths` 时，复制这些文件（见 [本地读取](computer-logs.md#本地读取指定文件)）。
 - **远端**：优先复用覆盖故障时间的可下载召回，其次加入正在进行的召回，都没有才新建（取能覆盖故障前 10 分钟的最小范围）；等待完成后下载、校验 SHA-256、安全解包。协议见 [远端日志召回](computer-logs.md#远端复用-tutti-日志召回)。
-- 输出 JSON 的 `status` 为 `captured`／`partial`／`blocked`，`gaps` 写明覆盖、截断或未知时间戳等缺口，`reason` 写明受阻原因。设备离线、召回超时、权限不足属于维护侧问题，不问 QA。
+- 输出 JSON 的 `status` 为 `captured`／`partial`／`blocked`，`gaps` 写明覆盖、截断或未知时间戳等缺口，`reason` 写明受阻原因。本机采集会读每个文件的首末时间（`first_at`／`last_at`／`coverage`），只有某个文件完整覆盖故障窗口才算 `captured`；都不覆盖（日志已轮转、那时没写）时是 `partial`，改用 `--source remote` 再跑一次走远端召回，两次的文件都挂上。设备离线、召回超时、权限不足属于维护侧问题，不问 QA。
 
 上传原始召回包，解包目录只用于本地阅读。读日志时核对相关状态事件与请求关联，不只看 error；日志没有 error 不代表没有异常。

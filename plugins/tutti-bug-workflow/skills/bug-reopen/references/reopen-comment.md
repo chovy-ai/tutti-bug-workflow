@@ -114,7 +114,17 @@ tutti-cli task comment --room-id <roomId> --task-id <taskId> \
 
 ## 后到的现场
 
-评论发出后才到的现场（召回晚完成、QA 补了诊断包或截图），用 `--reply-to <打回评论的 commentId>` 回复在同一个线程里（重新分析的 Agent 也在这个线程里），只带新文件和一句说明，不重发已经挂过的文件，不改状态，也不重发分析指令：
+评论发出后才到的现场（召回晚完成、QA 补了诊断包或截图），用 `--reply-to <打回评论的 commentId>` 回复在同一个线程里（重新分析的 Agent 也在这个线程里），只带新文件和一句说明，不重发已经挂过的文件，不改状态。新文件同时补进 `排查线索.txt` 的本地副本，但不重新上传它。
+
+重新分析发出时缺的正是这份现场（指令的现场线索里写了缺什么），就把这条回复直接交给同一个 Agent 和模型复核，免得它按不全的现场下结论（细则见 [补齐现场后复核](rd-reanalysis.md#补齐现场后复核)）：
+
+```sh
+tutti-cli task run --room-id <roomId> --task-id <taskId> --agent-target-id <同一个 Agent> \
+  --reply-to <commentId> --model <同一个模型> --reasoning-effort high \
+  --instruction-file <$REPORT>/rd-review.txt --file <新文件> --operation-id <新 UUID> --json
+```
+
+没发重新分析（QA 说不用），或补充不影响分析时，只发评论：
 
 ```sh
 tutti-cli task comment --room-id <roomId> --task-id <taskId> --reply-to <commentId> \

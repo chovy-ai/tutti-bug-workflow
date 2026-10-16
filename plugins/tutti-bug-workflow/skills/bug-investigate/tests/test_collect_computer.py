@@ -141,6 +141,28 @@ class CollectComputerTests(unittest.TestCase):
         self.assertEqual([item["name"] for item in result["files"]], ["desktopd.log"])
         self.assertTrue(any("missing.log" in gap for gap in result["gaps"]))
 
+    def test_local_status_follows_the_logs_actual_time_coverage(self):
+        stale = self.base / "companion.log"
+        stale.write_text(f'{{"time":"{at(-300)}","msg":"old"}}\n{{"time":"{at(-200)}","msg":"old"}}\n')
+        live = self.base / "desktopd.log"
+        live.write_text(f'{{"time":"{at(-60)}","msg":"a"}}\n{{"time":"{at(-1)}","msg":"b"}}\n')
+        config = json.loads((self.data / "config.json").read_text())
+        for source in config["log_sources"]:
+            if source["name"] == "computer-local":
+                source["paths"] = [str(stale)]
+        (self.data / "config.json").write_text(json.dumps(config))
+        self.state(local_computer_id="c-1")
+        result = self.collect()  # only a file that stopped hours before the incident
+        self.assertEqual((result["source"], result["status"]), ("local", "partial"))
+        self.assertEqual(result["files"][0]["coverage"], "none")
+        self.assertTrue(any("--source remote" in gap for gap in result["gaps"]))
+        for source in config["log_sources"]:
+            if source["name"] == "computer-local":
+                source["paths"] = [str(stale), str(live)]
+        (self.data / "config.json").write_text(json.dumps(config))
+        result = self.collect()
+        self.assertEqual((result["status"], result["covering_files"]), ("captured", ["desktopd.log"]))
+
     def test_invalid_incident_time_is_rejected(self):
         self.state()
         result = subprocess.run([sys.executable, str(SCRIPT), "--data-dir", str(self.data), "--computer-id", "c-1",
