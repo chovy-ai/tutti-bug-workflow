@@ -1,0 +1,4 @@
+interface:
+  display_name: "验收打回"
+  short_description: "打回已有 Task：带全这一轮现场评论到原 Task，改回待办并交给 Room Agent 重新分析"
+  default_prompt: "使用 $tutti-bug-workflow:bug-reopen 处理这次验收不通过：<Task 链接>，这里还有问题，截图见附件，打回去。用全局安装的 tutti-cli（账号登录版）先 task show 读原 Task，和提 Bug 一样固定采集这一轮验收的全部现场（Web 页面日志、Computer 日志），把相关请求的 request id 记进排查线索（不查服务端日志、不用 AWS），用 task comment 在原 Task 下发一条打回评论，截图、排查线索.txt 和全部日志作为评论附件上传，再用 task status 把 Task 改回待办，最后用 task run --reply-to 在打回评论的线程里交给该 Room 的 Agent 重新分析（Codex 优先，其次 Claude Code，推理强度 high），确认受理后就不管了；不新建 Task、不改原描述，自己不分析根因。一步接一步连续执行，能并行的并行，耗时操作等它完成，只有自己无法解决的卡点才问用户。"

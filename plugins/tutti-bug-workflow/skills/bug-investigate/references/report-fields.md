@@ -13,7 +13,7 @@
 | —— | 负责人 | **CLI 不能指派**：请 QA 在任务看板指派；QA 提到的人写进 `排查线索.txt`「建议跟进人」 |
 | `--project-id` | Project | 一般不填；QA 明确要求挂到该 Room 的某个 Project 时才填 |
 
-创建者是 `tutti-cli login` 登录的账号（`whoami`）；新建为 `todo`、未指派，不会自动启动 Agent。本 Skill 不改状态，不关闭、不删除 Task。分析根因、修复方案和验收不在本 Skill 写。
+创建者是 `tutti-cli login` 登录的账号（`whoami`）；新建为 `todo`、未指派，不会自动启动 Agent。本 Skill 不改状态，不关闭、不删除 Task。分析根因、修复方案和验收不在本 Skill 写；验收不通过时由 `$tutti-bug-workflow:bug-reopen` 评论到原 Task 并改回待办，不重新建 Task。
 
 ## 优先级
 

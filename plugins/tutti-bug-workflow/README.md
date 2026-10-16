@@ -1,10 +1,11 @@
 # tutti-bug-workflow
 
-版本：0.5.0。运行方式：Codex 本地会话。三个 Skill：QA 提 Bug、修复与部署、环境准备。只对接 Tutti 任务系统：Bug 是 Room 里的 Task，用全局 `tutti-cli` 读写；不用飞书表，也没有定时任务，都由人手动触发。
+版本：0.6.0。运行方式：Codex 本地会话。四个 Skill：QA 提 Bug、验收打回、修复与部署、环境准备。只对接 Tutti 任务系统：Bug 是 Room 里的 Task，用全局 `tutti-cli` 读写；不用飞书表，也没有定时任务，都由人手动触发。
 
 | 入口 | 工作内容 |
 |---|---|
 | `$tutti-bug-workflow:bug-investigate` | QA 提 Bug：带全现场日志与上下文，用全局 tutti-cli 在指定 Room 建 Task，再交给该 Room 的 Agent 分析根因（结果回复在 Task 里） |
+| `$tutti-bug-workflow:bug-reopen` | 验收打回：QA 发来已有 Task 链接和截图、说这里还有问题时，和提 Bug 一样采集这一轮的现场，在原 Task 下发打回评论（截图、日志作为评论附件），把 Task 改回待办，再交给该 Room 的 Agent 重新分析 |
 | `$tutti-bug-workflow:bug-execute` | 修复与部署：RD 指定一条 Bug Task 和认可的方案，修复、提 PR 到 main，部署 PPE（server 泳道 → ws 泳道 → 前端预览 → Computer canary），自验证，结果回复到 Task |
 | `$tutti-bug-workflow:bug-setup` | 准备环境：选场景（QA 提 Bug／修复与部署），自动检查、安装、补默认配置，一步步引导登录和授权 |
 
@@ -36,6 +37,17 @@ Agent 会先问你要准备哪个场景：**QA 提 Bug**、**修复与部署**�
 5. 用 `task run` 把分析指令交给该 Room 的 Agent（Codex 优先，用 gpt-6.1-sol 或 gpt-6-astra；其次 Claude Code 用 Opus 5.5；推理强度 high）：指令里带上 Bug 表现和关键现场线索，要求拉代码分析根因、先弄清模块整体设计再出方案、画修复前后的工作流程图，结果回复在 Task 评论里。指令模板见 [交给 Room Agent 分析](skills/bug-investigate/references/rd-analysis.md)。
 6. 缺的一次问完，用户补充后带上全部文件再 `task edit` 一次；CLI 不能指派，请 QA 在任务看板指派跟进人。最后上传本次会话。
 
+## 验收打回（`bug-reopen`）
+
+QA 手动触发，一次一条 Task，在 QA 本机的 Codex 会话里运行。不用说固定的词：发已有 Task 的链接，配上截图或一句「这里还有问题，打回去」即可；在提 Bug 的同一个会话里说「之前提的 bug 还有问题，加个评论打回去」也行，不用链接，Task 从会话上下文里取（本会话提过多条时请 QA 选）。同一个会话里 Task 还没修过（`todo`／`in_progress`）时，QA 的补充仍按提 Bug 更新描述。没有 Task 的新问题仍走提 Bug。流程见 [SKILL.md](skills/bug-reopen/SKILL.md) 与 [打回评论与附件](skills/bug-reopen/references/reopen-comment.md)：
+
+1. 对 agent 说「<Task 链接> 这里还有问题，打回去」，带上截图。`tutti-cli task show` 读原 Task，记下标题、描述和打回前的状态。
+2. 和提 Bug 一样采集这一轮验收的现场：Web 日志（WebMCP 或诊断包）、后台 Computer 召回、`web_requests.py` 列出失败请求的 request id；不查服务端日志。
+3. 用 `tutti-cli task comment --file` 在原 Task 下发一条打回评论：正文写验收版本、复现步骤、实际、期望、和修复前相比，截图、`排查线索.txt` 和全部日志作为评论附件。不用 `task edit`，原描述和第一轮现场附件保持不变。
+4. 用 `tutti-cli task status --status todo` 把 Task 改回待办（需要 tutti-cli 0.1.3+），`task show` 回读；没有权限时请 QA 在任务看板拖回待办。
+5. 默认用 `task run --reply-to <打回评论>` 在打回评论的线程里交给该 Room 的 Agent 重新分析（Agent 选择同提 Bug），指令要求先说清上一轮修复为什么没生效，再重新分析根因、出方案、画流程图；确认受理后就不管了。QA 说「只打回、不用分析」时跳过。见 [交给 Room Agent 重新分析](skills/bug-reopen/references/rd-reanalysis.md)。
+6. 后到的现场回复在打回评论的线程里，只带新文件，不重发分析指令；最后上传本次会话。
+
 ## 修复与部署（`bug-execute`）
 
 RD 手动触发，一次一条 Task，流程见 [SKILL.md](skills/bug-execute/SKILL.md) 与 [PPE 部署](skills/bug-execute/references/deploy.md)：
@@ -49,7 +61,7 @@ RD 手动触发，一次一条 Task，流程见 [SKILL.md](skills/bug-execute/SK
 
 ## 已提供的能力
 
-- 三个可发现的 Skills：bug-investigate（QA 提 Bug）、bug-execute（修复与部署）和 bug-setup（环境准备），都只对接 Tutti 任务系统。
+- 四个可发现的 Skills：bug-investigate（QA 提 Bug）、bug-reopen（验收打回）、bug-execute（修复与部署）和 bug-setup（环境准备），都只对接 Tutti 任务系统。
 - 幂等初始化、环境检查、私有目录下的固定版本 npm CLI 安装。
 - setup 复用已有 tutti-ops，缺少时按 `npm install -g @tutti-os/tutti-ops-cli` 全局安装，记录实际版本和入口；根据已安装命令的帮助与 schema 读取 Computer。
 - 从实际配置生成便携 MCP 配置与旧版 Codex 兼容配置。
@@ -74,7 +86,7 @@ QA 提 Bug 用全局 tutti-cli 在指定 Room 建 Task。Web 日志使用 QA 导
 
 ```sh
 python3 PLUGIN_SOURCE/scripts/validate_plugin.py
-for skill in skills/bug-investigate skills/bug-setup skills/bug-execute; do
+for skill in skills/bug-investigate skills/bug-reopen skills/bug-setup skills/bug-execute; do
   python3 -m unittest discover -s PLUGIN_SOURCE/$skill/tests -t PLUGIN_SOURCE/$skill/tests
 done
 ```

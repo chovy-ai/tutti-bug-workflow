@@ -31,7 +31,7 @@ plugins/tutti-bug-workflow/
 
 ```sh
 cd plugins/tutti-bug-workflow
-for skill in skills/bug-investigate skills/bug-setup skills/bug-execute; do
+for skill in skills/bug-investigate skills/bug-reopen skills/bug-setup skills/bug-execute; do
   python3 -m unittest discover -s $skill/tests -t $skill/tests
 done
 python3 scripts/validate_plugin.py

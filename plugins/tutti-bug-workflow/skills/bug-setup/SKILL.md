@@ -5,7 +5,7 @@ description: 准备 tutti-bug-workflow 的运行环境：先让用户选场景�
 
 # 准备工作台
 
-QA 提 Bug（`$tutti-bug-workflow:bug-investigate`）和修复与部署（`$tutti-bug-workflow:bug-execute`）共用的准备入口：**选场景 → 检查 → 能做的直接做 → 一步步引导本人操作 → 复查收尾**。目标是用户只需要做必须本人做的事（登录、授权、找管理员要权限），其余 Agent 全部完成。
+QA 提 Bug（`$tutti-bug-workflow:bug-investigate`）、验收打回（`$tutti-bug-workflow:bug-reopen`）和修复与部署（`$tutti-bug-workflow:bug-execute`）共用的准备入口：**选场景 → 检查 → 能做的直接做 → 一步步引导本人操作 → 复查收尾**。目标是用户只需要做必须本人做的事（登录、授权、找管理员要权限），其余 Agent 全部完成。
 
 脚本路径相对本 Skill 目录（`skills/bug-setup/`），都输出一段 JSON。配置和运行数据在数据目录（默认 `~/.local/share/bug-workbench`），插件更新不影响。
 
@@ -14,7 +14,7 @@ QA 提 Bug（`$tutti-bug-workflow:bug-investigate`）和修复与部署（`$tutt
 用户已经说清楚（「准备 QA 提 Bug 的环境」「准备修 Bug 的环境」）就直接用；否则**先问这一个问题**，其他都不用问：
 
 > 要准备哪个场景？
-> 1. **QA 提 Bug**：自动采集页面和 Computer 现场日志，用全局 tutti-cli 以你的 Tutti 账号在指定 Room 建 Task
+> 1. **QA 提 Bug**：自动采集页面和 Computer 现场日志，用全局 tutti-cli 以你的 Tutti 账号在指定 Room 建 Task；验收不通过时带现场打回也用这一套
 > 2. **修复与部署**（RD）：指定一条 Bug Task 修复，提 PR、部署 PPE、自验证，结果回复到 Task
 > 3. **全部**
 
@@ -81,7 +81,7 @@ python3 scripts/prepare.py fix --scene investigate --scene execute
 再跑一次 `check`，用一张表交付：每个场景「已就绪／等你操作／等管理员」，以及受影响的能力。
 
 - **修复与部署**：告诉用户怎么用：在本机 Codex 里说「修复这个 Task <链接>」，并贴上认可的方案（通常是 Room Agent 在 Task 里回复的根因分析）；修复结果会回复到这个 Task。
-- **QA 提 Bug**：告诉用户怎么用：在本机 Codex 里说「记个 bug：<现象>」，带上房间名（或房主名字、Room ID）和截图即可，会先在你的本地房间里找；Task 用 `tutti-cli login` 登录的账号建在该 Room，创建后在任务看板指派跟进人。
+- **QA 提 Bug**：告诉用户怎么用：在本机 Codex 里说「记个 bug：<现象>」，带上房间名（或房主名字、Room ID）和截图即可，会先在你的本地房间里找；Task 用 `tutti-cli login` 登录的账号建在该 Room，创建后在任务看板指派跟进人。修过的 Bug 还有问题时，发 Task 链接和截图说「这里还有问题，打回去」，会采集这一轮的现场、评论到原 Task、改回待办，并交给 Room Agent 重新分析。
 
 ## 默认配置
 

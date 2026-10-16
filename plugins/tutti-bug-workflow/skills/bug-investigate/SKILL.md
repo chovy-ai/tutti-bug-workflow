@@ -1,6 +1,6 @@
 ---
 name: bug-investigate
-description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下这个问题」等都算）：每次调用都走完全程——固定采集当时的现场日志（Web 页面日志、Computer 日志），记下相关请求的 request id 供 RD 之后查服务端日志，用全局安装的 `tutti-cli`（账号登录版）以 QA 的账号在指定 Room 建 Task，再用 `task edit` 把标题改成一句话简介、描述写清 Bug 表现，截图、排查线索文件和全部日志作为附件挂上，最后用 `task run` 把组织好的分析指令交给该 Room 的 Agent（Codex 优先，用 gpt-6.1-sol 或 gpt-6-astra；其次 Claude Code 用 Opus 5.5；推理强度都是 high）分析根因、出方案、画修复前后流程图并回复在 Task 里；自己不做根因分析，只有遇到自己无法解决的卡点才向用户提问。
+description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下这个问题」等都算；QA 发来已有 Task 的链接、说这个问题还在或要打回时不用本 Skill，用 bug-reopen；本会话里提过的 Bug 已经修过、QA 说它还有问题时也用 bug-reopen）：每次调用都走完全程——固定采集当时的现场日志（Web 页面日志、Computer 日志），记下相关请求的 request id 供 RD 之后查服务端日志，用全局安装的 `tutti-cli`（账号登录版）以 QA 的账号在指定 Room 建 Task，再用 `task edit` 把标题改成一句话简介、描述写清 Bug 表现，截图、排查线索文件和全部日志作为附件挂上，最后用 `task run` 把组织好的分析指令交给该 Room 的 Agent（Codex 优先，用 gpt-6.1-sol 或 gpt-6-astra；其次 Claude Code 用 Opus 5.5；推理强度都是 high）分析根因、出方案、画修复前后流程图并回复在 Task 里；自己不做根因分析，只有遇到自己无法解决的卡点才向用户提问。
 ---
 
 # QA 提 Bug
@@ -88,7 +88,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 ## 2. 建 Task
 
-1. **确定 Room 和是否复用**：按开头「先查房间」的规则用 `find_room.py` 取 `roomId`。QA 给的是已有 Task 链接（带 `task=<taskId>`）并说是同一个问题时，`tutti-cli task show --room-id <roomId> --task-id <taskId> --json` 确认后复用它，后面的编辑都作用于它。CLI 不能列出 Task，不做自动查重。还拿不到 `roomId`（没线索、多个候选或没找到）时跳过本步，先做第 3 步，Web 日志给出页面 URL 后再查一次。
+1. **确定 Room 和是否复用**：按开头「先查房间」的规则用 `find_room.py` 取 `roomId`。QA 给的是已有 Task 链接（带 `task=<taskId>`），说这个问题修过了还在、要打回或验收没过时，不在这里复用：交给 `$tutti-bug-workflow:bug-reopen`，它把这一轮现场评论到原 Task 并改回待办，不重写描述（重写会丢掉第一轮的附件）。QA 给了已有 Task 链接、说是还没修过的同一个问题（只是补充现场）时，`tutti-cli task show --room-id <roomId> --task-id <taskId> --json` 确认后复用它，后面的编辑都作用于它。CLI 不能列出 Task，不做自动查重。还拿不到 `roomId`（没线索、多个候选或没找到）时跳过本步，先做第 3 步，Web 日志给出页面 URL 后再查一次。
 2. **建单**：按 QA 的描述先起一个标题（规则见 [Task 字段](references/report-fields.md#标题)），描述先写 QA 原话、发生时间和「现场采集中」：
    ```sh
    tutti-cli task create --room-id <roomId> --operation-id <operation_id> --title "<标题>" \
@@ -163,6 +163,6 @@ python3 scripts/web_requests.py --web-logs <web-logs.log 或诊断包 zip> --que
    | 优先级（拿不准时） | 「这条按 P1（明显 Bug，对应 high）合适吗？」，附一句判断理由；确认后请 QA 在任务看板修改 |
    | 期望（没说清，或现场事实与 QA 的说法不一致时） | 把 QA 的说法和查到的事实并列，请 QA 确认期望，例如「你说是同一份文件，记录里三条内容各不相同：期望只显示最新一份，还是保留历史但标出版本？」 |
 
-   登录过期按上面的规则当场自动恢复，不列在这里；真正的工具缺失、权限不足才写进回复交给维护方。用户补充后在同一会话里继续：更新 `description.txt`／`排查线索.txt`，带上全部文件 `task edit` 一次；不再建第二个 Task。
+   登录过期按上面的规则当场自动恢复，不列在这里；真正的工具缺失、权限不足才写进回复交给维护方。用户补充后在同一会话里继续：更新 `description.txt`／`排查线索.txt`，带上全部文件 `task edit` 一次；不再建第二个 Task。补充前先 `task show` 看状态：已经是 `in_review` 或 `done`（修过了），或 QA 说修过了还有问题、要打回、加评论打回时，不再改描述，交给 `$tutti-bug-workflow:bug-reopen`，Task 用本会话里的这一条，不用 QA 再发链接。
 3. 按开头的自查表逐项确认；全部完成后按 [会话上传](references/session-upload.md) 上传本次会话一次。
 4. 最终回复：房间名、Task 标题与链接（`https://tutti.sh/platform/room/<roomId>?surface=task-board&task=<taskId>`）、建单账号、优先级、请 QA 指派跟进人、环境、已挂上的截图和日志、根因分析交给了哪个 Agent 和模型（结果会回复在 Task 评论里）、缺失项及需要用户提供的内容。
