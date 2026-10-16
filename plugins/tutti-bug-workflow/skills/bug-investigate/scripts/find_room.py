@@ -14,6 +14,7 @@ Standard library only.
 
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -27,11 +28,11 @@ ROOM_LINK = re.compile(r"/room/([0-9a-f-]{36})", re.I)
 MAX_CANDIDATES = 20
 
 
-def directory(rooms_file):
+def directory(rooms_file, cli):
     if rooms_file:
         text = Path(rooms_file).read_text(encoding="utf-8")
     else:
-        result = subprocess.run(["tutti-cli", "room", "list", "--all", "--json"],
+        result = subprocess.run([cli, "room", "list", "--all", "--json"],
                                 capture_output=True, text=True, timeout=60, check=False)
         if result.returncode:
             raise ValueError((result.stderr or result.stdout).strip()[-300:] or "tutti-cli room list failed")
@@ -68,9 +69,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--query", required=True, help="Room ID, Room/Task link, Room name or person name.")
     parser.add_argument("--rooms-file", help="Saved `tutti-cli room list --json` output (tests).")
+    parser.add_argument("--cli", default=os.environ.get("TUTTI_CLI") or "tutti-cli",
+                        help="Account tutti-cli to run (default $TUTTI_CLI, else tutti-cli on PATH); pass the "
+                             "npm global one when the Computer's Agent tutti-cli comes first on PATH.")
     args = parser.parse_args()
     try:
-        rooms = directory(args.rooms_file)
+        rooms = directory(args.rooms_file, args.cli)
     except (ValueError, OSError, KeyError, subprocess.TimeoutExpired) as error:
         emit({"ok": False, "error": str(error)})
         return 2

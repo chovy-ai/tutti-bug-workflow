@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -47,6 +48,17 @@ class FindRoomTest(unittest.TestCase):
     def test_unreadable_directory(self):
         self.rooms.write_text("{}")
         self.find("tibo", expected=2)
+
+    def test_uses_the_account_cli_given_by_flag_or_env(self):
+        fake = Path(tempfile.mkdtemp()) / "account-tutti-cli"
+        fake.write_text(f"#!{sys.executable}\nimport sys\nassert sys.argv[1:] == ['room', 'list', '--all', '--json']\n"
+                        f"print(open({str(self.rooms)!r}).read())\n")
+        fake.chmod(0o755)
+        for extra, env in (([ "--cli", str(fake)], {}), ([], {"TUTTI_CLI": str(fake)})):
+            result = subprocess.run([sys.executable, str(SCRIPT), "--query", "TIBO", *extra],
+                                    capture_output=True, text=True, check=False, env={**os.environ, **env})
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(json.loads(result.stdout)["room"], LOCAL_C)
 
 
 if __name__ == "__main__":

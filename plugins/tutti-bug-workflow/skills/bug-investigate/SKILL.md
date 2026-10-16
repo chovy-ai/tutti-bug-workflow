@@ -1,6 +1,6 @@
 ---
 name: bug-investigate
-description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下这个问题」等都算）：每次调用都走完全程——固定采集当时的现场日志（Web 页面日志、Computer 日志），记下相关请求的 request id 供 RD 之后查服务端日志，用全局安装的 `tutti-cli`（账号登录版）以 QA 的账号在指定 Room 建 Task，再用 `task edit` 把标题改成一句话简介、描述写清 Bug 表现，截图、排查线索文件和全部日志作为附件挂上，最后用 `task run` 把组织好的分析指令交给该 Room 的 Agent（Codex 优先，用 gpt-6.1-sol 或 gpt-6-astra；其次 Claude Code 用 Opus 5.5；推理强度都是 high）分析根因、出方案、画修复前后流程图并回复在 Task 里；自己不做根因分析，只有遇到自己无法解决的卡点才向用户提问。
+description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下这个问题」等都算；QA 发来已有 Task 的链接、说这个问题还在或要打回时不用本 Skill，用 bug-reopen；本会话里提过的 Bug 已经修过、QA 说它还有问题时也用 bug-reopen）：每次调用都走完全程——固定采集当时的现场日志（Web 页面日志、Computer 日志），记下相关请求的 request id 供 RD 之后查服务端日志，用全局安装的 `tutti-cli`（账号登录版）以 QA 的账号在指定 Room 建 Task，再用 `task edit` 把标题改成一句话简介、描述写清 Bug 表现，截图、排查线索文件和全部日志作为附件挂上，最后用 `task run` 把组织好的分析指令交给该 Room 的 Agent（Codex 优先，用 gpt-6.1-sol 或 gpt-6-astra；其次 Claude Code 用 Opus 5.5；推理强度都是 high）分析根因、出方案、画修复前后流程图并回复在 Task 里；自己不做根因分析，只有遇到自己无法解决的卡点才向用户提问。
 ---
 
 # QA 提 Bug
@@ -10,6 +10,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 **用全局安装的 `tutti-cli` 建 Task。** 它是 npm 包 `@tutti-os/tutti-cli`（Node.js 24+），以本机 `tutti-cli login` 登录的 Tutti 账号直接调用 Tutti 服务，不依赖 Computer 或 Room Agent，在 QA 本机的 Codex／Claude Code 里就能跑；创建者就是这个账号，权限按它在目标 Room 的成员身份判断。开始前运行 `tutti-cli --help` 和 `tutti-cli whoami --json`：
 
 - `--help` 里没有 `login`：没装，或 PATH 里先找到的是 Computer 自带的 Agent 版 `tutti-cli`。改用 `"$(npm prefix -g)/bin/tutti-cli"`；仍没有就按 `$tutti-bug-workflow:bug-setup` 安装，不改用别的建单方式。
+- 确认可用的那个路径记为 `TUTTI_CLI`（如 `export TUTTI_CLI="$(npm prefix -g)/bin/tutti-cli"`），本 Skill 里所有 `tutti-cli` 命令都用它，`find_room.py` 也读这个环境变量（或传 `--cli "$TUTTI_CLI"`），不再依赖 PATH 里排在前面的那个。
 - `whoami` 报未登录或会话失效：按下面「登录过期」自动恢复。
 
 它有 `login`／`whoami`／`logout`、`room list`、`agent list`／`models` 和 `task create`／`edit`／`show`／`comment`／`run`：**没有查重列表、指派、改优先级**，每条 `task` 和 `agent` 命令都要显式带 `--room-id`。排查线索写成一个文本文件，和日志一起作为附件挂在描述上（见下）；跟进人请 QA 在任务看板指派。
@@ -51,7 +52,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 **不脱敏。** 现场日志原样采集、原样上传。
 
-**无状态。** `operation_id`、`question_time`、采集结果都记在本次会话上下文中。日志、截图等放在数据目录（默认 `~/.local/share/bug-workbench`，可用 `BUG_WORKBENCH_DATA` 改）下的 `bug-reports/<operation_id>/`（下称 `$REPORT`，用绝对路径）。对外唯一的事实来源是 Room 里的 Task。脚本路径相对本 Skill 目录（`skills/bug-investigate/`），都输出一段 JSON。工具安装与认证由 `$tutti-bug-workflow:bug-setup` 负责，已有权限内的读取、召回、上传附件，以及建 Task、编辑属于本任务授权，无需逐项再问。
+**无状态。** `operation_id`、`question_time`、`incident_at`、采集结果都记在本次会话上下文中。日志、截图等放在数据目录（默认 `~/.local/share/bug-workbench`，可用 `BUG_WORKBENCH_DATA` 改）下的 `bug-reports/<operation_id>/`（下称 `$REPORT`，用绝对路径）。对外唯一的事实来源是 Room 里的 Task。脚本路径相对本 Skill 目录（`skills/bug-investigate/`），都输出一段 JSON。工具安装与认证由 `$tutti-bug-workflow:bug-setup` 负责，已有权限内的读取、召回、上传附件，以及建 Task、编辑属于本任务授权，无需逐项再问。
 
 写最终回复前逐项自查，任何一项没有结果且不是卡点，就回去做完：
 
@@ -63,7 +64,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 | 标题 | 一句话简介「功能：现象」，20–40 字，没有错误码、ID 和括号补充；说的是 QA 报的问题 |
 | 优先级 | 建单时按定义映射成 Task 优先级；拿不准时用 `none`，在描述「待 QA 确认」和回复里问，QA 确认后在任务看板修改 |
 | Web 日志 | `web-logs.log` 或 QA 导出包已挂到 Task；或写明缺什么、怎么提供 |
-| request id | `web_requests.py` 列出的失败请求（没有失败时取问题时间附近的几条）和 Computer 日志里失败出站请求的 request id 已写进 `排查线索.txt` |
+| request id | `web_requests.py` 列出的故障附近失败请求（没有失败时取 `nearest_requests` 里相关的几条）和 Computer 日志里失败出站请求的 request id 已写进 `排查线索.txt` |
 | Computer 日志 | 召回已完成，召回包已挂到 Task；或写明受阻原因、待用户确认的设备 |
 | 附件 | 最后一次 `task edit` 带上了 QA 的截图／视频、`排查线索.txt` 和全部日志；`task show` 回读描述里的 `uploadedFile` 一个不少 |
 | 描述 | 只有问题、复现步骤、实际、期望、频率、发生时间、环境一行（和待 QA 确认），没有日志字段、ID、版本号 |
@@ -74,9 +75,10 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 ## 1. 接收
 
 1. 从用户消息整理：期望与实际表现、复现步骤与频率、发生时间与时区、操作账号、截图／视频（实际查看）、WebMCP 连接链接、QA 附带的 Web 诊断包、建议的跟进人、用到的设备。用户原话与你的推断分开记；QA 说的问题和期望原样保留，后面写标题、问题、期望都以它为准。
-2. 固定 `question_time`：触发本次上报的消息时间（含时区的 ISO 8601）；拿不到时用收到消息的时间并注明近似。
-3. 生成 `operation_id`：`python3 -c 'import uuid; print(uuid.uuid4())'`。它同时是 Task ID 和建 Task 的幂等键，本次上报全程只用这一个；建 Task 结果不确定时用同一个 ID 和相同参数重试，不会重复建单。创建 `$REPORT`。之后每次 `task edit` 各自生成一个新的操作 ID，重试同一次写入时不变。
-4. 判断分类（所属端、业务模块写进排查线索的「分类」，Task 没有对应字段）：
+2. 固定 `question_time`：触发本次上报的消息时间（含时区的 ISO 8601）；拿不到时用收到消息的时间并注明近似，取当前时间时精确到毫秒：`python3 -c 'from datetime import datetime; print(datetime.now().astimezone().isoformat(timespec="milliseconds"))'`。之后读 Web 日志用这同一个值，不再另取当前时间。
+3. 固定 `incident_at`（故障发生时间）：QA 说了什么时候遇到的（「10 点左右」「刚才」「昨晚」），换算成含时区的 ISO 8601，只说到分钟就用该分钟；没说、或说的就是刚刚，等于 `question_time`。日志按它取，不按上报时间取：QA 10:00 遇到、10:30 才报时，Web 日志、Computer 召回和请求都要覆盖 10:00 前后。`incident_at` 只是 QA 的大致说法时，在排查线索里注明。
+4. 生成 `operation_id`：`python3 -c 'import uuid; print(uuid.uuid4())'`。它同时是 Task ID 和建 Task 的幂等键，本次上报全程只用这一个；建 Task 结果不确定时用同一个 ID 和相同参数重试，不会重复建单。创建 `$REPORT`。之后每次 `task edit` 各自生成一个新的操作 ID，重试同一次写入时不变。
+5. 判断分类（所属端、业务模块写进排查线索的「分类」，Task 没有对应字段）：
    - **所属端**：Mac／Windows／Web，按问题出现的位置判断。
    - **优先级**：用户（QA）给了就照填。没给时按定义判断：
      - **P0**：严重阻塞，核心流程走不下去、没有绕过办法，或数据丢失；
@@ -88,7 +90,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 ## 2. 建 Task
 
-1. **确定 Room 和是否复用**：按开头「先查房间」的规则用 `find_room.py` 取 `roomId`。QA 给的是已有 Task 链接（带 `task=<taskId>`）并说是同一个问题时，`tutti-cli task show --room-id <roomId> --task-id <taskId> --json` 确认后复用它，后面的编辑都作用于它。CLI 不能列出 Task，不做自动查重。还拿不到 `roomId`（没线索、多个候选或没找到）时跳过本步，先做第 3 步，Web 日志给出页面 URL 后再查一次。
+1. **确定 Room 和是否复用**：按开头「先查房间」的规则用 `find_room.py` 取 `roomId`。QA 给的是已有 Task 链接（带 `task=<taskId>`），说这个问题修过了还在、要打回或验收没过时，不在这里复用：交给 `$tutti-bug-workflow:bug-reopen`，它把这一轮现场评论到原 Task 并改回待办，不重写描述（重写会丢掉第一轮的附件）。QA 给了已有 Task 链接、说是还没修过的同一个问题（只是补充现场）时，`tutti-cli task show --room-id <roomId> --task-id <taskId> --json` 确认后复用它，**不改它的描述**：它的描述和附件是别人（或别的会话）挂的，本机没有原文件，`task edit` 整段替换会把它们丢掉。这一次的现场改用 `task comment --file` 追加成一条评论（正文写这次看到的表现，格式同描述，附件同第 4 步），标题、描述保持不变；第 4 步的 `task edit` 换成这条评论。只有本会话自己建的 Task（本机有它的全部文件）才用 `task edit` 整段更新。CLI 不能列出 Task，不做自动查重。还拿不到 `roomId`（没线索、多个候选或没找到）时跳过本步，先做第 3 步，Web 日志给出页面 URL 后再查一次。
 2. **建单**：按 QA 的描述先起一个标题（规则见 [Task 字段](references/report-fields.md#标题)），描述先写 QA 原话、发生时间和「现场采集中」：
    ```sh
    tutti-cli task create --room-id <roomId> --operation-id <operation_id> --title "<标题>" \
@@ -100,10 +102,10 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 ### 3.1 Web 日志（主 agent，先做）
 
-详见 [Web 日志](references/web-logs.md)。用户给了 WebMCP 连接链接、页面开在本机 Chrome 时，用 `chrome-devtools` MCP：
+详见 [Web 日志](references/web-logs.md)。页面开在本机 Chrome 时，用 `chrome-devtools` MCP：
 
-1. `list_pages` + `list_webmcp_tools` 按链接里的页面与 Account 匹配页面，记下页面 URL（「页面链接」）。
-2. `execute_webmcp_tool` 分页读 `get_web_logs`，每页存一个文件，用 `scripts/merge_web_logs.py` 合并成 `$REPORT/web/web-logs.log`。
+1. `list_pages` + `list_webmcp_tools` 按链接里的页面与 Account 匹配页面；QA 没给链接时，按房间找本机 Chrome 里开着的这个 Room 的页面（规则见 [Web 日志](references/web-logs.md)）。记下页面 URL（「页面链接」）。
+2. 用 `scripts/merge_web_logs.py --question-time <question_time> --incident-at <incident_at> --until-ms` 算出读日志的截止时间（故障发生后 5 分钟，不晚于上报时间），`execute_webmcp_tool` 分页读 `get_web_logs`，每页存一个文件，再用 `scripts/merge_web_logs.py` 合并成 `$REPORT/web/web-logs.log`。
 3. `execute_webmcp_tool` 调 `list_my_computers`（房间相关时加 `list_room_agents`），用于定位 Computer。
 
 不刷新、不跳转页面。WebMCP 不可用、用户在另一台机器上或页面已刷新时，用 QA 导出的诊断包；两者都没有时记为 `pending`，第 5 步请用户导出。
@@ -113,7 +115,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 按 [Computer 定位](references/computer-target.md) 确定设备：优先 Web 日志里故障时间附近记录关联的 Computer，其次页面的 `list_my_computers`，再其次用户说的设备名。确定后立刻放到后台跑，不等它：
 
 ```sh
-python3 scripts/collect_computer.py --computer-id ID --incident-at <question_time> --output-dir $REPORT/computer > $REPORT/computer.json &
+python3 scripts/collect_computer.py --computer-id ID --incident-at <incident_at> --output-dir $REPORT/computer > $REPORT/computer.json &
 ```
 
 有多个候选或没有线索时记为 `pending`，第 5 步请用户确认设备，确认后再跑。
@@ -123,10 +125,10 @@ python3 scripts/collect_computer.py --computer-id ID --incident-at <question_tim
 拿到 Web 日志后列出页面发往 tutti-server 的请求：
 
 ```sh
-python3 scripts/web_requests.py --web-logs <web-logs.log 或诊断包 zip> --question-time <question_time>
+python3 scripts/web_requests.py --web-logs <web-logs.log 或诊断包 zip> --incident-at <incident_at>
 ```
 
-`failed_requests`（失败的请求，带时间、method、路径、状态码、`request_ids`）全部写进排查线索的「日志核对」和「关联 ID」；没有失败时用 `nearest_requests`（问题时间附近的几条）里和问题相关的。`without_request_id` 不为 0 说明是旧版 Web，那几条只记时间、method、路径、状态码。不去查服务端日志。
+`failed_requests`（故障前 10 分钟到后 5 分钟内失败的请求，带时间、method、路径、状态码、`request_ids`）全部写进排查线索的「日志核对」和「关联 ID」；`nearest_requests`（故障时间最近的 10 条，不论成败）里和问题相关的也写上，没有失败时以它为准。`failed_outside_window` 是诊断包里更早或更晚的失败，只在和问题明显相关时提一句，不混进故障附近的请求。`without_request_id` 不为 0 说明是旧版 Web，那几条只记时间、method、路径、状态码。不去查服务端日志。
 
 环境按页面链接和 QA 的说法判断：`tutti.sh` 是生产，PPE 写泳道名；拿不准写「待 QA 确认」。
 
@@ -151,7 +153,7 @@ python3 scripts/web_requests.py --web-logs <web-logs.log 或诊断包 zip> --que
 
 ## 5. 收尾
 
-1. 第 4 步提交时还有现场没到（召回在等设备确认、QA 还没给 Web 诊断包）：到齐后补进 `排查线索.txt`，再 `task edit` 一次，**带上全部文件**（之前挂过的也要再带，否则会从 Task 上消失）。
+1. 第 4 步提交时还有现场没到（召回在等设备确认、QA 还没给 Web 诊断包）：到齐后补进 `排查线索.txt`，再 `task edit` 一次，**带上全部文件**（之前挂过的也要再带，否则会从 Task 上消失）。如果第 4 步的分析指令发出时缺的正是这份现场（指令里写了缺什么），补齐后用 `task run --reply-to <分析指令的 commentId>` 交给同一个 Agent 和模型复核一次（见 [补齐现场后复核](references/rd-analysis.md#补齐现场后复核)）；不影响分析的小补充不发。
 2. 需要用户提供的东西一次列出，每项说明怎么获取：
 
    | 缺什么 | 怎么请用户提供 |
@@ -163,6 +165,6 @@ python3 scripts/web_requests.py --web-logs <web-logs.log 或诊断包 zip> --que
    | 优先级（拿不准时） | 「这条按 P1（明显 Bug，对应 high）合适吗？」，附一句判断理由；确认后请 QA 在任务看板修改 |
    | 期望（没说清，或现场事实与 QA 的说法不一致时） | 把 QA 的说法和查到的事实并列，请 QA 确认期望，例如「你说是同一份文件，记录里三条内容各不相同：期望只显示最新一份，还是保留历史但标出版本？」 |
 
-   登录过期按上面的规则当场自动恢复，不列在这里；真正的工具缺失、权限不足才写进回复交给维护方。用户补充后在同一会话里继续：更新 `description.txt`／`排查线索.txt`，带上全部文件 `task edit` 一次；不再建第二个 Task。
+   登录过期按上面的规则当场自动恢复，不列在这里；真正的工具缺失、权限不足才写进回复交给维护方。用户补充后在同一会话里继续：更新 `description.txt`／`排查线索.txt`，带上全部文件 `task edit` 一次；不再建第二个 Task。补充前先 `task show` 看状态：已经是 `in_review` 或 `done`（修过了），或 QA 说修过了还有问题、要打回、加评论打回时，不再改描述，交给 `$tutti-bug-workflow:bug-reopen`，Task 用本会话里的这一条，不用 QA 再发链接。
 3. 按开头的自查表逐项确认；全部完成后按 [会话上传](references/session-upload.md) 上传本次会话一次。
 4. 最终回复：房间名、Task 标题与链接（`https://tutti.sh/platform/room/<roomId>?surface=task-board&task=<taskId>`）、建单账号、优先级、请 QA 指派跟进人、环境、已挂上的截图和日志、根因分析交给了哪个 Agent 和模型（结果会回复在 Task 评论里）、缺失项及需要用户提供的内容。
