@@ -95,6 +95,49 @@ class PrepareTests(unittest.TestCase):
         _, items = self.prepare("check", "investigate")
         self.assertEqual(items["tutti-cli"]["status"], "ok")
 
+    def test_latest_version_ignores_npm_stderr_and_normalizes_v_prefix(self):
+        self.install("node", "npm", "tutti-cli")
+        self.tools.update(node="v24.14.0", npm_warning=True,
+                          tutti_cli_version="v0.2.0", tutti_cli_latest="0.2.0")
+        report, items = self.prepare("fix", "investigate")
+        self.assertEqual(items["tutti-cli"]["status"], "ok")
+        self.assertNotIn("已安装 @tutti-os/tutti-cli@latest", report["fixed"])
+
+    def test_malformed_registry_version_does_not_trigger_upgrade(self):
+        self.install("node", "npm", "tutti-cli")
+        self.tools.update(tutti_cli_latest="unexpected registry response")
+        _, items = self.prepare("check", "investigate")
+        self.assertEqual(items["tutti-cli"]["status"], "ok")
+
+    def test_identity_requires_a_valid_account_id(self):
+        self.install("node", "npm", "tutti-cli")
+        for identity in ("not json", {}, {"name": "QA"}, {"userId": ""}, {"userId": []}, []):
+            with self.subTest(identity=identity):
+                self.tools["tutti_cli_identity"] = identity
+                _, items = self.prepare("check", "investigate")
+                self.assertEqual(items["tutti-cli"]["status"], "user")
+                self.assertIn("userId", items["tutti-cli"]["detail"])
+        self.tools["tutti_cli_identity"] = {"userId": "123"}
+        _, items = self.prepare("check", "investigate")
+        self.assertEqual(items["tutti-cli"]["status"], "ok")
+
+    def test_invalid_config_list_reports_path_without_changing_file(self):
+        self.data.mkdir()
+        target = self.data / "config.json"
+        original = json.dumps({"repositories": ["custom"]})
+        target.write_text(original)
+        for operation in ("check", "fix"):
+            with self.subTest(operation=operation):
+                result = subprocess.run(
+                    [sys.executable, str(SCRIPT), operation, "--scene", "investigate",
+                     "--data-dir", str(self.data)], capture_output=True, text=True, check=False)
+                self.assertEqual(result.returncode, 2)
+                report = json.loads(result.stdout)
+                self.assertFalse(report["ok"])
+                self.assertIn("repositories[0]", report["error"])
+                self.assertNotIn("Traceback", result.stderr)
+                self.assertEqual(target.read_text(), original)
+
     def test_defaults_fill_gaps_but_keep_existing_values(self):
         self.data.mkdir()
         (self.data / "config.json").write_text(json.dumps({

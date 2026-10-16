@@ -34,6 +34,8 @@ if name == "npm":
     if args[:2] == ["view", "@tutti-os/tutti-cli"]:
         if tools.get("npm_offline"):
             sys.exit(1)
+        if tools.get("npm_warning"):
+            print('npm warn Unknown user config "legacy-setting"', file=sys.stderr)
         out(tools.get("tutti_cli_latest", "0.1.0"))
     if args[:2] == ["prefix", "-g"]:
         out(str(Path(sys.argv[0]).parent.parent))
@@ -69,6 +71,8 @@ if name == "tutti-cli":
         marker = Path(sys.argv[0]).parent / ".tutti-cli-version"
         out(marker.read_text() if marker.exists() else tools.get("tutti_cli_version", "0.1.0"))
     if args[:1] == ["whoami"]:
+        if "tutti_cli_identity" in tools:
+            out(tools["tutti_cli_identity"])
         if tools.get("tutti_cli_logged_in", True):
             out({"userId": "1", "name": "QA", "email": "qa@example.com"})
         print("tutti-cli: No readable CLI session; run tutti-cli login", file=sys.stderr)
