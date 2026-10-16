@@ -17,20 +17,20 @@ Web 端只取页面日志（请求等其他现场由 Tutti Web 记入日志）�
    - 没有匹配时改用方式二。记下页面 URL（「页面链接」）和 Page identity；没有链接时在排查线索的「日志核对」里注明「按房间找到的页面」。
 2. **分页读日志**：`Q` 是读日志的截止时间：上报时间 `question_time`，或故障时间 `incident_at` 之后 5 分钟（两者取早的），精确到毫秒；后面合并时传同样的两个参数，不要另取一次当前时间。用脚本算：
    ```sh
-   python3 scripts/merge_web_logs.py --question-time <question_time> --incident-at <incident_at> --until-ms   # 输出 untilUnixMs，就是 Q
+   python3 scripts/merge_web_logs.py --question-time <question_time> --incident-at <incident_at> --until-ms   # 输出 untilUnixMs（Q）和 range（R），每页都使用这两个值
    ```
    ```
-   execute_webmcp_tool({pageId, toolName: "get_web_logs", input: "{\"range\":\"10m\",\"limit\":200,\"untilUnixMs\":Q}"})
+   execute_webmcp_tool({pageId, toolName: "get_web_logs", input: "{\"range\":\"R\",\"limit\":200,\"untilUnixMs\":Q}"})
    ```
-   每页原始结果存为 `$REPORT/web/pages/page-1.json`……；`truncated: true` 时把 `nextBeforeSequence` 作为 `beforeSequence` 继续，直到 `truncated: false`。
+   `R` 替换为脚本返回的 `range`（`10m` 或 `1h`）；晚报时用 `1h` 读取完整窗口，合并时筛掉故障前 10 分钟以前的记录。每页原始结果存为 `$REPORT/web/pages/page-1.json`……；`truncated: true` 时把 `nextBeforeSequence` 作为 `beforeSequence` 继续，直到 `truncated: false`。
 3. **合并**：
    ```sh
    python3 scripts/merge_web_logs.py --connection-url <链接> --question-time <question_time> --incident-at <incident_at> \
      --page $REPORT/web/pages/page-1.json [--page ...] --output $REPORT/web/web-logs.log
    # 没有连接链接时：--connection-url 传 Page identity（web-diagnostics:<uuid>），并加 --account-id <whoami 的 userId>
    ```
-   报「Page N was read with untilUnixMs=…」说明读页时用的 Q 和 `--question-time` 对不上：用 `--until-ms` 重新算 Q，从第一页重新读。
-   脚本核对页面与 Account、提问前 10 分钟的固定窗口、序号连续与去重，写出 JSON Lines（首行 metadata）；`collectionStatus: partial` 表示翻页中断。
+   报「Page N was read with untilUnixMs=…」说明读页时用的 Q 和 `--question-time` 对不上：用 `--until-ms` 重新算 Q 和 R，从第一页重新读。
+   脚本核对页面与 Account、读取范围（`10m`／`1h`），输出故障前 10 分钟到后 5 分钟且不晚于上报时间的窗口、序号连续与去重，写出 JSON Lines（首行 metadata）；`collectionStatus: partial` 表示翻页中断。
 4. **设备列表**：`execute_webmcp_tool` 调 `list_my_computers`；房间相关时加 `list_rooms`、`list_room_agents({roomId})`，按 `nextCursor` 读完。用于定位 Computer，不上传。
 
 `web-logs.log` 上传到「截图、视频、日志」，并作为 `web_requests.py --web-logs` 的输入（列出失败请求和 request id）。调用失败是维护侧问题，写在回复里，改用方式二。

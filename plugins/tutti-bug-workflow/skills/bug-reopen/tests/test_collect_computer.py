@@ -25,7 +25,7 @@ def at(minutes):
     return (NOW + timedelta(minutes=minutes)).isoformat().replace("+00:00", "Z")
 
 
-INCIDENT = at(-30)  # window: -40..-30 minutes
+INCIDENT = at(-30)  # window: -40..-25 minutes
 
 
 def task(state, start=at(-60), end=at(-5), **extra):
@@ -161,7 +161,39 @@ class CollectComputerTests(unittest.TestCase):
                 source["paths"] = [str(stale), str(live)]
         (self.data / "config.json").write_text(json.dumps(config))
         result = self.collect()
-        self.assertEqual((result["status"], result["covering_files"]), ("captured", ["desktopd.log"]))
+        self.assertEqual((result["status"], result["covering_files"]), ("partial", ["desktopd.log"]))
+
+    def test_local_missing_or_incomplete_component_is_partial(self):
+        companion = self.base / "companion.log"
+        desktop = self.base / "desktopd.log"
+        full = f'{at(-60)} start\n{at(-1)} end\n'
+        companion.write_text(full)
+        config = json.loads((self.data / "config.json").read_text())
+        for source in config["log_sources"]:
+            if source["name"] == "computer-local":
+                source["paths"] = [str(companion), str(desktop)]
+        (self.data / "config.json").write_text(json.dumps(config))
+        self.state(local_computer_id="c-1")
+        for content in (None, "no timestamps\n", f'{at(-60)} start\n{at(-30)} end\n'):
+            with self.subTest(content=content):
+                if content is not None:
+                    desktop.write_text(content)
+                result = self.collect()
+                self.assertEqual(result["status"], "partial")
+                self.assertTrue(any("--source remote" in gap for gap in result["gaps"]))
+        desktop.write_text(full)
+        self.assertEqual(self.collect()["status"], "captured")
+
+    def test_recall_must_cover_after_the_approximate_incident(self):
+        # A package ending 10 seconds into the reported minute can miss a failure at :40.
+        early_end = (NOW - timedelta(minutes=30) + timedelta(seconds=10)).isoformat()
+        self.state(tasks=[task(3, end=early_end, sha256=self.sha)], progress=[{"state": 3}])
+        result = self.collect()
+        self.assertEqual(result["recall"], "created")
+        self.assertEqual(result["window"], {"since": at(-40), "until": at(-25)})
+        self.state(tasks=[task(3, end=at(-28), sha256=self.sha)])
+        result = self.collect("--question-time", at(-28))
+        self.assertEqual((result["recall"], result["window"]["until"]), ("reused", at(-28)))
 
     def test_invalid_incident_time_is_rejected(self):
         self.state()

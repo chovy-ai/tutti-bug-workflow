@@ -12,7 +12,7 @@ description: 把一条已有的 Bug Task 打回（QA 发来已有 Task 的链接
 - 发 Task 链接（带 `task=<taskId>`）；
 - 在提 Bug 的同一个会话里说「之前提的 bug」「刚才那个 bug」，不带链接：Task 就是本会话前面建好或复用的那条（见第 1 步）。
 
-同一个会话里、Task 还没修过（`task show` 的状态是 `todo` 或 `in_progress`）、QA 只是补充现场或说明时，那是提 Bug 的补充，继续按 `$tutti-bug-workflow:bug-investigate` 第 5 步更新描述；Task 已经修过（状态是 `in_review` 或 `done`），或 QA 明确说修过了还在、要打回时，才用本 Skill。QA 要记的是一个新问题时，用 `$tutti-bug-workflow:bug-investigate` 提 Bug；拿不准是同一个问题还是新问题时，先问 QA 一句。
+同一个会话里、Task 还没修过（`task show` 的状态是 `todo` 或 `in_progress`）、QA 只是补充现场或说明时，那是提 Bug 的补充，继续按 `$tutti-bug-workflow:bug-investigate` 第 5 步按 Task 来源更新：本会话自建且保留全部附件时更新描述，复用已有 Task 时追加评论；Task 已经修过（状态是 `in_review` 或 `done`），或 QA 明确说修过了还在、要打回时，才用本 Skill。QA 要记的是一个新问题时，用 `$tutti-bug-workflow:bug-investigate` 提 Bug；拿不准是同一个问题还是新问题时，先问 QA 一句。
 
 **用全局安装的 `tutti-cli` 读写 Task。** 它是 npm 包 `@tutti-os/tutti-cli`（Node.js 24+），以本机 `tutti-cli login` 登录的 Tutti 账号直接调用 Tutti 服务，在 QA 本机的 Codex／Claude Code 里就能跑；权限按这个账号在目标 Room 的成员身份判断。开始前运行 `tutti-cli --help` 和 `tutti-cli whoami --json`：
 
@@ -72,7 +72,7 @@ description: 把一条已有的 Bug Task 打回（QA 发来已有 Task 的链接
    Task 来自本会话时，上一轮提 Bug 的现场线索可以直接复用：WebMCP 连接链接（页面可能已刷新，`get_web_logs` 匹配不到就当作没有）、当时定位到的 Computer（作为第 3.2 步的候选，以这一轮的 Web 日志为准）、`$REPORT` 里的 `description.txt` 和 `排查线索.txt`（写「和修复前相比」时对照）。
 2. 从用户消息和截图整理这一轮验收（QA 只给了截图时，以截图里看到的为准，看不出来的写「待 QA 确认」）：验收的版本（PR、PPE 泳道、体验链接或生产）、复现步骤与频率、实际表现、期望、和修复前相比的变化、验收时间与时区、操作账号、截图／视频（实际查看）、WebMCP 连接链接、QA 附带的 Web 诊断包、用到的设备、要不要换跟进人、是否说了不用分析。用户原话与你的推断分开记。
 3. 固定 `question_time`：触发本次打回的消息时间（含时区的 ISO 8601）；拿不到时用收到消息的时间并注明近似，取当前时间时精确到毫秒：`python3 -c 'from datetime import datetime; print(datetime.now().astimezone().isoformat(timespec="milliseconds"))'`。之后读 Web 日志用这同一个值，不再另取当前时间。
-4. 固定 `incident_at`（这一轮看到问题的时间）：QA 说了什么时候验收、什么时候看到的（「上午验的」「刚才」），换算成含时区的 ISO 8601，只说到分钟就用该分钟；没说、或说的就是刚刚，等于 `question_time`。日志按它取，不按打回消息的时间取；`incident_at` 只是 QA 的大致说法时，在排查线索里注明。
+4. 固定 `incident_at`（这一轮看到问题的时间）：QA 说了什么时候验收、什么时候看到的（「上午验的」「刚才」），换算成含时区的 ISO 8601，只说到分钟就用该分钟的起点，并注明近似；Computer 与 Web 采集都覆盖故障前 10 分钟到后 5 分钟（截止不晚于 `question_time`），不能只覆盖到分钟起点；没说、或说的就是刚刚，等于 `question_time`。日志按它取，不按打回消息的时间取；`incident_at` 只是 QA 的大致说法时，在排查线索里注明。
 5. 生成 `operation_id`：`python3 -c 'import uuid; print(uuid.uuid4())'`，用作本次打回评论的操作 ID（也是评论 ID）。创建 `$REPORT`。改状态另用一个新的 UUID，重试同一次写入时不变。
 
 ## 2. 读原 Task
@@ -104,7 +104,7 @@ tutti-cli task show --room-id <roomId> --task-id <taskId> --json
 按 [Computer 定位](references/computer-target.md) 确定设备：优先 Web 日志里验收时间附近记录关联的 Computer，其次页面的 `list_my_computers`，再其次用户说的设备名。确定后立刻放到后台跑，不等它：
 
 ```sh
-python3 scripts/collect_computer.py --computer-id ID --incident-at <incident_at> --output-dir $REPORT/computer > $REPORT/computer.json &
+python3 scripts/collect_computer.py --computer-id ID --incident-at <incident_at> --question-time <question_time> --output-dir $REPORT/computer > $REPORT/computer.json &
 ```
 
 有多个候选或没有线索时记为 `pending`，第 7 步请用户确认设备，确认后再跑。

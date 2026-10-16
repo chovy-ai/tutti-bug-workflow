@@ -6,8 +6,8 @@ and downloaded files are temporary working files for this session.
 
 - Local: when `tutti-computer status --json` reports the target computerId, copy
   the configured `computer-local` log files and read each file's first and last
-  timestamp. `captured` only when a file spans the whole incident window; otherwise
-  `partial` with the coverage, so the caller can recall remotely (--source remote).
+  timestamp. `captured` only when every configured file spans the whole incident
+  window (10 minutes before to 5 after, capped by report time); otherwise `partial` with the coverage, so the caller can recall remotely (--source remote).
 - Remote: reuse a downloadable or in-flight Tutti runtime-log recall that covers
   the incident, otherwise create one; wait until it finishes, download the
   package, verify its SHA-256 and extract it safely.
@@ -166,7 +166,9 @@ def collect_local(cfg, output, since, until):
         if entry["coverage"] != "full":
             gaps.append(f"{entry['name']}: coverage {entry['coverage']} "
                         f"({entry['first_at'] or '?'}..{entry['last_at'] or '?'})")
-    return {"status": "captured" if covering else "partial", "covering_files": covering,
+    if gaps and covering:
+        gaps.append("local evidence is incomplete; recall the logs remotely with --source remote")
+    return {"status": "partial" if gaps else "captured", "covering_files": covering,
             "files": files, "gaps": gaps}
 
 
@@ -350,6 +352,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--computer-id", required=True)
     parser.add_argument("--incident-at", required=True, help="ISO 8601 with timezone.")
+    parser.add_argument("--question-time", help="Report time (ISO 8601 with timezone); defaults to now.")
     parser.add_argument("--output-dir", required=True, help="Temporary directory for this session.")
     parser.add_argument("--source", choices=("auto", "local", "remote"), default="auto")
     parser.add_argument("--admin-url", default=DEFAULT_ADMIN_URL)
@@ -360,10 +363,14 @@ def main():
     parser.add_argument("--config")
     args = parser.parse_args()
     try:
-        until = parse_time(args.incident_at)
-        if until is None or until.tzinfo is None:
+        incident = parse_time(args.incident_at)
+        if incident is None or incident.tzinfo is None:
             raise ValueError("--incident-at must be ISO 8601 with a timezone.")
-        since = until - LEAD
+        reported = parse_time(args.question_time) if args.question_time else datetime.now(timezone.utc)
+        if reported.tzinfo is None:
+            raise ValueError("--question-time must be ISO 8601 with a timezone.")
+        since = incident - LEAD
+        until = min(reported, incident + MARGIN)
         output = Path(args.output_dir).expanduser().resolve()
         output.mkdir(parents=True, exist_ok=True)
         cfg = wb.load_config(args, wb.data_root(args))
