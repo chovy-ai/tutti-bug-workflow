@@ -34,12 +34,13 @@ NPM_PACKAGES = {"tutti-ops": "@tutti-os/tutti-ops-cli", "tutti-cli": "@tutti-os/
 SCRIPT = Path(__file__).resolve()
 
 
-def run(command, timeout=60, **kwargs):
+def run(command, timeout=60, stdout_only=False, **kwargs):
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=False, **kwargs)
     except (OSError, subprocess.TimeoutExpired) as error:
         return 127, str(error)
-    return result.returncode, (result.stdout or "") + (result.stderr or "")
+    return result.returncode, ((result.stdout or "") if stdout_only and result.returncode == 0
+                               else (result.stdout or "") + (result.stderr or ""))
 
 
 def item(identifier, label, status, detail="", guide=None, verify=None, fix=None):
@@ -66,8 +67,11 @@ def merge_defaults(value, defaults):
                 added.append(f"{path}{key}")
             elif isinstance(target[key], dict) and isinstance(default, dict):
                 merge(target[key], default, f"{path}{key}.")
-            elif (isinstance(target[key], list) and isinstance(default, list)
+            elif (isinstance(target[key], list) and isinstance(default, list) and default
                   and all(isinstance(entry, dict) and "name" in entry for entry in default)):
+                for index, entry in enumerate(target[key]):
+                    if not isinstance(entry, dict):
+                        raise ValueError(f"配置 {path}{key}[{index}] 必须是对象，当前为 {type(entry).__name__}")
                 names = {entry.get("name") for entry in target[key] if isinstance(entry, dict)}
                 for entry in default:
                     if entry["name"] not in names:
@@ -162,10 +166,13 @@ def check_tutti_cli():
         detail = "版本过旧，task comment 不支持 --file（修复回复要把验证截图作为评论附件）"
     elif shutil.which("npm"):
         # Always run the latest release; when npm cannot be reached keep the installed one.
-        latest_code, latest = run(["npm", "view", "@tutti-os/tutti-cli", "version"])
-        current = run(["tutti-cli", "--version"])[1].strip()
-        if latest_code == 0 and latest.strip() and current != latest.strip():
-            detail = f"当前 {current or '未知版本'}，npm 最新 {latest.strip()}"
+        latest_code, latest = run(["npm", "view", "@tutti-os/tutti-cli", "version"], stdout_only=True)
+        current_code, current = run(["tutti-cli", "--version"], stdout_only=True)
+        version_pattern = r"v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)"
+        latest_version = re.fullmatch(version_pattern, latest.strip()) if latest_code == 0 else None
+        current_version = re.fullmatch(version_pattern, current.strip()) if current_code == 0 else None
+        if latest_version and (not current_version or current_version[1] != latest_version[1]):
+            detail = f"当前 {current.strip() or '未知版本'}，npm 最新 {latest_version[1]}"
     if detail:
         version = run(["node", "--version"])[1].strip()
         major = re.match(r"v(\d+)\.", version)
@@ -183,7 +190,9 @@ def check_tutti_cli():
             user = json.loads(out[out.index("{"):])
         except ValueError:
             user = {}
-        return item("tutti-cli", label, "ok", f"已登录：{user.get('name') or user.get('userId') or '未知账号'}")
+        if isinstance(user, dict) and type(user.get('userId')) in (str, int) and str(user['userId']).strip():
+            return item("tutti-cli", label, "ok", f"已登录：{user.get('name') or user['userId']}")
+        out = "whoami 未返回有效的账号 userId，请重新登录后复查"
     return item("tutti-cli", label, "user", f"未登录或登录已过期：{out.strip()[-200:]}",
                 guide=["在终端运行 `tutti-cli login`，浏览器会打开 Tutti 登录页，用你自己的 Tutti 账号完成登录（需是目标 Room 的成员）。",
                        "登录完成后回复「已完成」。"],
