@@ -1,6 +1,6 @@
 # Task 字段与写入规则
 
-提 Bug 用全局 `tutti-cli`（账号登录版）的 `task create --room-id` 在指定 Room 建一个 Task，采集后用 `task edit` 改标题、写全描述，截图、`排查线索.txt` 和全部日志作为附件挂在描述上。Task 字段只能写下面几个，不能指派、改优先级；根因分析用 `task run` 交给 Room Agent（见 [交给 Room Agent 分析](rd-analysis.md)）。
+提 Bug 用全局 `tutti-cli`（账号登录版）的 `task create --room-id` 在指定 Room 建一个 Task，采集后用 `task edit` 改标题、写全描述，截图、`排查线索.txt` 和全部日志作为附件挂在描述上。这些编辑规则仅适用于本会话自建且保留全部原附件的 Task；复用已有 Task 时，本次表现及全部现场用 `task comment --file` 追加，后到现场也继续追加评论，不改原标题、描述与附件，记录 `commentId` 供分析和复核定位。Task 字段只能写下面几个，不能指派、改优先级；根因分析用 `task run` 交给 Room Agent（见 [交给 Room Agent 分析](rd-analysis.md)）。
 
 | 参数 | Task 字段 | 怎么填 |
 |---|---|---|
@@ -118,7 +118,7 @@ QA 定级：P1（或「待 QA 确认」）
 - <文件名>：<一句话说明，如「web-logs.log：问题前 10 分钟的页面日志」>
 ```
 
-现场后到（召回晚完成、QA 补了诊断包）时，在这个文件里补几行，再带上全部文件 `task edit` 一次。
+现场后到（召回晚完成、QA 补了诊断包）时，在这个文件里补几行；本会话自建且保留全部原附件时再带上全部文件 `task edit` 一次，复用已有 Task 时用 `task comment --file` 追加新现场和更新的排查线索，记下 `commentId`，不改原描述和附件。
 
 - 在回复里告诉用户的每一条发现，都必须能在描述或排查线索里找到；回复里说「已建 Task」之前先用 `tutti-cli task show` 回读确认。
 - 只记录核对过的事实并标注来源；推测写成「待确认：……」，不写根因结论（根因由 Room Agent 分析，见 [交给 Room Agent 分析](rd-analysis.md)）。

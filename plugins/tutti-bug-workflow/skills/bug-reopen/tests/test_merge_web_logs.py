@@ -81,10 +81,25 @@ class MergeWebLogsTests(unittest.TestCase):
         self.assertEqual(until("--incident-at", "2026-10-08T22:30:00Z"), UNTIL - 30 * 60000 + 5 * 60000)
         self.assertEqual(until("--incident-at", "2026-10-08T22:58:00Z"), UNTIL)  # capped by the report time
         page = snapshot([record(1, 1000)], False)
-        page["untilUnixMs"], page["sinceUnixMs"] = UNTIL - 25 * 60000, UNTIL - 35 * 60000
-        page["records"][0]["occurredAtUnixMs"] = UNTIL - 26 * 60000
+        page["untilUnixMs"], page["sinceUnixMs"] = UNTIL - 25 * 60000, UNTIL - 85 * 60000
+        # Include the previously lost pre-incident request, both boundaries, and older noise.
+        page["records"] = [record(4, 25 * 60000), record(3, 38 * 60000),
+                           record(2, 40 * 60000), record(1, 41 * 60000)]
         result = self.run_merge(page, extra=("--incident-at", "2026-10-08T22:30:00Z"))
-        self.assertEqual((result["incidentAt"], result["recordCount"]), ("2026-10-08T22:30:00Z", 1))
+        self.assertEqual((result["incidentAt"], result["recordCount"]), ("2026-10-08T22:30:00Z", 3))
+
+    def test_recent_report_uses_wide_read_but_caps_output_at_report(self):
+        incident = "2026-10-08T22:58:00Z"
+        result = json.loads(subprocess.run(
+            [sys.executable, str(SCRIPT), "--question-time", QUESTION, "--incident-at", incident, "--until-ms"],
+            capture_output=True, text=True, check=True).stdout)
+        self.assertEqual((result["range"], result["untilUnixMs"], result["sinceUnixMs"]),
+                         ("1h", UNTIL, UNTIL - 12 * 60000))
+        page = snapshot([record(2, 11 * 60000), record(1, 13 * 60000)], False, since=UNTIL - 60 * 60000)
+        merged = self.run_merge(page, extra=("--incident-at", incident))
+        self.assertEqual((merged["sinceUnixMs"], merged["recordCount"]), (UNTIL - 12 * 60000, 1))
+        # Old callers that still read only 10 minutes must not silently produce a complete file.
+        self.run_merge(snapshot([], False), extra=("--incident-at", incident), expected=2)
 
     def test_window_mismatch_names_both_values(self):
         page = snapshot([record(1, 1000)], False)

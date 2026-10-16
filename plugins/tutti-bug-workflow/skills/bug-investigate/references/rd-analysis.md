@@ -48,7 +48,7 @@ tutti-cli task run --room-id <roomId> --task-id <taskId> --agent-target-id <agen
 
 ## 补齐现场后复核
 
-指令发出时缺了 Web 日志或 Computer 召回（指令的现场线索里写了缺什么），之后补齐并 `task edit` 挂上时，Agent 可能已经按不全的现场下了结论。补齐后发一次复核，回到同一个线程：
+指令发出时缺了 Web 日志或 Computer 召回（指令的现场线索里写了缺什么），之后补齐并挂上时（本会话自建 Task 用 `task edit`，复用已有 Task 用 `task comment --file` 追加并记录 `commentId`），Agent 可能已经按不全的现场下了结论。补齐后发一次复核，回到同一个线程：
 
 ```sh
 tutti-cli task run --room-id <roomId> --task-id <taskId> --agent-target-id <同一个 Agent> \
@@ -59,7 +59,7 @@ tutti-cli task run --room-id <roomId> --task-id <taskId> --agent-target-id <同�
 `rd-review.txt` 只写增量，例如：
 
 ```text
-现场已补齐：<补了什么，如「Computer 召回包 <文件名>（覆盖 10:50–11:00）」「Web 诊断包 <文件名>」>，已挂在 Task 描述的附件里。之前的分析是在缺这份现场时做的。请读新附件，核对上面的结论：结论不变就回复一句「复核：结论不变」并说明依据；有变化就按原来的回复格式给出更新后的完整结论，并写明哪里变了、为什么。仍然只分析，不改代码、不改 Task。
+现场已补齐：<补了什么，如「Computer 召回包 <文件名>（覆盖 10:50–11:05）」「Web 诊断包 <文件名>」>，已挂在 <自建 Task：描述附件；复用 Task：新增评论 commentId=<实际回执 ID> 的附件>。之前的分析是在缺这份现场时做的。请读新附件，核对上面的结论：结论不变就回复一句「复核：结论不变」并说明依据；有变化就按原来的回复格式给出更新后的完整结论，并写明哪里变了、为什么。仍然只分析，不改代码、不改 Task。
 ```
 
 回执规则同上：`accepted` 带 `invocationId` 就不再管它。每批补齐的现场最多复核一次；不影响分析的补充（如 QA 改了期望的措辞、补了一张同样的截图）不发。
@@ -88,6 +88,7 @@ tutti-cli task run --room-id <roomId> --task-id <taskId> --agent-target-id <同�
 - <时间> <method 路径> → <状态码>（request id：<id>）
 - 关联 ID：账号 <userId>，房间 <roomId>，会话 <sessionId>，Computer <computerId>，Agent <agentTargetId>
 - 版本：Web <页面版本>，Computer <computerVersion>
+- 现场位置：<本会话自建 Task 的描述附件；复用 Task 的现场评论 commentId=<实际回执 ID>，包括后到现场的评论 ID>。
 - Task 附件：<截图文件名>、排查线索.txt（完整的日志核对、关联 ID 和环境）、<web-logs.log 或诊断包>、<Computer 召回包>。能读到附件就先完整读，截图逐张看；读不到就以上面的线索为准，并在回复的「待确认」里说明。
 - 服务端日志没有拉，需要时按上面的 request id 查 tutti-server 日志；查不到就标成待确认，不要停下。
 

@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """Merge get_web_logs pages read through chrome-devtools execute_webmcp_tool into one web-logs.log.
 
-The agent pages with input {"range": "10m", "limit": 200, "untilUnixMs": Q} and then
+The agent pages with input {"range": R, "limit": 200, "untilUnixMs": Q} and then
 {"...", "beforeSequence": nextBeforeSequence} while truncated, saving each raw tool
 result to a file. This script checks page/Account identity, the fixed window
-[until - 10 min, until], sequence continuity and duplicates, then writes
+[incident - 10 min, until], sequence continuity and duplicates, then writes
 JSON Lines (metadata first, records by occurrence time). Stateless; standard library only.
 
 until is --question-time (when the bug was reported), or 5 minutes after --incident-at
 (when it happened) if that is earlier, so a late report still reads the failure itself.
-Q must be computed from the same arguments, to the millisecond; `--until-ms` prints it. --connection-url takes the WebMCP connection link,
+Q and R must come from the same arguments; `--until-ms` prints untilUnixMs and range. --connection-url takes the WebMCP connection link,
 or the bare page identity (web-diagnostics:<uuid>) when the page was found without a link;
 then pass --account-id with the signed-in userId so the Account is still checked.
 """
@@ -37,6 +37,16 @@ def until_of(question_time, incident_at=None):
     if len(moments) == 2:
         until = min(until, int(moments[1].timestamp() * 1000) + AFTER_MS)
     return until
+
+
+def window_of(question_time, incident_at=None):
+    until = until_of(question_time, incident_at)
+    moment = datetime.fromisoformat((incident_at or question_time).replace("Z", "+00:00"))
+    anchor = int(moment.timestamp() * 1000)
+    since = anchor - WINDOW_MS
+    # WebMCP offers preset ranges. Read a superset, then retain the incident window.
+    range_name, span = ("10m", WINDOW_MS) if until - since <= WINDOW_MS else ("1h", 60 * 60 * 1000)
+    return since, until, range_name, until - span
 
 
 def parse_link(link):
@@ -76,27 +86,28 @@ def snapshot_of(raw):
 
 
 def merge(pages, page_id, account, question_time, incident_at=None):
-    until = until_of(question_time, incident_at)
-    since = until - WINDOW_MS
+    since, until, range_name, read_since = window_of(question_time, incident_at)
     records, seen, before, complete = [], set(), None, False
     for index, raw in enumerate(pages):
         snapshot = snapshot_of(raw)
         if snapshot.get("pageSessionId") != page_id or (account and snapshot.get("accountId") != account):
             raise ValueError(f"Page {index + 1} belongs to another page or Account.")
         account = account or snapshot.get("accountId")
-        if snapshot.get("sinceUnixMs") != since or snapshot.get("untilUnixMs") != until:
+        if snapshot.get("sinceUnixMs") != read_since or snapshot.get("untilUnixMs") != until:
             raise ValueError(f"Page {index + 1} was read with untilUnixMs={snapshot.get('untilUnixMs')}, "
                              f"sinceUnixMs={snapshot.get('sinceUnixMs')}; --question-time/--incident-at give untilUnixMs={until} "
-                             "with range 10m. Read every page with the untilUnixMs printed by --until-ms for the same "
+                             f"and sinceUnixMs={read_since} with range {range_name}. Read every page with the range and "
+                             "untilUnixMs printed by --until-ms for the same "
                              "question_time and incident_at.")
         for record in snapshot["records"]:
             rid = record.get("id")
             if (not isinstance(rid, int) or rid in seen or (before is not None and rid >= before)
-                    or not since <= record.get("occurredAtUnixMs", -1) <= until
+                    or not read_since <= record.get("occurredAtUnixMs", -1) <= until
                     or record.get("pageSessionId") != page_id or record.get("userId") != account):
                 raise ValueError(f"Page {index + 1} has a record out of window, order or identity.")
             seen.add(rid)
-            records.append(record)
+            if record["occurredAtUnixMs"] >= since:
+                records.append(record)
         if not snapshot.get("truncated"):
             complete = index == len(pages) - 1
             if not complete:
@@ -130,10 +141,11 @@ def main():
     parser.add_argument("--output", help="Path ending in web-logs.log.")
     args = parser.parse_args()
     try:
-        until = until_of(args.question_time, args.incident_at)
+        since, until, range_name, read_since = window_of(args.question_time, args.incident_at)
         if args.until_ms:
             emit({"ok": True, "questionTime": args.question_time, "incidentAt": args.incident_at,
-                  "untilUnixMs": until})
+                  "untilUnixMs": until, "range": range_name, "sinceUnixMs": since,
+                  "readSinceUnixMs": read_since})
             return 0
         if not args.connection_url or not args.page or not args.output:
             raise ValueError("--connection-url, --page and --output are required to merge.")
