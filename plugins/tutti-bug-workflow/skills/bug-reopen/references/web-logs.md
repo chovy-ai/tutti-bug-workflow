@@ -15,22 +15,17 @@ Web 端只取页面日志（请求等其他现场由 Tutti Web 记入日志）�
    - **有连接链接**：找 Page identity 和 Account identity 都和链接一致的那一个。
    - **没有连接链接**：候选是 URL 路径为 `/platform/room/<roomId>` 的 Tutti 页面（`<roomId>` 用这条 Task 的 `roomId`），并且 Account identity 等于 `tutti-cli whoami --json` 的 `userId`。只有一个就用它；不止一个时优先 URL 里带 `task=<taskId>` 的（本次的 Task 正开着），仍不止一个就当作没找到。用户说过问题出在另一台机器或另一个浏览器时不用这种找法。
    - 没有匹配时改用方式二。记下页面 URL（「页面链接」）和 Page identity；没有链接时在排查线索的「日志核对」里注明「按房间找到的页面」。
-2. **分页读日志**：`Q` 是读日志的截止时间：打回消息的时间 `question_time`，或看到问题的时间 `incident_at` 之后 5 分钟（两者取早的），精确到毫秒；后面合并时传同样的两个参数，不要另取一次当前时间。用脚本算：
+2. **进程内采集并落盘**：固定上报时间与故障时间，调用本 Skill 的采集脚本：
    ```sh
-   python3 scripts/merge_web_logs.py --question-time <question_time> --incident-at <incident_at> --until-ms   # 输出 untilUnixMs（Q）和 range（R），每页都使用这两个值
+   python3 scripts/collect_web_logs.py --connection-url <连接链接或Page identity> --account-id <userId> \
+     --question-time <question_time> --incident-at <incident_at> --output $REPORT/web/web-logs.log
    ```
-   ```
-   execute_webmcp_tool({pageId, toolName: "get_web_logs", input: "{\"range\":\"R\",\"limit\":200,\"untilUnixMs\":Q}"})
-   ```
-   `R` 替换为脚本返回的 `range`（`10m` 或 `1h`）；晚报时用 `1h` 读取完整窗口，合并时筛掉故障前 10 分钟以前的记录。每页原始结果存为 `$REPORT/web/pages/page-1.json`……；`truncated: true` 时把 `nextBeforeSequence` 作为 `beforeSequence` 继续，直到 `truncated: false`。
-3. **合并**：
-   ```sh
-   python3 scripts/merge_web_logs.py --connection-url <链接> --question-time <question_time> --incident-at <incident_at> \
-     --page $REPORT/web/pages/page-1.json [--page ...] --output $REPORT/web/web-logs.log
-   # 没有连接链接时：--connection-url 传 Page identity（web-diagnostics:<uuid>），并加 --account-id <whoami 的 userId>
-   ```
-   报「Page N was read with untilUnixMs=…」说明读页时用的 Q 和 `--question-time` 对不上：用 `--until-ms` 重新算 Q 和 R，从第一页重新读。
-   脚本核对页面与 Account、读取范围（`10m`／`1h`），输出故障前 10 分钟到后 5 分钟且不晚于上报时间的窗口、序号连续与去重，写出 JSON Lines（首行 metadata）；`collectionStatus: partial` 表示翻页中断。
+   `--incident-at` 在没有故障时间时省略；连接链接已包含 Account 时可省略 `--account-id`。
+   脚本内部调用官方 Chrome MCP，核对身份、固定时间窗并自动分页，把 `page-*.json` 和合并日志直接落盘。
+   工具回复只含路径、哈希、体积和完整性摘要。不要通过 Agent 逐页调用日志工具再重写 JSON；
+   不要把完整日志 `cat` 到工具回复。后续仅按关联 ID、时间窗读取有界片段。
+3. **核对结果**：`collectionStatus: complete` 表示读取完成；退出码 1 和 `partial` 表示已保存有效的部分日志，
+   不能声称完整。退出码 2 表示采集失败，查看返回的本地 stderr 路径；页面或 Account 改变时重新定位现场。
 4. **设备列表**：`execute_webmcp_tool` 调 `list_my_computers`；房间相关时加 `list_rooms`、`list_room_agents({roomId})`，按 `nextCursor` 读完。用于定位 Computer，不上传。
 
 `web-logs.log` 作为打回评论的附件上传，并作为 `web_requests.py --web-logs` 的输入（列出失败请求和 request id）。调用失败是维护侧问题，写在回复里，改用方式二。
