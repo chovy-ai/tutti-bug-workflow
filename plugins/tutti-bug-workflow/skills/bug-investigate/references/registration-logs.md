@@ -22,7 +22,7 @@
 |---|---|
 | QA 发来的截图、视频 | 原文件，先复制到 `$REPORT` |
 | 排查线索 | `排查线索.txt`（见 [排查线索](report-fields.md#排查线索附件)） |
-| Web 日志 | `merge_web_logs.py` 合并的 `web-logs.log`；或 QA 导出的 `tutti-web-diagnostics-*.zip` |
+| Web 日志 | `merge_web_logs.py --download` 从下载文件校验、整理出的 `web-logs.log`；或 QA 导出的 `tutti-web-diagnostics-*.zip` |
 | Computer | 召回包原件（`*.tar.gz`），不拆包 |
 
 规则：

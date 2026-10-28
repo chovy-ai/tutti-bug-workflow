@@ -69,7 +69,7 @@ description: 把一条已有的 Bug Task 打回（QA 发来已有 Task 的链接
    3. **本会话前面提过的 Bug**：QA 说「之前提的 bug」「刚才那个」「上面那条」时，用本会话里 `task create`／`task show` 回执的 `task.roomId` 和 `task.taskId`。本会话提过多条时，按 QA 说的现象、功能和截图对照各条的标题和描述选；对不上或不止一条对得上时，把这几条的标题和链接列给 QA 选，不猜。
    4. 都没有：请 QA 发 Task 链接（CLI 列不出 Task，只有房间和标题时也要链接）。拿不到 Task 就停下，这是唯一必须先问的卡点。
 
-   Task 来自本会话时，上一轮提 Bug 的现场线索可以直接复用：WebMCP 连接链接（页面可能已刷新，`get_web_logs` 匹配不到就当作没有）、当时定位到的 Computer（作为第 3.2 步的候选，以这一轮的 Web 日志为准）、`$REPORT` 里的 `description.txt` 和 `排查线索.txt`（写「和修复前相比」时对照）。
+   Task 来自本会话时，上一轮提 Bug 的现场线索可以直接复用：WebMCP 连接链接（页面可能已刷新，`download_web_logs` 匹配不到就当作没有）、当时定位到的 Computer（作为第 3.2 步的候选，以这一轮的 Web 日志为准）、`$REPORT` 里的 `description.txt` 和 `排查线索.txt`（写「和修复前相比」时对照）。
 2. 从用户消息和截图整理这一轮验收（QA 只给了截图时，以截图里看到的为准，看不出来的写「待 QA 确认」）：验收的版本（PR、PPE 泳道、体验链接或生产）、复现步骤与频率、实际表现、期望、和修复前相比的变化、验收时间与时区、操作账号、截图／视频（实际查看）、WebMCP 连接链接、QA 附带的 Web 诊断包、用到的设备、要不要换跟进人、是否说了不用分析。用户原话与你的推断分开记。
 3. 固定 `question_time`：触发本次打回的消息时间（含时区的 ISO 8601）；拿不到时用收到消息的时间并注明近似，取当前时间时精确到毫秒：`python3 -c 'from datetime import datetime; print(datetime.now().astimezone().isoformat(timespec="milliseconds"))'`。之后读 Web 日志用这同一个值，不再另取当前时间。
 4. 固定 `incident_at`（这一轮看到问题的时间）：QA 说了什么时候验收、什么时候看到的（「上午验的」「刚才」），换算成含时区的 ISO 8601，只说到分钟就用该分钟的起点，并注明近似；Computer 与 Web 采集都覆盖故障前 10 分钟到后 5 分钟（截止不晚于 `question_time`），不能只覆盖到分钟起点；没说、或说的就是刚刚，等于 `question_time`。日志按它取，不按打回消息的时间取；`incident_at` 只是 QA 的大致说法时，在排查线索里注明。
@@ -94,7 +94,7 @@ tutti-cli task show --room-id <roomId> --task-id <taskId> --json
 详见 [Web 日志](references/web-logs.md)。页面开在本机 Chrome 时，用 `chrome-devtools` MCP：
 
 1. `list_pages` + `list_webmcp_tools` 按链接里的页面与 Account 匹配页面；QA 没给链接时，按房间找本机 Chrome 里开着的这个 Room 的页面，URL 带这条 `task=<taskId>` 的优先（规则见 [Web 日志](references/web-logs.md)）。记下页面 URL（「页面链接」）。
-2. 用 `scripts/merge_web_logs.py --question-time <question_time> --incident-at <incident_at> --until-ms` 算出读日志的截止时间（看到问题后 5 分钟，不晚于打回消息的时间），`execute_webmcp_tool` 分页读 `get_web_logs`，每页存一个文件，再用 `scripts/merge_web_logs.py` 合并成 `$REPORT/web/web-logs.log`。
+2. 用 `scripts/merge_web_logs.py --question-time <question_time> --incident-at <incident_at> --until-ms` 固定读取窗口，`execute_webmcp_tool` 调 `download_web_logs` 触发一次文件下载；确认本地文件完整后，用 `scripts/merge_web_logs.py --download <路径>` 校验并整理成 `$REPORT/web/web-logs.log`。工具只接收元数据，正文从本地文件按需读取（详见 [Web 日志](references/web-logs.md)）。
 3. `execute_webmcp_tool` 调 `list_my_computers`（房间相关时加 `list_room_agents`），用于定位 Computer。
 
 不刷新、不跳转页面。WebMCP 不可用、用户在另一台机器上或页面已刷新时，用 QA 导出的诊断包；两者都没有时记为 `pending`，第 7 步请用户导出。

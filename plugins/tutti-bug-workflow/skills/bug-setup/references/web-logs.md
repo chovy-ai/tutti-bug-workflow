@@ -1,6 +1,6 @@
 # WebMCP 连接准备
 
-提 Bug 时，Agent 通过官方 `chrome-devtools-mcp` 连接**本机正在运行的 Chrome**，调用 Tutti 页面注册的原生 WebMCP 工具（`get_web_logs`、`list_my_computers` 等）读取页面日志。连不上时，bug-investigate 退回使用 QA 导出的诊断包，所以本页的准备是增强项，不阻塞提 Bug。
+提 Bug 时，Agent 通过官方 `chrome-devtools-mcp` 连接**本机正在运行的 Chrome**，调用 Tutti 页面注册的原生 WebMCP 工具（`download_web_logs`、`list_my_computers` 等）读取页面日志。连不上时，bug-investigate 退回使用 QA 导出的诊断包，所以本页的准备是增强项，不阻塞提 Bug。
 
 只能读取运行 Agent 这台机器上的 Chrome。QA 在另一台机器上复现时，WebMCP 读不到，只能用导出包。
 
@@ -47,11 +47,11 @@
 1. 在这台机器的 Chrome 中打开并登录 Tutti（`https://tutti.sh/platform/...`；其他部署域名同样适用）。
 2. 依次调用：
    - `chrome-devtools.list_pages`：能看到 Tutti 页面及其 `pageId`；
-   - `chrome-devtools.list_webmcp_tools({pageId})`：能看到 `get_web_logs`，描述里有 `Page identity: web-diagnostics:<uuid>; Account identity: <account>;`；
-   - `chrome-devtools.execute_webmcp_tool({pageId, toolName: "get_web_logs", input: "{\"range\":\"10m\",\"limit\":1}"})`：返回 `Completed` 和日志快照。
+   - `chrome-devtools.list_webmcp_tools({pageId})`：能看到 `download_web_logs`，描述里有 `Page identity: web-diagnostics:<uuid>; Account identity: <account>;`；
+   - `chrome-devtools.execute_webmcp_tool({pageId, toolName: "download_web_logs", input: "{\"range\":\"10m\"}"})`：返回 `Completed` 和文件元数据（无日志正文）。在浏览器实际下载目录核对返回的 `fileName` 已落盘、字节数等于 `sizeBytes`，读取 JSON 核对 `pageSessionId` 和 `accountId` 一致，且 `truncated: false`。`downloadStarted` 不证明文件已保存；出现另存为提示时由用户完成。
 3. 三步都成功才算 WebMCP 可用，分别记录结果。
 
-验证时只读：不要对 Tutti 页面调用 `navigate_page`、`close_page`、`new_page`，刷新或跳转会清空页面内存中的日志。
+验证只采集日志并触发文件下载，保持页面现场：不要对 Tutti 页面调用 `navigate_page`、`close_page`、`new_page`，刷新或跳转会清空页面内存中的日志。
 
 ## 常见失败
 
@@ -59,5 +59,5 @@
 |---|---|
 | 调用卡住或报连接失败 | Chrome 未开启远程调试，或没有点允许；按第 3 步处理 |
 | `list_webmcp_tools` 为空或报不可用 | WebMCP flag 未开启或未重启 Chrome；按第 2 步处理 |
-| 能看到页面但没有 `get_web_logs` | 页面未登录，或部署的 Tutti 版本不含该能力 |
+| 能看到页面但没有 `download_web_logs` | 页面未登录，或部署的 Tutti 版本不含该能力 |
 | `npx` 不存在或版本过低 | 安装符合要求的 Node.js |

@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Merge get_web_logs pages read through chrome-devtools execute_webmcp_tool into one web-logs.log.
+"""Validate a download_web_logs JSON file and write one web-logs.log.
 
-The agent pages with input {"range": R, "limit": 200, "untilUnixMs": Q} and then
-{"...", "beforeSequence": nextBeforeSequence} while truncated, saving each raw tool
-result to a file. This script checks page/Account identity, the fixed window
+The browser downloads the full snapshot; log bodies never pass through the agent's
+tool responses. --download reads that local file and checks page/Account identity, the fixed window
 [incident - 10 min, until], sequence continuity and duplicates, then writes
 JSON Lines (metadata first, records by occurrence time). Stateless; standard library only.
 
@@ -61,73 +60,54 @@ def parse_link(link):
     return page, accounts[0]
 
 
-def snapshot_of(raw):
-    """Accept the tool result in the shapes chrome-devtools-mcp may return."""
-    value = raw
-    for _ in range(8):  # message -> JSON -> status/output -> JSON -> snapshot, plus envelopes
-        if isinstance(value, str):
-            value = json.loads(value)
-            continue
-        if isinstance(value, dict) and "records" in value:
-            return value
-        if isinstance(value, dict) and "structuredContent" in value:
-            value = value["structuredContent"]
-        elif isinstance(value, dict) and "message" in value:
-            value = value["message"]
-        elif isinstance(value, dict) and "status" in value:
-            if value["status"] != "Completed" or value.get("errorText"):
-                raise ValueError(f"WebMCP execution {value.get('status')}: {value.get('errorText')}")
-            value = value.get("output")
-        elif isinstance(value, dict) and isinstance(value.get("content"), list):
-            value = next(item["text"] for item in value["content"] if item.get("type") == "text")
-        else:
-            break
-    raise ValueError("Not a get_web_logs snapshot.")
-
-
-def merge(pages, page_id, account, question_time, incident_at=None):
+def prepare_download(snapshot, page_id, account, question_time, incident_at=None):
     since, until, range_name, read_since = window_of(question_time, incident_at)
-    records, seen, before, complete = [], set(), None, False
-    for index, raw in enumerate(pages):
-        snapshot = snapshot_of(raw)
-        if snapshot.get("pageSessionId") != page_id or (account and snapshot.get("accountId") != account):
-            raise ValueError(f"Page {index + 1} belongs to another page or Account.")
-        account = account or snapshot.get("accountId")
-        if snapshot.get("sinceUnixMs") != read_since or snapshot.get("untilUnixMs") != until:
-            raise ValueError(f"Page {index + 1} was read with untilUnixMs={snapshot.get('untilUnixMs')}, "
-                             f"sinceUnixMs={snapshot.get('sinceUnixMs')}; --question-time/--incident-at give untilUnixMs={until} "
-                             f"and sinceUnixMs={read_since} with range {range_name}. Read every page with the range and "
-                             "untilUnixMs printed by --until-ms for the same "
-                             "question_time and incident_at.")
-        for record in snapshot["records"]:
-            rid = record.get("id")
-            if (not isinstance(rid, int) or rid in seen or (before is not None and rid >= before)
-                    or not read_since <= record.get("occurredAtUnixMs", -1) <= until
-                    or record.get("pageSessionId") != page_id or record.get("userId") != account):
-                raise ValueError(f"Page {index + 1} has a record out of window, order or identity.")
-            seen.add(rid)
-            if record["occurredAtUnixMs"] >= since:
-                records.append(record)
-        if not snapshot.get("truncated"):
-            complete = index == len(pages) - 1
-            if not complete:
-                raise ValueError("Pages continue after an untruncated page.")
-            break
-        before = snapshot.get("nextBeforeSequence")
-        if not snapshot["records"] or before != snapshot["records"][-1]["id"]:
-            break  # Stalled cursor: keep what was read, mark partial.
+    if snapshot.get("pageSessionId") != page_id or snapshot.get("accountId") != account:
+        raise ValueError("The download belongs to another page or Account.")
+    if snapshot.get("sinceUnixMs") != read_since or snapshot.get("untilUnixMs") != until:
+        raise ValueError(f"Download has untilUnixMs={snapshot.get('untilUnixMs')}, "
+                         f"sinceUnixMs={snapshot.get('sinceUnixMs')}; expected untilUnixMs={until} "
+                         f"and sinceUnixMs={read_since} with range {range_name}. Use --until-ms "
+                         "with the same question_time and incident_at, then download again.")
+    records, previous_id = [], None
+    for record in snapshot["records"]:
+        rid = record.get("id")
+        if (type(rid) is not int or rid < 1 or (previous_id is not None and rid >= previous_id)
+                or not read_since <= record.get("occurredAtUnixMs", -1) <= until
+                or record.get("pageSessionId") != page_id or record.get("userId") != account):
+            raise ValueError("Download has a record out of window, sequence order or identity.")
+        previous_id = rid
+        if record["occurredAtUnixMs"] >= since:
+            records.append(record)
     records.sort(key=lambda record: (record["occurredAtUnixMs"], record["id"]))
     metadata = {
         "type": "metadata", "source": "chrome-devtools-webmcp", "pageSessionId": page_id,
         "accountId": account, "questionTime": question_time, "incidentAt": incident_at,
         "sinceUnixMs": since, "untilUnixMs": until,
-        "pages": len(pages), "recordCount": len(records), "redacted": False,
-        "collectionStatus": "complete" if complete else "partial",
+        "recordCount": len(records), "redacted": False, "collectionStatus": "complete",
         "earliestRecordUnixMs": records[0]["occurredAtUnixMs"] if records else None,
         "latestRecordUnixMs": records[-1]["occurredAtUnixMs"] if records else None,
         "recordTruncationCount": sum(1 for record in records if record.get("truncated") is True),
     }
     return metadata, records
+
+
+def read_download(path, expected_size=None, expected_record_count=None):
+    source = Path(path).expanduser()
+    if source.suffix == ".crdownload":
+        raise ValueError("The browser download is still in progress; use the completed JSON file.")
+    contents = source.read_bytes()
+    if expected_size is not None and len(contents) != expected_size:
+        raise ValueError("Downloaded file size differs from sizeBytes; check the completed file.")
+    snapshot = json.loads(contents.decode("utf-8"))
+    if (not isinstance(snapshot, dict) or snapshot.get("redacted") is not False
+            or snapshot.get("retention") != "current-page-memory"
+            or snapshot.get("truncated") is not False
+            or not isinstance(snapshot.get("records"), list)):
+        raise ValueError("Expected a complete, unredacted download_web_logs snapshot.")
+    if expected_record_count is not None and len(snapshot["records"]) != expected_record_count:
+        raise ValueError("Downloaded record count differs from recordCount.")
+    return snapshot
 
 
 def main():
@@ -136,8 +116,10 @@ def main():
     parser.add_argument("--account-id", help="Signed-in userId; required with a bare page identity.")
     parser.add_argument("--question-time", required=True, help="ISO 8601 with timezone: when it was reported.")
     parser.add_argument("--incident-at", help="ISO 8601 with timezone: when it happened, if earlier.")
-    parser.add_argument("--until-ms", action="store_true", help="Only print the untilUnixMs to read pages with.")
-    parser.add_argument("--page", action="append", help="Saved tool result, in read order.")
+    parser.add_argument("--until-ms", action="store_true", help="Only print the fixed window for download_web_logs.")
+    parser.add_argument("--download", help="Completed local JSON file from download_web_logs.")
+    parser.add_argument("--expected-size", type=int, help="sizeBytes returned by download_web_logs.")
+    parser.add_argument("--expected-record-count", type=int, help="recordCount returned by download_web_logs, before window filtering.")
     parser.add_argument("--output", help="Path ending in web-logs.log.")
     args = parser.parse_args()
     try:
@@ -147,10 +129,13 @@ def main():
                   "untilUnixMs": until, "range": range_name, "sinceUnixMs": since,
                   "readSinceUnixMs": read_since})
             return 0
-        if not args.connection_url or not args.page or not args.output:
-            raise ValueError("--connection-url, --page and --output are required to merge.")
+        if not args.connection_url or not args.download or not args.output:
+            raise ValueError("--connection-url, --download and --output are required.")
         if not args.output.endswith("web-logs.log"):
             raise ValueError("--output must end with web-logs.log.")
+        if any(value is not None and (value < 0 or not args.download)
+               for value in (args.expected_size, args.expected_record_count)):
+            raise ValueError("Download expectations must be nonnegative and require --download.")
         page_id, account = parse_link(args.connection_url)
         if args.account_id:
             if account and account != args.account_id:
@@ -158,9 +143,9 @@ def main():
             account = args.account_id
         elif not account:
             raise ValueError("A bare page identity needs --account-id (the signed-in userId).")
-        pages = [json.loads(Path(path).read_text(encoding="utf-8")) for path in args.page]
-        metadata, records = merge(pages, page_id, account, args.question_time, args.incident_at)
-    except (ValueError, OSError, KeyError, StopIteration) as error:
+        snapshot = read_download(args.download, args.expected_size, args.expected_record_count)
+        metadata, records = prepare_download(snapshot, page_id, account, args.question_time, args.incident_at)
+    except (ValueError, OSError, KeyError, TypeError, AttributeError) as error:
         emit({"ok": False, "error": str(error)})
         return 2
     text = "\n".join(json.dumps(item, ensure_ascii=False) for item in [metadata, *records]) + "\n"

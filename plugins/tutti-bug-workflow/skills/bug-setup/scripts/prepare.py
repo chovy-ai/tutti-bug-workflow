@@ -289,7 +289,7 @@ def check_chrome():
                         "提 Bug 读页面日志还需：打开 `chrome://flags/#enable-webmcp-testing` 设为 Enabled，重启 Chrome；",
                         "在 Chrome 里登录 https://tutti.sh；",
                         "Agent 调用 chrome-devtools 的 `list_pages` 时，Chrome 会弹窗询问，点「允许」。"],
-                 verify="Agent 在 Codex 里调用 chrome-devtools list_pages 成功（提 Bug 场景再看到 get_web_logs 工具）")]
+                 verify="Agent 在 Codex 里调用 chrome-devtools list_pages 成功（提 Bug 场景再看到 download_web_logs 工具并核对下载文件）")]
 
 
 def check_computer_logs(cfg):
