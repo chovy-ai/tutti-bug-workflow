@@ -1,6 +1,6 @@
 # 代码缓存与检出
 
-Setup 保存仓库配置；修复工作区由 bug-execute 处理。根因分析由 Room Agent 在它所在的电脑上拉代码，见 bug-investigate 的分析指令。
+Setup 保存仓库配置；修复工作区由 bug-execute 处理。提 Bug 只登记现场，不需要检出代码；验收打回后的重新分析由 bug-reopen 交给 Room Agent 在它所在的电脑上拉代码。
 
 ## 布局
 

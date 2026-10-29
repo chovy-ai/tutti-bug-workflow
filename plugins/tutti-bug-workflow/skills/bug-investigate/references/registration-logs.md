@@ -16,7 +16,7 @@
 
 ## 日志文件与附件
 
-本会话自建且保留全部原附件的 Task，现场用 `task edit --file` 挂在描述上；复用已有 Task 时，所有本次现场（包括后到的文件）都用 `task comment --file` 追加，不改原标题、描述和附件。评论正文只写这次看到的 Bug 表现，记下回执 `commentId`，分析与复核指令用它定位附件。描述正文只写 Bug 表现（见 [Task 字段](report-fields.md)）。
+本会话自建且保留全部原附件的 Task，现场用 `task edit --file` 挂在描述上；复用已有 Task 时，所有本次现场（包括后到的文件）都用 `task comment --file` 追加，不改原标题、描述和附件。评论正文只写这次看到的 Bug 表现，记下回执 `commentId`，供 RD 定位附件。描述正文只写 Bug 表现（见 [Task 字段](report-fields.md)）。
 
 | 材料 | 上传什么 |
 |---|---|

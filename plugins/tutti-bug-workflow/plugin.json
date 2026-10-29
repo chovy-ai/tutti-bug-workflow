@@ -1,14 +1,14 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "tutti-bug-workflow",
-  "version": "0.6.0",
-  "description": "在 Codex 本地环境中完成 QA 提 Bug（带全现场日志，用全局 tutti-cli 在指定 Room 建 Task，交给 Room Agent 分析根因）、验收打回（带全这一轮现场评论到原 Task、改回待办并交给 Room Agent 重新分析）和修复与部署（按 Task 修复、提 PR、部署 PPE、自验证并回复到 Task）；只对接 Tutti 任务系统，附带环境准备。",
+  "version": "0.6.1",
+  "description": "在 Codex 本地环境中完成 QA 提 Bug（带全现场日志，用全局 tutti-cli 在指定 Room 建 Task 并回读确认，不自动触发 Agent）、验收打回（带全这一轮现场评论到原 Task、改回待办并交给 Room Agent 重新分析）和修复与部署（按 Task 修复、提 PR、部署 PPE、自验证并回复到 Task）；只对接 Tutti 任务系统，附带环境准备。",
   "extensions": {
     "com.openai": {
       "interface": {
         "displayName": "tutti-bug-workflow",
         "shortDescription": "QA 提 Bug、验收打回、修复与部署、环境准备",
-        "longDescription": "QA 提 Bug：每次调用都走完全程，采集当时的 Web 页面日志和 Computer 日志，把相关请求的 request id 记进排查线索，用全局 tutti-cli（账号登录版）以 QA 的账号在指定 Room 建 Task，截图、排查线索和日志作为附件上传；再用 task run 把组织好的分析指令交给该 Room 的 Agent（Codex 优先，用 gpt-6.1-sol 或 gpt-6-astra；其次 Claude Code 用 Opus 5.5；推理强度 high），由它拉代码分析根因、按模块设计出方案、画修复前后流程图并回复在 Task 里。Room 按 Room ID、房间名或用户名从本地房间里找。提 Bug 不拉 Server 日志，RD 排查时再按 request id 查。bug-reopen 验收打回：QA 发来已有 Task 的链接和截图、说这里还有问题时，用 task show 读原 Task，和提 Bug 一样采集这一轮的 Web 与 Computer 日志并记下 request id，用 task comment 在原 Task 下发一条打回评论（截图、排查线索和日志作为评论附件，不改原描述），用 task status 把 Task 改回待办，再默认用 task run 在这条评论的线程里交给该 Room 的 Agent 重新分析（先说清上一轮修复为什么没生效）。bug-execute 修复与部署：RD 指定一条 Bug Task 和认可的方案（通常是 Room Agent 的分析回复），从最新 main 切分支修复、提 PR，部署 PPE（server 泳道 → ws 泳道 → 前端预览 → Computer canary），按验收要点自验证，用 task comment 把原因、PR、体验链接和验证结果回复到 Task。bug-setup 按场景（QA 提 Bug／修复与部署）自动安装工具、补默认配置，一步步引导登录和授权并复查。只对接 Tutti 任务系统，不用飞书表，没有定时任务。",
+        "longDescription": "QA 提 Bug：每次调用都走完全程，采集当时的 Web 页面日志和 Computer 日志，把相关请求的 request id 记进排查线索，用全局 tutti-cli（账号登录版）以 QA 的账号在指定 Room 建 Task，截图、排查线索和日志作为附件上传，补全描述并回读确认后完成登记，后续由 RD 跟进，不自动触发 Agent 执行。Room 按 Room ID、房间名或用户名从本地房间里找。提 Bug 不拉 Server 日志，RD 排查时再按 request id 查。bug-reopen 验收打回：QA 发来已有 Task 的链接和截图、说这里还有问题时，用 task show 读原 Task，和提 Bug 一样采集这一轮的 Web 与 Computer 日志并记下 request id，用 task comment 在原 Task 下发一条打回评论（截图、排查线索和日志作为评论附件，不改原描述），用 task status 把 Task 改回待办，再默认用 task run 在这条评论的线程里交给该 Room 的 Agent 重新分析（先说清上一轮修复为什么没生效）。bug-execute 修复与部署：RD 指定一条 Bug Task 和认可的方案（通常是 Room Agent 的分析回复），从最新 main 切分支修复、提 PR，部署 PPE（server 泳道 → ws 泳道 → 前端预览 → Computer canary），按验收要点自验证，用 task comment 把原因、PR、体验链接和验证结果回复到 Task。bug-setup 按场景（QA 提 Bug／修复与部署）自动安装工具、补默认配置，一步步引导登录和授权并复查。只对接 Tutti 任务系统，不用飞书表，没有定时任务。",
         "category": "Productivity",
         "capabilities": [
           "Read",

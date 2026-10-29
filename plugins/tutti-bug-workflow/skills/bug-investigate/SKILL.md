@@ -1,11 +1,11 @@
 ---
 name: bug-investigate
-description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下这个问题」等都算；QA 发来已有 Task 的链接、说这个问题还在或要打回时不用本 Skill，用 bug-reopen；本会话里提过的 Bug 已经修过、QA 说它还有问题时也用 bug-reopen）：每次调用都走完全程——固定采集当时的现场日志（Web 页面日志、Computer 日志），记下相关请求的 request id 供 RD 之后查服务端日志，用全局安装的 `tutti-cli`（账号登录版）以 QA 的账号在指定 Room 建 Task，再用 `task edit` 把标题改成一句话简介、描述写清 Bug 表现，截图、排查线索文件和全部日志作为附件挂上，最后用 `task run` 把组织好的分析指令交给该 Room 的 Agent（Codex 优先，用 gpt-6.1-sol 或 gpt-6-astra；其次 Claude Code 用 Opus 5.5；推理强度都是 high）分析根因、出方案、画修复前后流程图并回复在 Task 里；自己不做根因分析，只有遇到自己无法解决的卡点才向用户提问。
+description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下这个问题」）：采集 Web 与 Computer 现场日志、记录 request id，用全局 tutti-cli 在指定 Room 建 Task，补全 Bug 表现并上传截图、排查线索和日志，回读确认后完成登记，不触发 Agent 执行。已有 Task 验收不通过、修过仍有问题或需要打回时用 bug-reopen。
 ---
 
 # QA 提 Bug
 
-你负责把一次上报变成指定 Room 里一个**上下文完整**的 Task，交给 RD 排查：建 Task、采集当时的全部现场、把现场作为附件挂到 Task、补全描述，再把根因分析交给 Room 里的 Agent。**自己不分析根因，不读代码**；时间花在把现场带全、把分析指令写清楚上。
+你负责把一次上报变成指定 Room 里一个**上下文完整**的 Task，供 RD 后续排查：建 Task、采集当时的全部现场、把现场作为附件挂到 Task、补全描述并回读确认。**本 Skill 只登记 Bug，不分析根因、不读代码、不触发 Room Agent 执行**，包括补充现场后的自动复核。
 
 **用全局安装的 `tutti-cli` 建 Task。** 它是 npm 包 `@tutti-os/tutti-cli`（Node.js 24+），以本机 `tutti-cli login` 登录的 Tutti 账号直接调用 Tutti 服务，不依赖 Computer 或 Room Agent，在 QA 本机的 Codex／Claude Code 里就能跑；创建者就是这个账号，权限按它在目标 Room 的成员身份判断。开始前运行 `tutti-cli --help` 和 `tutti-cli whoami --json`：
 
@@ -13,7 +13,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 - 确认可用的那个路径记为 `TUTTI_CLI`（如 `export TUTTI_CLI="$(npm prefix -g)/bin/tutti-cli"`），本 Skill 里所有 `tutti-cli` 命令都用它，`find_room.py` 也读这个环境变量（或传 `--cli "$TUTTI_CLI"`），不再依赖 PATH 里排在前面的那个。
 - `whoami` 报未登录或会话失效：按下面「登录过期」自动恢复。
 
-它有 `login`／`whoami`／`logout`、`room list`、`agent list`／`models` 和 `task create`／`edit`／`show`／`comment`／`run`：**没有查重列表、指派、改优先级**，每条 `task` 和 `agent` 命令都要显式带 `--room-id`。排查线索写成一个文本文件，和日志一起作为附件挂在描述上（见下）；跟进人请 QA 在任务看板指派。
+本 Skill 使用 `login`／`whoami`、`room list` 和 `task create`／`edit`／`show`／`comment`：**没有查重列表、指派、改优先级**，每条 `task` 命令都要显式带 `--room-id`。不选择 Agent 或查询模型，不调用 `task run`；追加现场的 `task comment` 不带 `--agent-target-id`，只保存普通评论。排查线索写成一个文本文件，和日志一起作为附件挂在描述上（见下）；跟进人请 QA 在任务看板指派。
 
 **先查房间，再定 Room。** 用 `scripts/find_room.py --query "<QA 给的线索>"` 在当前账号的房间列表（`tutti-cli room list --json`）里找要建单的 Room，线索可以是：
 
@@ -22,7 +22,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 结果 `matched` 就用 `room.id` 作为 `--room-id`，回复里写上房间名；`ambiguous` 把 `candidates`（名称、本地／云端）列给 QA 选；`not_found` 把 `local_rooms` 列给 QA 选。QA 什么都没给时，用 WebMCP 页面 URL（3.1 第 1 步）里的 Room ID 当线索；仍没有就先采集，在第 5 步连同本地房间列表一起问。只能建到当前账号能看到的 Room。
 
-**一旦调用就走完全程。** 「记个 bug」「帮我提个 bug」「登记一下」都执行第 1–5 步，没有「只登记」的模式。建 Task 只是第 2 步，不能回复「已登记」就结束。
+**登记包含完整现场。** 「记个 bug」「帮我提个 bug」「登记一下」都执行第 1–5 步。建 Task 只是第 2 步；补全描述、提交附件并回读确认后，完成收尾并交付 Task 链接。
 
 **连续执行，一次做完。**
 
@@ -38,7 +38,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 **描述只讲表现，线索放附件。** 标题是一句话 Bug 简介，描述只写问题、复现步骤、实际、期望等 Bug 表现，让没看过现场的人一看就懂；日志事实、各种 ID、版本这些排查线索写进附件 `排查线索.txt`。格式见 [Task 字段](references/report-fields.md)。
 
-**复用已有 Task 的现场始终追加评论。** 第 4、5 步及所有引用文档里的描述编辑规则只用于本会话自建且保留全部原附件的 Task；复用 Task 用 `task comment --file`，后到现场同样追加，分析与复核指令注明评论 `commentId`。
+**复用已有 Task 的现场始终追加评论。** 第 4、5 步及所有引用文档里的描述编辑规则只用于本会话自建且保留全部原附件的 Task；复用 Task 用 `task comment --file`，后到现场同样追加，记录评论 `commentId` 供 RD 定位附件。
 
 **现场附件直接挂在 Task 上。** `task edit` 的 `--file <路径>` 可重复，把本机文件上传为 Task 的私有附件，只有 Room 成员能下载，本地房间和云端房间都能用。附件嵌在描述里：带 `--file` 时必须同时给出新描述（`--description-file`），`task edit` 整段替换描述，**没有再次带上的文件会从 Task 上消失**。所以每次带附件的 `task edit` 都要带上全部文件（截图、`排查线索.txt`、全部日志），尽量等现场齐了只提交一次。限制和命名见 [现场材料与附件](references/registration-logs.md)。
 
@@ -50,7 +50,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 自动登录的同时在对话里说一句「Tutti 登录已过期，已在浏览器打开登录页，完成登录即可」，然后继续等待，不结束本轮。只有等了 10 分钟仍没完成，或者 tutti-ops Token 失效（需要在管理端重新创建，见 `$tutti-bug-workflow:bug-setup`），才写进最终回复，并写清用户要做的一步。
 
-**只说有证据的事实。** 对用户的每一句说明（包括解释某一步为什么失败、为什么没发出去）都要有命令输出、日志或代码作证，照原样转述返回的字段和报错；没证实的写成「待确认：……」，不把接口返回的状态当成真实情况来推断原因（例如目录返回 `requestable` 不等于「当时没共享」）。用户的说法和查到的结果对不上时，两边并列写出，以待确认处理，不替任何一方下结论。
+**只说有证据的事实。** 对用户的每一句说明（包括解释某一步为什么失败、附件为什么没上传）都要有命令输出或日志作证，照原样转述返回的字段和报错；没证实的写成「待确认：……」。用户的说法和查到的结果对不上时，两边并列写出，以待确认处理，不替任何一方下结论。
 
 **不脱敏。** 现场日志原样采集、原样上传。
 
@@ -71,7 +71,6 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 | 附件 | 自建 Task 最后一次 `task edit` 带上全部文件并回读 `uploadedFile`；复用 Task 的追加评论带上本次截图／视频、`排查线索.txt` 和全部日志，回执确认发布，原描述附件不变 |
 | 描述 | 只有问题、复现步骤、实际、期望、频率、发生时间、环境一行（和待 QA 确认），没有日志字段、ID、版本号 |
 | 排查线索 | `排查线索.txt` 记下日志核对、关联 ID、环境与版本、分类；回复里提到的每条发现都在描述或这个文件里 |
-| 根因分析 | 已按 [交给 Room Agent 分析](references/rd-analysis.md) 用 `task run` 发出分析指令，回执 `accepted` 且带 `invocationId`，记下 Agent、模型和 `invocationId`；重放后仍是 `pending` 的写明「Agent 尚未受理」；或写明为什么没发（没有可用的 Agent／模型、被拒） |
 | 会话上传 | 全部完成后已上传一次 |
 
 ## 1. 接收
@@ -92,7 +91,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 ## 2. 建 Task
 
-1. **确定 Room 和是否复用**：按开头「先查房间」的规则用 `find_room.py` 取 `roomId`。QA 给的是已有 Task 链接（带 `task=<taskId>`），说这个问题修过了还在、要打回或验收没过时，不在这里复用：交给 `$tutti-bug-workflow:bug-reopen`，它把这一轮现场评论到原 Task 并改回待办，不重写描述（重写会丢掉第一轮的附件）。QA 给了已有 Task 链接、说是还没修过的同一个问题（只是补充现场）时，`tutti-cli task show --room-id <roomId> --task-id <taskId> --json` 确认后复用它，**不改它的描述**：它的描述和附件是别人（或别的会话）挂的，本机没有原文件，`task edit` 整段替换会把它们丢掉。这一次的现场改用 `task comment --file` 追加成一条评论（正文写这次看到的表现，格式同描述，附件同第 4 步），标题、描述保持不变；第 4 步以及第 5 步所有后到现场的 `task edit` 都换成追加评论，记录每次回执的 `commentId`，复核指令指向对应评论的附件。只有本会话自己建的 Task（本机有它的全部文件）才用 `task edit` 整段更新。CLI 不能列出 Task，不做自动查重。还拿不到 `roomId`（没线索、多个候选或没找到）时跳过本步，先做第 3 步，Web 日志给出页面 URL 后再查一次。
+1. **确定 Room 和是否复用**：按开头「先查房间」的规则用 `find_room.py` 取 `roomId`。QA 给的是已有 Task 链接（带 `task=<taskId>`），说这个问题修过了还在、要打回或验收没过时，不在这里复用：交给 `$tutti-bug-workflow:bug-reopen`，它把这一轮现场评论到原 Task 并改回待办，不重写描述（重写会丢掉第一轮的附件）。QA 给了已有 Task 链接、说是还没修过的同一个问题（只是补充现场）时，`tutti-cli task show --room-id <roomId> --task-id <taskId> --json` 确认后复用它，**不改它的描述**：它的描述和附件是别人（或别的会话）挂的，本机没有原文件，`task edit` 整段替换会把它们丢掉。这一次的现场改用 `task comment --file` 追加成一条评论（正文写这次看到的表现，格式同描述，附件同第 4 步），标题、描述保持不变；第 4 步以及第 5 步所有后到现场的 `task edit` 都换成追加评论，记录每次回执的 `commentId` 供 RD 定位现场附件。只有本会话自己建的 Task（本机有它的全部文件）才用 `task edit` 整段更新。CLI 不能列出 Task，不做自动查重。还拿不到 `roomId`（没线索、多个候选或没找到）时跳过本步，先做第 3 步，Web 日志给出页面 URL 后再查一次。
 2. **建单**：按 QA 的描述先起一个标题（规则见 [Task 字段](references/report-fields.md#标题)），描述先写 QA 原话、发生时间和「现场采集中」：
    ```sh
    tutti-cli task create --room-id <roomId> --operation-id <operation_id> --title "<标题>" \
@@ -151,11 +150,11 @@ python3 scripts/web_requests.py --web-logs <web-logs.log 或诊断包 zip> --inc
 
 上传失败时 Task 不会被修改：按报错修正（文件名重复、空文件、超过 500 MiB、HTML／SVG 等）后重跑；修不了的文件去掉，在排查线索里写一句缺什么，继续。
 
-4. **交给 Room Agent 分析根因。** Task 回读无误后，按 [交给 Room Agent 分析](references/rd-analysis.md) 选该 Room 的 Agent 和模型（Codex 优先，用 `gpt-6.1-sol`，其次 `gpt-6-astra`；没有再用 Claude Code 的 Opus 5.5；推理强度都用 `high`），用模板把 Bug 表现和关键现场线索组织成 `$REPORT/rd-analysis.txt`，`tutti-cli task run` 发出。指令要求 Agent 拉代码分析根因、先弄清模块整体设计再出方案、画修复前后的工作流程图，结果回复在 Task 的评论线程里。**确保发送成功，然后就不管了**：回执是 `accepted` 且带 `invocationId` 才算成功；`pending` 用同一个操作 ID 重放、`rejected` 换下一个 Agent／模型，细则见引用文档。成功后直接继续第 5 步，不等 Agent 执行、不轮询它的回复、不转述分析结果。现场有缺项（召回在等设备、QA 还没给诊断包）时也照常发，缺什么写进指令的现场线索。
+4. Task 回读无误后进入第 5 步。现场有缺项（召回在等设备、QA 还没给诊断包）时，在排查线索和最终回复中写明缺什么。
 
 ## 5. 收尾
 
-1. 第 4 步提交时还有现场没到（召回在等设备确认、QA 还没给 Web 诊断包）：到齐后补进 `排查线索.txt`，按 Task 来源提交：本会话自建且本机保留全部附件的 Task，再 `task edit` 一次，**带上全部文件**（之前挂过的也要再带，否则会从 Task 上消失）；复用已有 Task 时，继续用 `task comment --file` 追加现场，记下回执 `commentId`，不改标题、描述及原附件。如果第 4 步的分析指令发出时缺的正是这份现场（指令里写了缺什么），补齐后用 `task run --reply-to <分析指令的 commentId>` 交给同一个 Agent 和模型复核一次（见 [补齐现场后复核](references/rd-analysis.md#补齐现场后复核)）；不影响分析的小补充不发。
+1. 第 4 步提交时还有现场没到（召回在等设备确认、QA 还没给 Web 诊断包）：到齐后补进 `排查线索.txt`，按 Task 来源提交并回读确认：本会话自建且本机保留全部附件的 Task，再 `task edit` 一次，**带上全部文件**（之前挂过的也要再带，否则会从 Task 上消失）；复用已有 Task 时，继续用 `task comment --file` 追加现场，记下回执 `commentId`，不改标题、描述及原附件。
 2. 需要用户提供的东西一次列出，每项说明怎么获取：
 
    | 缺什么 | 怎么请用户提供 |
@@ -169,4 +168,4 @@ python3 scripts/web_requests.py --web-logs <web-logs.log 或诊断包 zip> --inc
 
    登录过期按上面的规则当场自动恢复，不列在这里；真正的工具缺失、权限不足才写进回复交给维护方。用户补充后在同一会话里继续：更新 `description.txt`／`排查线索.txt`；本会话自建且保留全部附件时带上全部文件 `task edit` 一次，复用已有 Task 时用 `task comment --file` 追加并记下 `commentId`；不再建第二个 Task。补充前先 `task show` 看状态：已经是 `in_review` 或 `done`（修过了），或 QA 说修过了还有问题、要打回、加评论打回时，不再改描述，交给 `$tutti-bug-workflow:bug-reopen`，Task 用本会话里的这一条，不用 QA 再发链接。
 3. 按开头的自查表逐项确认；全部完成后按 [会话上传](references/session-upload.md) 上传本次会话一次。
-4. 最终回复：房间名、Task 标题与链接（`https://tutti.sh/platform/room/<roomId>?surface=task-board&task=<taskId>`）、建单账号、优先级、请 QA 指派跟进人、环境、已挂上的截图和日志、根因分析交给了哪个 Agent 和模型（结果会回复在 Task 评论里）、缺失项及需要用户提供的内容。
+4. 最终回复：房间名、Task 标题与链接（`https://tutti.sh/platform/room/<roomId>?surface=task-board&task=<taskId>`）、建单账号、优先级、请 QA 指派跟进人、环境、已挂上的截图和日志、缺失项及需要用户提供的内容。说明已完成登记，后续由 RD 跟进。
