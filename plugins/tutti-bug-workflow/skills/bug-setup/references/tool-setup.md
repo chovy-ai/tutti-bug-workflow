@@ -25,7 +25,7 @@
 | `session-upload` | tutti-ops Session JSONL 上传 | `setup-tutti-ops --install` 先复用；按 [session 能力检查](session-upload.md#1-核对-cli目标与权限) 核对命令，旧版缺能力时升级官方包；当前宿主提供会话定位/导出 | 管理端认证、diagnostics write、`session_logs.write`；核对当前 provider/session 身份，实际确认 uploaded 才表示上传完成 |
 | `project-checks` | 项目实际运行时、依赖与测试工具 | 读取对应 checkout 的 AGENTS.md、开发说明、锁文件和检查命令后准备 | 相关测试/类型检查/lint 实际通过；环境阻塞与测试失败分开记录 |
 | `browser-validation` | Playwright、浏览器 MCP 或宿主浏览器工具 | 选一个实际入口，准备浏览器、环境 URL、证据输出和版本读取方法 | 登录态、测试数据及所需交互权限；执行验收用例并保存证据 |
-| `web-logs` | 插件注册的 chrome-devtools MCP 连接本机 Chrome WebMCP；兜底为 QA 导出的诊断包 | Node/npx；Chrome 开启 WebMCP flag 与远程调试 | 实际调用 `get_web_logs` 成功；不可用时诊断包覆盖故障时间 |
+| `web-logs` | 插件注册的 chrome-devtools MCP 连接本机 Chrome WebMCP；兜底为 QA 导出的诊断包 | Node/npx；Chrome 开启 WebMCP flag 与远程调试 | 实际调用 `download_web_logs` 并验证文件已完整落盘；不可用时诊断包覆盖故障时间 |
 | `computer-directory` | 页面目录；或 tutti-ops 管理目录 | 页面 `list_my_computers`/`list_rooms`/`list_room_agents`；选管理 CLI 时同时启用 `remote-computer` 的 CLI 准备 | 正确账号/环境的目录可见范围；本机身份另用状态命令或可信绑定证据 |
 | `local-computer` | 明确路径的本地日志读取 | 复用文件工具；实际状态目录、临时目录与日志路径 | 本机身份匹配与文件读取权限；实际覆盖时间/轮转情况 |
 | `remote-computer` | 默认 tutti-ops；实际远端 MCP 可替代 | `setup-tutti-ops --install`，缺少时执行 `npm install -g @tutti-os/tutti-ops-cli`；Node >=20/npm/全局目录写权限 | 默认 `https://admin.tutti.sh`、[管理端 Token 获取与本机配置](tutti-ops-computer-logs.md#环境与认证)、目录/召回/下载权限；下载后校验、解包并读取 |

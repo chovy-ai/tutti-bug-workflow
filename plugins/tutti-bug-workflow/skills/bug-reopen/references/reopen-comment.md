@@ -90,7 +90,7 @@ Web：<页面版本>
 |---|---|
 | QA 这一轮的截图、视频 | 原文件，先复制到 `$REPORT` |
 | 排查线索 | `排查线索.txt` |
-| Web 日志 | `merge_web_logs.py` 合并的 `web-logs.log`；或 QA 导出的 `tutti-web-diagnostics-*.zip` |
+| Web 日志 | `merge_web_logs.py --download` 从下载文件校验、整理出的 `web-logs.log`；或 QA 导出的 `tutti-web-diagnostics-*.zip` |
 | Computer | 召回包原件（`*.tar.gz`），不拆包 |
 
 - **限制**和 Task 附件相同：非空的普通文件，不能是目录或符号链接；同一次调用里文件名不能重复（同名的先复制改名）；一次合计不超过 500 MiB、最多 256 个；不接受 HTML、XHTML、SVG 等会在浏览器里执行的内容，需要时先打成 zip。超过 500 MiB 时优先去掉最大的召回包，在排查线索里写明本地路径。

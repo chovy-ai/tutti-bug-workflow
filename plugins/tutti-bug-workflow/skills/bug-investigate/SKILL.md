@@ -107,7 +107,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 详见 [Web 日志](references/web-logs.md)。页面开在本机 Chrome 时，用 `chrome-devtools` MCP：
 
 1. `list_pages` + `list_webmcp_tools` 按链接里的页面与 Account 匹配页面；QA 没给链接时，按房间找本机 Chrome 里开着的这个 Room 的页面（规则见 [Web 日志](references/web-logs.md)）。记下页面 URL（「页面链接」）。
-2. 用 `scripts/merge_web_logs.py --question-time <question_time> --incident-at <incident_at> --until-ms` 算出读日志的截止时间（故障发生后 5 分钟，不晚于上报时间），`execute_webmcp_tool` 分页读 `get_web_logs`，每页存一个文件，再用 `scripts/merge_web_logs.py` 合并成 `$REPORT/web/web-logs.log`。
+2. 用 `scripts/merge_web_logs.py --question-time <question_time> --incident-at <incident_at> --until-ms` 固定读取窗口，`execute_webmcp_tool` 调 `download_web_logs` 触发一次文件下载；确认本地文件完整后，用 `scripts/merge_web_logs.py --download <路径>` 校验并整理成 `$REPORT/web/web-logs.log`。工具只接收元数据，正文从本地文件按需读取（详见 [Web 日志](references/web-logs.md)）。
 3. `execute_webmcp_tool` 调 `list_my_computers`（房间相关时加 `list_room_agents`），用于定位 Computer。
 
 不刷新、不跳转页面。WebMCP 不可用、用户在另一台机器上或页面已刷新时，用 QA 导出的诊断包；两者都没有时记为 `pending`，第 5 步请用户导出。
