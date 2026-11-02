@@ -1,12 +1,12 @@
 # 交给 Room Agent 重新分析
 
-打回默认重新分析：打回评论发出、Task 改回待办以后（第 4、5 步成功），用 `tutti-cli task run --reply-to <打回评论的 commentId>` 把一段分析指令发在**打回评论的线程里**，交给目标 Room 里的 Agent（Codex 优先，其次 Claude Code）：结合这一轮现场，说清上一轮修复为什么没生效，重新分析根因、出方案、画流程图，结果回复在同一个线程里。本 Skill 只负责把指令组织好并发出去，不等分析完成，也不自己分析。
+打回默认重新分析：打回评论发出、Task 改回待办以后（第 4、5 步成功），用 `tuttictl task run --reply-to <打回评论的 commentId>` 把一段分析指令发在**打回评论的线程里**，交给目标 Room 里的 Agent（Codex 优先，其次 Claude Code）：结合这一轮现场，说清上一轮修复为什么没生效，重新分析根因、出方案、画流程图，结果回复在同一个线程里。本 Skill 只负责把指令组织好并发出去，不等分析完成，也不自己分析。
 
 QA 明确说「不用分析」「只打回」时不发，最终回复里写明。
 
 ## 选 Agent 和模型
 
-先 Codex，其次 Claude Code。`tutti-cli agent list --room-id <roomId> --json` 里去掉 `referenceOnly` 为 `true`（历史引用）和 `availability.status` 为 `unavailable` 的，其余都是候选，按下面的顺序逐个试，第一个找得到合适模型、`task run` 被受理的就用它：
+先 Codex，其次 Claude Code。`tuttictl agent list --room-id <roomId> --json` 里去掉 `referenceOnly` 为 `true`（历史引用）和 `availability.status` 为 `unavailable` 的，其余都是候选，按下面的顺序逐个试，第一个找得到合适模型、`task run` 被受理的就用它：
 
 | 顺序 | Agent | 模型（`--model`） | `--reasoning-effort` |
 |---|---|---|---|
@@ -14,8 +14,8 @@ QA 明确说「不用分析」「只打回」时不发，最终回复里写明�
 | 2 | `providerId` 为 `claude-code` | Opus 5.5 | `high` |
 
 - 能不能执行由服务端判断，目录里的 `ownership` 和 `availability` 只用来排先后，不用来排除：`ownership` 为 `self`（自己的）和 `shared`（已共享给你的）在前，`availability.status` 为 `available` 在 `checking` 前；`requestable`（目录说要先授权，`reason` 常见 `sharing_required`）排在同类最后，前面的都不行时照样试，被拒再换下一个。目录结果可能和实际共享状态不一致，不要因此跳过，也不要据此推断「当时没共享」之类的结论。
-- 同一类 Agent 有多个时，在上面的先后之内：`computerId` 等于该 Room 的 `nativeComputerId`（`tutti-cli room list --all --json` 里这个 Room 的 `nativeComputerId`）且 `executionEnvironment` 为 `native` 的优先（在房主本机运行，能用本机的 git 登录拉私有仓库），其次同一台 Computer 的 `managed_vm`，再其次其他 Computer。所有 Codex 都试过、都没有合适模型，才轮到 Claude Code。
-- 每个候选先运行 `tutti-cli agent models --room-id <roomId> --agent-target-id <id> --json`，在 `models[]` 里找模型，`--model` 传 `value` 原值（可能带连接前缀）：
+- 同一类 Agent 有多个时，在上面的先后之内：`computerId` 等于该 Room 的 `nativeComputerId`（`tuttictl room list --all --json` 里这个 Room 的 `nativeComputerId`）且 `executionEnvironment` 为 `native` 的优先（在房主本机运行，能用本机的 git 登录拉私有仓库），其次同一台 Computer 的 `managed_vm`，再其次其他 Computer。所有 Codex 都试过、都没有合适模型，才轮到 Claude Code。
+- 每个候选先运行 `tuttictl agent models --room-id <roomId> --agent-target-id <id> --json`，在 `models[]` 里找模型，`--model` 传 `value` 原值（可能带连接前缀）：
   - Codex：`value` 等于或以 `gpt-6.1-sol`／`gpt-6-astra` 结尾；
   - Claude Code：`label` 或 `description` 写明 Opus 5.5，或 `value` 含 `opus-5-5`。`opus`、`opus[1m]` 这类别名只有 `label` 写的是 Opus 5.5 才算，写的是其他版本（如 Opus 4.7）不算。
 - 选中的模型要支持 `high`：看 `reasoningOptionsByModel.<value>.options`，没有这一项时看 `reasoningEfforts`。
@@ -28,7 +28,7 @@ QA 明确说「不用分析」「只打回」时不发，最终回复里写明�
 按下面的模板写 `$REPORT/rd-reanalysis.txt`，再发：
 
 ```sh
-tutti-cli task run --room-id <roomId> --task-id <taskId> --agent-target-id <agentTargetId> \
+tuttictl task run --room-id <roomId> --task-id <taskId> --agent-target-id <agentTargetId> \
   --reply-to <打回评论的 commentId> --model <model> --reasoning-effort high \
   --instruction-file <$REPORT>/rd-reanalysis.txt --operation-id <新 UUID> --json
 ```

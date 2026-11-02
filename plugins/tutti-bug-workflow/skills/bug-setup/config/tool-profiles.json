@@ -25,19 +25,19 @@
     },
     {
       "id": "tutti-task",
-      "label": "用全局 tutti-cli（账号登录版）读写 Room 里的 Task：提 Bug 建 Task、挂附件，修复后回复结果",
+      "label": "用全局 tuttictl（账号登录版）读写 Room 里的 Task：提 Bug 建 Task、挂附件，修复后回复结果",
       "required_in": [
         "investigate",
         "execute"
       ],
       "conditional_in": [],
       "commands": [
-        "tutti-cli"
+        "tuttictl"
       ],
       "configuration": "host",
       "requirements": [
-        "全局安装 npm 包 @tutti-os/tutti-cli（Node.js 24+），`tutti-cli --help` 列出 login 与 task create／edit／show",
-        "`tutti-cli login` 已登录，`tutti-cli whoami --json` 返回 QA 的账号",
+        "全局安装 npm 包 @tutti-os/tutti-cli（Node.js 24+），`tuttictl --help` 列出 login 与 task create／edit／show",
+        "`tuttictl login` 已登录，`tuttictl whoami --json` 返回 QA 的账号",
         "该账号是目标 Room 的成员；Room ID 取自 Room 链接，每条 task 命令带 --room-id",
         "提 Bug 只登记 Task 和现场附件，回读确认后结束；CLI 不能指派、改优先级，跟进人在任务看板指派；验收打回时由 bug-reopen 使用 `agent list`／`agent models`／`task run` 交给 Room Agent 重新分析"
       ],

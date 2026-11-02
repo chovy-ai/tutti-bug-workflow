@@ -1,21 +1,21 @@
 ---
 name: bug-investigate
-description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下这个问题」）：采集 Web 与 Computer 现场日志、记录 request id，用全局 tutti-cli 在指定 Room 建 Task，补全 Bug 表现并上传截图、排查线索和日志，回读确认后完成登记，不触发 Agent 执行。已有 Task 验收不通过、修过仍有问题或需要打回时用 bug-reopen。
+description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下这个问题」）：采集 Web 与 Computer 现场日志、记录 request id，用全局 tuttictl 在指定 Room 建 Task，补全 Bug 表现并上传截图、排查线索和日志，回读确认后完成登记，不触发 Agent 执行。已有 Task 验收不通过、修过仍有问题或需要打回时用 bug-reopen。
 ---
 
 # QA 提 Bug
 
 你负责把一次上报变成指定 Room 里一个**上下文完整**的 Task，供 RD 后续排查：建 Task、采集当时的全部现场、把现场作为附件挂到 Task、补全描述并回读确认。**本 Skill 只登记 Bug，不分析根因、不读代码、不触发 Room Agent 执行**，包括补充现场后的自动复核。
 
-**用全局安装的 `tutti-cli` 建 Task。** 它是 npm 包 `@tutti-os/tutti-cli`（Node.js 24+），以本机 `tutti-cli login` 登录的 Tutti 账号直接调用 Tutti 服务，不依赖 Computer 或 Room Agent，在 QA 本机的 Codex／Claude Code 里就能跑；创建者就是这个账号，权限按它在目标 Room 的成员身份判断。开始前运行 `tutti-cli --help` 和 `tutti-cli whoami --json`：
+**用全局安装的 `tuttictl` 建 Task。** 它是 npm 包 `@tutti-os/tutti-cli`（Node.js 24+），以本机 `tuttictl login` 登录的 Tutti 账号直接调用 Tutti 服务，不依赖 Computer 或 Room Agent，在 QA 本机的 Codex／Claude Code 里就能跑；创建者就是这个账号，权限按它在目标 Room 的成员身份判断。开始前运行 `tuttictl --help` 和 `tuttictl whoami --json`：
 
-- `--help` 里没有 `login`：没装，或 PATH 里先找到的是 Computer 自带的 Agent 版 `tutti-cli`。改用 `"$(npm prefix -g)/bin/tutti-cli"`；仍没有就按 `$tutti-bug-workflow:bug-setup` 安装，不改用别的建单方式。
-- 确认可用的那个路径记为 `TUTTI_CLI`（如 `export TUTTI_CLI="$(npm prefix -g)/bin/tutti-cli"`），本 Skill 里所有 `tutti-cli` 命令都用它，`find_room.py` 也读这个环境变量（或传 `--cli "$TUTTI_CLI"`），不再依赖 PATH 里排在前面的那个。
+- 找不到 `tuttictl` 或 `--help` 里没有 `login`：按 `$tutti-bug-workflow:bug-setup` 安装或升级 npm 包。Computer 自带的 Agent 版仍叫 `tutti-cli`，不能替代账号登录版。
+- 确认可用的那个路径记为 `TUTTI_CLI`（如 `export TUTTI_CLI="$(npm prefix -g)/bin/tuttictl"`），本 Skill 里所有 `tuttictl` 命令都用它，`find_room.py` 也读这个环境变量（或传 `--cli "$TUTTI_CLI"`），已有 `TUTTI_CLI` 指向旧命令路径时更新为 `tuttictl`，并重新核对 `--help` 和 `whoami`。
 - `whoami` 报未登录或会话失效：按下面「登录过期」自动恢复。
 
 本 Skill 使用 `login`／`whoami`、`room list` 和 `task create`／`edit`／`show`／`comment`：**没有查重列表、指派、改优先级**，每条 `task` 命令都要显式带 `--room-id`。不选择 Agent 或查询模型，不调用 `task run`；追加现场的 `task comment` 不带 `--agent-target-id`，只保存普通评论。排查线索写成一个文本文件，和日志一起作为附件挂在描述上（见下）；跟进人请 QA 在任务看板指派。
 
-**先查房间，再定 Room。** 用 `scripts/find_room.py --query "<QA 给的线索>"` 在当前账号的房间列表（`tutti-cli room list --json`）里找要建单的 Room，线索可以是：
+**先查房间，再定 Room。** 用 `scripts/find_room.py --query "<QA 给的线索>"` 在当前账号的房间列表（`tuttictl room list --json`）里找要建单的 Room，线索可以是：
 
 - **Room ID**，或带 `/room/<roomId>` 的 Room／Task 链接：必须在列表里，否则当作没找到；
 - **房间名或用户名**（房间一般以主人命名，如「Tutti-Chovy 1012」「TIBO 本地房间」）：不区分大小写，先在**本地房间**里找，本地没有匹配才找云端房间；名称完全相同优先于部分包含。
@@ -34,7 +34,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 **不查服务端日志。** Web 和 Computer 日志里的请求都带网关的 request id（`x-zk-request-id`），提 Bug 时只把相关请求和它们的 request id 记进排查线索，RD 排查时再按 id 去查 tutti-server 日志；本 Skill 不用 AWS、不拉 Server 日志。
 
-**先建 Task，再补全。** 第 2 步按 QA 的描述先建好 Task，本会话自建且保留全部原附件时，采集完用 `tutti-cli task edit` 改标题、写全描述并挂上附件。**优先级只能在创建时设置**，CLI 不能修改，建单时就要定好。所有写操作都带 `--operation-id`，结果不确定时用同一个 ID 和相同输入重试；CLI 不会自动重试。带 `--file` 的写入例外：每次上传都会生成新的附件，结果不确定时先 `task show` 核对，确实没生效再换一个新的操作 ID 重跑，不用同一个 ID 配不同的附件。
+**先建 Task，再补全。** 第 2 步按 QA 的描述先建好 Task，本会话自建且保留全部原附件时，采集完用 `tuttictl task edit` 改标题、写全描述并挂上附件。**优先级只能在创建时设置**，CLI 不能修改，建单时就要定好。所有写操作都带 `--operation-id`，结果不确定时用同一个 ID 和相同输入重试；CLI 不会自动重试。带 `--file` 的写入例外：每次上传都会生成新的附件，结果不确定时先 `task show` 核对，确实没生效再换一个新的操作 ID 重跑，不用同一个 ID 配不同的附件。
 
 **描述只讲表现，线索放附件。** 标题是一句话 Bug 简介，描述只写问题、复现步骤、实际、期望等 Bug 表现，让没看过现场的人一看就懂；日志事实、各种 ID、版本这些排查线索写进附件 `排查线索.txt`。格式见 [Task 字段](references/report-fields.md)。
 
@@ -46,7 +46,7 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 | 入口 | 怎么自动恢复 |
 |---|---|
-| Tutti 账号（建 Task） | `whoami` 或 `task` 命令报 `No readable CLI session`、401、`run tutti-cli login` 时，后台运行 `tutti-cli login`：浏览器打开 Tutti 登录页，用户用自己的账号登录即可（最长等 5 分钟）。完成后 `whoami --json` 确认账号，再重跑刚才的命令；写操作仍按上面的规则判断能不能用同一个操作 ID |
+| Tutti 账号（建 Task） | `whoami` 或 `task` 命令报 `No readable CLI session`、401、`run tuttictl login` 时，后台运行 `tuttictl login`：浏览器打开 Tutti 登录页，用户用自己的账号登录即可（最长等 5 分钟）。完成后 `whoami --json` 确认账号，再重跑刚才的命令；写操作仍按上面的规则判断能不能用同一个操作 ID |
 
 自动登录的同时在对话里说一句「Tutti 登录已过期，已在浏览器打开登录页，完成登录即可」，然后继续等待，不结束本轮。只有等了 10 分钟仍没完成，或者 tutti-ops Token 失效（需要在管理端重新创建，见 `$tutti-bug-workflow:bug-setup`），才写进最终回复，并写清用户要做的一步。
 
@@ -91,10 +91,10 @@ description: QA 提 Bug（「记个 bug」「帮我提个 bug」「登记一下�
 
 ## 2. 建 Task
 
-1. **确定 Room 和是否复用**：按开头「先查房间」的规则用 `find_room.py` 取 `roomId`。QA 给的是已有 Task 链接（带 `task=<taskId>`），说这个问题修过了还在、要打回或验收没过时，不在这里复用：交给 `$tutti-bug-workflow:bug-reopen`，它把这一轮现场评论到原 Task 并改回待办，不重写描述（重写会丢掉第一轮的附件）。QA 给了已有 Task 链接、说是还没修过的同一个问题（只是补充现场）时，`tutti-cli task show --room-id <roomId> --task-id <taskId> --json` 确认后复用它，**不改它的描述**：它的描述和附件是别人（或别的会话）挂的，本机没有原文件，`task edit` 整段替换会把它们丢掉。这一次的现场改用 `task comment --file` 追加成一条评论（正文写这次看到的表现，格式同描述，附件同第 4 步），标题、描述保持不变；第 4 步以及第 5 步所有后到现场的 `task edit` 都换成追加评论，记录每次回执的 `commentId` 供 RD 定位现场附件。只有本会话自己建的 Task（本机有它的全部文件）才用 `task edit` 整段更新。CLI 不能列出 Task，不做自动查重。还拿不到 `roomId`（没线索、多个候选或没找到）时跳过本步，先做第 3 步，Web 日志给出页面 URL 后再查一次。
+1. **确定 Room 和是否复用**：按开头「先查房间」的规则用 `find_room.py` 取 `roomId`。QA 给的是已有 Task 链接（带 `task=<taskId>`），说这个问题修过了还在、要打回或验收没过时，不在这里复用：交给 `$tutti-bug-workflow:bug-reopen`，它把这一轮现场评论到原 Task 并改回待办，不重写描述（重写会丢掉第一轮的附件）。QA 给了已有 Task 链接、说是还没修过的同一个问题（只是补充现场）时，`tuttictl task show --room-id <roomId> --task-id <taskId> --json` 确认后复用它，**不改它的描述**：它的描述和附件是别人（或别的会话）挂的，本机没有原文件，`task edit` 整段替换会把它们丢掉。这一次的现场改用 `task comment --file` 追加成一条评论（正文写这次看到的表现，格式同描述，附件同第 4 步），标题、描述保持不变；第 4 步以及第 5 步所有后到现场的 `task edit` 都换成追加评论，记录每次回执的 `commentId` 供 RD 定位现场附件。只有本会话自己建的 Task（本机有它的全部文件）才用 `task edit` 整段更新。CLI 不能列出 Task，不做自动查重。还拿不到 `roomId`（没线索、多个候选或没找到）时跳过本步，先做第 3 步，Web 日志给出页面 URL 后再查一次。
 2. **建单**：按 QA 的描述先起一个标题（规则见 [Task 字段](references/report-fields.md#标题)），描述先写 QA 原话、发生时间和「现场采集中」：
    ```sh
-   tutti-cli task create --room-id <roomId> --operation-id <operation_id> --title "<标题>" \
+   tuttictl task create --room-id <roomId> --operation-id <operation_id> --title "<标题>" \
      --description "<QA 原话、发生时间；现场采集中>" --priority <urgent|high|medium|low|none> --json
    ```
    回执 `task.taskId` 应等于 `operation_id`、`task.roomId` 等于 `roomId`。超时等结果不确定时用同一个 `--operation-id` 和相同参数重试；参数校验错误先修正再重试。报无权限时，核对 `whoami` 的账号是否是该 Room 成员，记为卡点问 QA。
@@ -137,14 +137,14 @@ python3 scripts/web_requests.py --web-logs <web-logs.log 或诊断包 zip> --inc
 
 1. 按 [现场材料与附件](references/registration-logs.md) 整理文件：QA 的截图／视频复制到 `$REPORT`，日志留在各自目录。
 2. 按 [Task 字段](references/report-fields.md) 把描述写到 `$REPORT/description.txt`、排查线索写到 `$REPORT/排查线索.txt`，标题按规则改成一句话简介。
-3. 等 Computer 召回结束（读 `$REPORT/computer.json`；召回在等用户确认设备时不等）。复用已有 Task 时，用 `tutti-cli task comment --room-id <roomId> --task-id <taskId> --content-file <$REPORT>/description.txt --file <本次文件> --operation-id <新 UUID> --json`（`--file` 可重复，重试规则见 [现场材料与附件](references/registration-logs.md)） 追加，记下 `status: posted` 和 `commentId`，不执行下面的 `task edit`；以下编辑命令只用于本会话自建且保留全部原附件的 Task，描述、线索和全部文件在**一次** `task edit` 里提交：
+3. 等 Computer 召回结束（读 `$REPORT/computer.json`；召回在等用户确认设备时不等）。复用已有 Task 时，用 `tuttictl task comment --room-id <roomId> --task-id <taskId> --content-file <$REPORT>/description.txt --file <本次文件> --operation-id <新 UUID> --json`（`--file` 可重复，重试规则见 [现场材料与附件](references/registration-logs.md)） 追加，记下 `status: posted` 和 `commentId`，不执行下面的 `task edit`；以下编辑命令只用于本会话自建且保留全部原附件的 Task，描述、线索和全部文件在**一次** `task edit` 里提交：
    ```sh
-   tutti-cli task edit --room-id <roomId> --task-id <taskId> --title "<标题>" \
+   tuttictl task edit --room-id <roomId> --task-id <taskId> --title "<标题>" \
      --description-file <$REPORT>/description.txt \
      --file <$REPORT>/screenshot-1.png --file <$REPORT>/排查线索.txt \
      --file <$REPORT>/web/web-logs.log \
      --file <$REPORT>/computer/<召回包>.tar.gz --operation-id <新 UUID> --json
-   tutti-cli task show --room-id <roomId> --task-id <taskId> --json   # 回读标题、描述和附件
+   tuttictl task show --room-id <roomId> --task-id <taskId> --json   # 回读标题、描述和附件
    ```
    召回包里 `desktopd.log` 故障时间附近失败的出站请求（`desktop.outbound_network.api_request`）的 `request_id` 也写进排查线索（见 [Computer 日志里的 request id](references/computer-logs.md#日志里的-request-id)）。
 

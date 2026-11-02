@@ -2,7 +2,7 @@
 """Scene-based setup: check everything a scene needs, fix what can be fixed unattended.
 
 Scenes: `investigate` (QA 提 Bug) and `execute` (修复一条 Bug Task 并部署 PPE), or `all`.
-Both work only with the Tutti task system through tutti-cli. Each item comes back with one status:
+Both work only with the Tutti task system through tuttictl. Each item comes back with one status:
 
 - `ok`: ready and verified (installed, logged in, resource reachable).
 - `fix`: missing but `prepare.py fix` can do it unattended (fill config defaults, npm or
@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import workbench as wb  # noqa: E402
 
 SCENES = {"investigate": "QA 提 Bug", "execute": "修复与部署"}
-NPM_PACKAGES = {"tutti-ops": "@tutti-os/tutti-ops-cli", "tutti-cli": "@tutti-os/tutti-cli"}
+NPM_PACKAGES = {"tutti-ops": "@tutti-os/tutti-ops-cli", "tuttictl": "@tutti-os/tutti-cli"}
 SCRIPT = Path(__file__).resolve()
 
 
@@ -129,7 +129,7 @@ def check_node():
     if ready:
         return item("node", "Node.js 20+ 与 npm", "ok", version)
     return item("node", "Node.js 20+ 与 npm", "user", f"当前：{version or '未安装'}",
-                guide=["Node.js 用来安装 tutti-cli、tutti-ops，并运行 chrome-devtools MCP。",
+                guide=["Node.js 用来安装 tuttictl、tutti-ops，并运行 chrome-devtools MCP。",
                        "macOS 推荐：在终端运行 `brew install node`（没有 Homebrew 先看 https://brew.sh）；"
                        "或用 nvm：`nvm install 22 && nvm use 22`。",
                        "装好后重新打开终端，回复「已完成」。"],
@@ -153,23 +153,23 @@ def check_command(name, label, scene_hint):
 
 def check_tutti_cli():
     """Both scenes talk to Room Tasks through the global account CLI (@tutti-os/tutti-cli, Node 24+)."""
-    label = "Tutti CLI（tutti-cli，账号登录版）"
-    code, out = run(["tutti-cli", "--help"]) if shutil.which("tutti-cli") else (127, "")
+    label = "Tutti CLI（tuttictl，账号登录版）"
+    code, out = run(["tuttictl", "--help"]) if shutil.which("tuttictl") else (127, "")
     detail = None
     # The usage block of `task comment` runs until the next command line.
-    comment = re.search(r"tutti-cli task comment\b(.*?)(?=\n\s*tutti-cli |\n\s*\n|\Z)", out, re.S)
-    if code or any(f"tutti-cli {command}" not in out for command in ("login", "room list", "task run")):
-        detail = ("未安装" if not shutil.which("tutti-cli") else
-                  "PATH 里的 tutti-cli 不是账号登录版（没有 login 命令）" if "tutti-cli login" not in out else
+    comment = re.search(r"tuttictl task comment\b(.*?)(?=\n\s*tuttictl |\n\s*\n|\Z)", out, re.S)
+    if code or any(f"tuttictl {command}" not in out for command in ("login", "room list", "task run")):
+        detail = ("未安装" if not shutil.which("tuttictl") else
+                  "PATH 里的 tuttictl 不是账号登录版（没有 login 命令）" if "tuttictl login" not in out else
                   "版本过旧，没有 room list／task run（按房间名查房间、交给 Room Agent 分析根因）")
     elif not comment or "--file" not in comment[1]:
         detail = "版本过旧，task comment 不支持 --file（修复回复要把验证截图作为评论附件）"
-    elif "tutti-cli task status" not in out:
+    elif "tuttictl task status" not in out:
         detail = "版本过旧，没有 task status（验收打回要把 Task 改回待办）"
     elif shutil.which("npm"):
         # Always run the latest release; when npm cannot be reached keep the installed one.
         latest_code, latest = run(["npm", "view", "@tutti-os/tutti-cli", "version"], stdout_only=True)
-        current_code, current = run(["tutti-cli", "--version"], stdout_only=True)
+        current_code, current = run(["tuttictl", "--version"], stdout_only=True)
         version_pattern = r"v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)"
         latest_version = re.fullmatch(version_pattern, latest.strip()) if latest_code == 0 else None
         current_version = re.fullmatch(version_pattern, current.strip()) if current_code == 0 else None
@@ -179,26 +179,26 @@ def check_tutti_cli():
         version = run(["node", "--version"])[1].strip()
         major = re.match(r"v(\d+)\.", version)
         if major and int(major[1]) >= 24 and shutil.which("npm"):
-            return item("tutti-cli", label, "fix", f"{detail}，将运行 npm install -g @tutti-os/tutti-cli@latest",
-                        fix="npm:tutti-cli")
-        return item("tutti-cli", label, "user", f"{detail}；需要 Node.js 24+（当前：{version or '未安装'}）",
-                    guide=["提 Bug、验收打回、修复回复都用全局安装的 tutti-cli 以你的 Tutti 账号读写 Room 里的 Task，它要求 Node.js 24 及以上。",
+            return item("tuttictl", label, "fix", f"{detail}，将运行 npm install -g @tutti-os/tutti-cli@latest",
+                        fix="npm:tuttictl")
+        return item("tuttictl", label, "user", f"{detail}；需要 Node.js 24+（当前：{version or '未安装'}）",
+                    guide=["提 Bug、验收打回、修复回复都用全局安装的 tuttictl 以你的 Tutti 账号读写 Room 里的 Task，它要求 Node.js 24 及以上。",
                            "用 nvm：`nvm install 24 && nvm use 24`（或 `brew install node`），然后回复「已完成」，"
                            "Agent 会运行 `npm install -g @tutti-os/tutti-cli@latest`。"],
-                    verify="`tutti-cli --help` 列出 login、room list、task create、task run、task status，task comment 带 --file")
-    code, out = run(["tutti-cli", "whoami", "--json"])
+                    verify="`tuttictl --help` 列出 login、room list、task create、task run、task status，task comment 带 --file")
+    code, out = run(["tuttictl", "whoami", "--json"])
     if code == 0:
         try:
             user = json.loads(out[out.index("{"):])
         except ValueError:
             user = {}
         if isinstance(user, dict) and type(user.get('userId')) in (str, int) and str(user['userId']).strip():
-            return item("tutti-cli", label, "ok", f"已登录：{user.get('name') or user['userId']}")
+            return item("tuttictl", label, "ok", f"已登录：{user.get('name') or user['userId']}")
         out = "whoami 未返回有效的账号 userId，请重新登录后复查"
-    return item("tutti-cli", label, "user", f"未登录或登录已过期：{out.strip()[-200:]}",
-                guide=["在终端运行 `tutti-cli login`，浏览器会打开 Tutti 登录页，用你自己的 Tutti 账号完成登录（需是目标 Room 的成员）。",
+    return item("tuttictl", label, "user", f"未登录或登录已过期：{out.strip()[-200:]}",
+                guide=["在终端运行 `tuttictl login`，浏览器会打开 Tutti 登录页，用你自己的 Tutti 账号完成登录（需是目标 Room 的成员）。",
                        "登录完成后回复「已完成」。"],
-                verify="`tutti-cli whoami --json` 返回账号")
+                verify="`tuttictl whoami --json` 返回账号")
 
 
 def check_repositories(cfg):
@@ -332,7 +332,7 @@ def apply_fix(root, fix):
         name = fix[4:]
         if name == "tutti-ops":
             return f"tutti-ops：{wb.ensure_tutti_ops(root, install=True)['action']}"
-        package = NPM_PACKAGES[name] + ("@latest" if name == "tutti-cli" else "")
+        package = NPM_PACKAGES[name] + ("@latest" if name == "tuttictl" else "")
         code, out = run(["npm", "install", "-g", package], timeout=600)
         if code:
             raise ValueError(f"npm install -g {package} 失败：{out.strip()[-400:]}")

@@ -1,41 +1,43 @@
 # Tutti CLI（建 Room Task）的安装与登录
 
-QA 提 Bug 用全局安装的 `tutti-cli` 以 QA 自己的 Tutti 账号在指定 Room 建 Task、编辑并上传附件；验收打回用它发评论、把 Task 改回待办。它是 npm 包 `@tutti-os/tutti-cli`（账号登录版），直接调用 Tutti 服务，不需要 Computer 或 Room Agent。Computer 自带的 Agent 版 `tutti-cli` 同名但没有 `login`，不能代替它。
+QA 提 Bug 用全局安装的 `tuttictl` 以 QA 自己的 Tutti 账号在指定 Room 建 Task、编辑并上传附件；验收打回用它发评论、把 Task 改回待办。它是 npm 包 `@tutti-os/tutti-cli`（账号登录版），直接调用 Tutti 服务，不需要 Computer 或 Room Agent。Computer 自带的 Agent 版仍叫 `tutti-cli`，没有 `login`，不能代替它。
 
 ## 1. 检查
 
 ```sh
-python3 scripts/prepare.py check --scene investigate   # 看 tutti-cli 一项
+python3 scripts/prepare.py check --scene investigate   # 看 tuttictl 一项
 ```
 
 等价的手动检查：
 
 ```sh
 node --version                 # 需要 v24 及以上
-tutti-cli --help               # 必须列出 login、whoami、room list、task create／edit／show／status，task comment 带 --file
-tutti-cli whoami --json        # 返回账号即已登录
+tuttictl --help               # 必须列出 login、whoami、room list、task create／edit／show／status，task comment 带 --file
+tuttictl whoami --json        # 返回账号即已登录
 ```
 
 ## 2. 安装
 
 | 情况 | 处理 |
 |---|---|
-| Node.js ≥ 24，没装、不是 npm 上的最新版（`tutti-cli --version` 对比 `npm view @tutti-os/tutti-cli version`）、缺少 `room list`／`task run`、`task comment` 不支持 `--file`、没有 `task status`（0.1.3 起才有），或 PATH 里是 Agent 版 | `prepare.py fix` 自动运行 `npm install -g @tutti-os/tutti-cli@latest`，不用征求同意；npm 查不到最新版本（断网）时保留已装的版本 |
+| Node.js ≥ 24，没装、不是 npm 上的最新版（`tuttictl --version` 对比 `npm view @tutti-os/tutti-cli version`）、缺少 `room list`／`task run`、`task comment` 不支持 `--file`、没有 `task status`（0.1.3 起才有），或只安装了旧命令 `tutti-cli` | `prepare.py fix` 自动运行 `npm install -g @tutti-os/tutti-cli@latest`，不用征求同意；npm 查不到最新版本（断网）时保留已装的版本 |
 | Node.js < 24 | 转成用户项：`nvm install 24 && nvm use 24 && nvm alias default 24`（或 `brew install node`），用户回复「已完成」后再 `fix` |
 | npm 全局目录没有写权限 | 改用 nvm 的 Node 再装，不用 `sudo` |
-| 用 nvm 且有多个 Node 版本 | 全局包按 Node 版本分开装：确认 `nvm alias default` 指向装了 tutti-cli 的那个版本，否则新终端里找不到 |
-| `tutti-cli --help` 仍没有 `login` | PATH 里有同名的 Agent 版排在前面：用 `"$(npm prefix -g)/bin/tutti-cli"` 调用，或把 npm 全局 bin 目录放到 PATH 前面 |
+| 用 nvm 且有多个 Node 版本 | 全局包按 Node 版本分开装：确认 `nvm alias default` 指向装了 tuttictl 的那个版本，否则新终端里找不到 |
+| `tuttictl --help` 仍没有 `login` | 核对 `command -v tuttictl` 和 npm 全局安装；使用 `"$(npm prefix -g)/bin/tuttictl"` 复查，不改用 Agent 版 `tutti-cli` |
 
-升级：`npm install -g @tutti-os/tutti-cli@latest`；装好后 `tutti-cli --version` 记下版本。
+升级：`npm install -g @tutti-os/tutti-cli@latest`；装好后 `tuttictl --version` 记下版本。
+
+本版插件要求 npm 包已发布包含 `tuttictl` 的版本并更新 `latest` 标签；先发布 CLI，再分发插件。升级旧包后只使用新命令，不创建 `tutti-cli` 别名。`TUTTI_CLI` 显式路径覆盖继续支持，已有值需更新到新命令路径；`TUTTI_CLI_ORIGIN`、`TUTTI_CLI_STATE_DIR` 与默认凭据目录保持不变，有效登录态可以沿用。
 
 ## 3. 登录
 
-Agent 后台运行 `tutti-cli login`：它在本机打开 Tutti 登录页并等待（最长 5 分钟），用户在浏览器里用要建 Bug 的账号登录即可，不用回复。命令返回后运行 `tutti-cli whoami --json` 确认账号。
+Agent 后台运行 `tuttictl login`：它在本机打开 Tutti 登录页并等待（最长 5 分钟），用户在浏览器里用要建 Bug 的账号登录即可，不用回复。命令返回后运行 `tuttictl whoami --json` 确认账号。
 
-- 浏览器没自动打开时改用 `tutti-cli login --no-browser`，把打印的链接给用户在**本机**浏览器打开（回调只监听本机）。
+- 浏览器没自动打开时改用 `tuttictl login --no-browser`，把打印的链接给用户在**本机**浏览器打开（回调只监听本机）。
 - 会话保存在 `~/.tutti-cli/session.json`（目录 0700、文件 0600），只发往登录时的站点；默认 `https://tutti.sh`，`TUTTI_CLI_ORIGIN` 可切到其他环境，切换后要重新登录。
 - 登录的账号必须是目标 Room 的成员；权限由服务端按成员身份判断，Setup 不试建 Task 来验证。
-- 换账号：`tutti-cli logout` 后重新 `login`。
+- 换账号：`tuttictl logout` 后重新 `login`。
 
 ## 能力边界
 

@@ -1,10 +1,10 @@
 # 工作流
 
-两个业务场景只对接 Tutti 任务系统（Room 里的 Task），都用全局 `tutti-cli`（账号登录版）读写；不用飞书表，也没有定时任务。
+两个业务场景只对接 Tutti 任务系统（Room 里的 Task），都用全局 `tuttictl`（账号登录版）读写；不用飞书表，也没有定时任务。
 
 | 场景 | 面向 | 怎么触发 | 交付 |
 |---|---|---|---|
-| `bug-investigate` | QA | 手动：「记个 bug：…」 | 带全现场日志与上下文，用 `tutti-cli task create --room-id` 在指定 Room 建 Task，附件挂在描述上，回读确认后完成登记，后续由 RD 跟进，不自动触发 Agent 执行 |
+| `bug-investigate` | QA | 手动：「记个 bug：…」 | 带全现场日志与上下文，用 `tuttictl task create --room-id` 在指定 Room 建 Task，附件挂在描述上，回读确认后完成登记，后续由 RD 跟进，不自动触发 Agent 执行 |
 | `bug-execute` | RD | 手动：「修复这个 Task <链接>」，并给出认可的方案（通常是 Room Agent 的分析回复） | 从最新 main 切分支修复、提 PR 到 main，部署 PPE（server 泳道 → ws 泳道 → 前端预览 → Computer canary），自验证，把原因、PR、体验链接和验证结果用 `task comment` 回复到 Task |
 
 两个场景以同一条 Task（Room ID ＋ Task ID）交接，不建本地档案；过程文件放数据目录（`bug-reports/<operation_id>/`、`bug-fixes/<taskId>/`）。Task 的状态、负责人、优先级由人工在任务看板维护。

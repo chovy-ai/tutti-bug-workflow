@@ -2,7 +2,7 @@
 """Pick the Room a bug is filed in, from what the QA said: a Room ID, a Room/Task link,
 a Room name, or a person's name (Rooms are usually named after their owner).
 
-Reads the logged-in account's Room directory with `tutti-cli room list --all --json` (or
+Reads the logged-in account's Room directory with `tuttictl room list --all --json` (or
 --rooms-file for tests). IDs and links must match a Room in the directory. Names are
 matched case-insensitively against Room names, local Rooms first and cloud Rooms only
 when no local Room matches; an exact name beats a partial match.
@@ -35,7 +35,7 @@ def directory(rooms_file, cli):
         result = subprocess.run([cli, "room", "list", "--all", "--json"],
                                 capture_output=True, text=True, timeout=60, check=False)
         if result.returncode:
-            raise ValueError((result.stderr or result.stdout).strip()[-300:] or "tutti-cli room list failed")
+            raise ValueError((result.stderr or result.stdout).strip()[-300:] or "tuttictl room list failed")
         text = result.stdout
     rooms = json.loads(text)["rooms"]
     if not isinstance(rooms, list):
@@ -68,10 +68,10 @@ def resolve(query, rooms):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--query", required=True, help="Room ID, Room/Task link, Room name or person name.")
-    parser.add_argument("--rooms-file", help="Saved `tutti-cli room list --json` output (tests).")
-    parser.add_argument("--cli", default=os.environ.get("TUTTI_CLI") or "tutti-cli",
-                        help="Account tutti-cli to run (default $TUTTI_CLI, else tutti-cli on PATH); pass the "
-                             "npm global one when the Computer's Agent tutti-cli comes first on PATH.")
+    parser.add_argument("--rooms-file", help="Saved `tuttictl room list --json` output (tests).")
+    parser.add_argument("--cli", default=os.environ.get("TUTTI_CLI") or "tuttictl",
+                        help="Account CLI to run (default $TUTTI_CLI, else tuttictl on PATH). "
+                             "Computer's Agent tutti-cli is a separate command.")
     args = parser.parse_args()
     try:
         rooms = directory(args.rooms_file, args.cli)

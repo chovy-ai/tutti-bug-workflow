@@ -50,13 +50,31 @@ class FindRoomTest(unittest.TestCase):
         self.find("tibo", expected=2)
 
     def test_uses_the_account_cli_given_by_flag_or_env(self):
-        fake = Path(tempfile.mkdtemp()) / "account-tutti-cli"
+        fake = Path(tempfile.mkdtemp()) / "account-tuttictl"
         fake.write_text(f"#!{sys.executable}\nimport sys\nassert sys.argv[1:] == ['room', 'list', '--all', '--json']\n"
                         f"print(open({str(self.rooms)!r}).read())\n")
         fake.chmod(0o755)
         for extra, env in (([ "--cli", str(fake)], {}), ([], {"TUTTI_CLI": str(fake)})):
             result = subprocess.run([sys.executable, str(SCRIPT), "--query", "TIBO", *extra],
                                     capture_output=True, text=True, check=False, env={**os.environ, **env})
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(json.loads(result.stdout)["room"], LOCAL_C)
+
+    def test_defaults_to_tuttictl_when_agent_cli_is_also_on_path(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            bin_dir = Path(temporary)
+            cli = bin_dir / "tuttictl"
+            cli.write_text(f"#!{sys.executable}\nimport sys\n"
+                           "assert sys.argv[1:] == ['room', 'list', '--all', '--json']\n"
+                           f"print(open({str(self.rooms)!r}).read())\n")
+            cli.chmod(0o755)
+            agent = bin_dir / "tutti-cli"
+            agent.write_text(f"#!{sys.executable}\nraise SystemExit('Agent CLI must not be called')\n")
+            agent.chmod(0o755)
+            env = {key: value for key, value in os.environ.items() if key != "TUTTI_CLI"}
+            env["PATH"] = str(bin_dir)
+            result = subprocess.run([sys.executable, str(SCRIPT), "--query", "TIBO"],
+                                    capture_output=True, text=True, check=False, env=env)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(json.loads(result.stdout)["room"], LOCAL_C)
 

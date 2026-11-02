@@ -100,7 +100,7 @@ Web：<页面版本>
 ## 发送与重试
 
 ```sh
-tutti-cli task comment --room-id <roomId> --task-id <taskId> \
+tuttictl task comment --room-id <roomId> --task-id <taskId> \
   --content-file <$REPORT>/验收不通过.txt \
   --file <$REPORT>/screenshot-1.png --file <$REPORT>/排查线索.txt \
   --file <$REPORT>/web/web-logs.log --file <$REPORT>/computer/<召回包>.tar.gz \
@@ -119,7 +119,7 @@ tutti-cli task comment --room-id <roomId> --task-id <taskId> \
 重新分析发出时缺的正是这份现场（指令的现场线索里写了缺什么），就把这条回复直接交给同一个 Agent 和模型复核，免得它按不全的现场下结论（细则见 [补齐现场后复核](rd-reanalysis.md#补齐现场后复核)）：
 
 ```sh
-tutti-cli task run --room-id <roomId> --task-id <taskId> --agent-target-id <同一个 Agent> \
+tuttictl task run --room-id <roomId> --task-id <taskId> --agent-target-id <同一个 Agent> \
   --reply-to <commentId> --model <同一个模型> --reasoning-effort high \
   --instruction-file <$REPORT>/rd-review.txt --file <新文件> --operation-id <新 UUID> --json
 ```
@@ -127,7 +127,7 @@ tutti-cli task run --room-id <roomId> --task-id <taskId> --agent-target-id <同�
 没发重新分析（QA 说不用），或补充不影响分析时，只发评论：
 
 ```sh
-tutti-cli task comment --room-id <roomId> --task-id <taskId> --reply-to <commentId> \
+tuttictl task comment --room-id <roomId> --task-id <taskId> --reply-to <commentId> \
   --content "补充第 <n> 轮验收现场：<一句话说明>" \
   --file <新文件> --operation-id <新 UUID> --json
 ```

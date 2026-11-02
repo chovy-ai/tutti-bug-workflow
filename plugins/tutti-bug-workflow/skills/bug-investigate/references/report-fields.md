@@ -1,10 +1,10 @@
 # Task 字段与写入规则
 
-提 Bug 用全局 `tutti-cli`（账号登录版）的 `task create --room-id` 在指定 Room 建一个 Task，采集后用 `task edit` 改标题、写全描述，截图、`排查线索.txt` 和全部日志作为附件挂在描述上。这些编辑规则仅适用于本会话自建且保留全部原附件的 Task；复用已有 Task 时，本次表现及全部现场用 `task comment --file` 追加，后到现场也继续追加评论，不改原标题、描述与附件，记录 `commentId` 供 RD 定位附件。Task 字段只能写下面几个，不能指派、改优先级；补全描述和附件、回读确认后完成登记。
+提 Bug 用全局 `tuttictl`（账号登录版）的 `task create --room-id` 在指定 Room 建一个 Task，采集后用 `task edit` 改标题、写全描述，截图、`排查线索.txt` 和全部日志作为附件挂在描述上。这些编辑规则仅适用于本会话自建且保留全部原附件的 Task；复用已有 Task 时，本次表现及全部现场用 `task comment --file` 追加，后到现场也继续追加评论，不改原标题、描述与附件，记录 `commentId` 供 RD 定位附件。Task 字段只能写下面几个，不能指派、改优先级；补全描述和附件、回读确认后完成登记。
 
 | 参数 | Task 字段 | 怎么填 |
 |---|---|---|
-| `--room-id` | 所在 Room | `find_room.py` 按 Room ID／链接、房间名或用户名从 `tutti-cli room list` 里找到的 ID；每条 `task` 命令都要带 |
+| `--room-id` | 所在 Room | `find_room.py` 按 Room ID／链接、房间名或用户名从 `tuttictl room list` 里找到的 ID；每条 `task` 命令都要带 |
 | `--operation-id` | Task ID／幂等键 | 第 1 步生成的 `operation_id`（UUID），重试时不变 |
 | `--title` | 标题 | 一行「类别：现象（触发条件／关键对照）」，见下；`task edit --title` 可改 |
 | `--description`（建单）／`--description-file`（编辑） | 描述 | 建单时写 QA 原话；采集后 `task edit --description-file` 整段替换为下面的「描述」，只写 Bug 表现。`task create` 只接受 `--description` |
@@ -13,7 +13,7 @@
 | —— | 负责人 | **CLI 不能指派**：请 QA 在任务看板指派；QA 提到的人写进 `排查线索.txt`「建议跟进人」 |
 | `--project-id` | Project | 一般不填；QA 明确要求挂到该 Room 的某个 Project 时才填 |
 
-创建者是 `tutti-cli login` 登录的账号（`whoami`）；新建为 `todo`、未指派，不会自动启动 Agent。本 Skill 不改状态，不关闭、不删除 Task。分析根因、修复方案和验收不在本 Skill 写；验收不通过时由 `$tutti-bug-workflow:bug-reopen` 评论到原 Task 并改回待办，不重新建 Task。
+创建者是 `tuttictl login` 登录的账号（`whoami`）；新建为 `todo`、未指派，不会自动启动 Agent。本 Skill 不改状态，不关闭、不删除 Task。分析根因、修复方案和验收不在本 Skill 写；验收不通过时由 `$tutti-bug-workflow:bug-reopen` 评论到原 Task 并改回待办，不重新建 Task。
 
 ## 优先级
 
@@ -120,5 +120,5 @@ QA 定级：P1（或「待 QA 确认」）
 
 现场后到（召回晚完成、QA 补了诊断包）时，在这个文件里补几行；本会话自建且保留全部原附件时再带上全部文件 `task edit` 一次，复用已有 Task 时用 `task comment --file` 追加新现场和更新的排查线索，记下 `commentId`，不改原描述和附件。
 
-- 在回复里告诉用户的每一条发现，都必须能在描述或排查线索里找到；回复里说「已建 Task」之前先用 `tutti-cli task show` 回读确认。
+- 在回复里告诉用户的每一条发现，都必须能在描述或排查线索里找到；回复里说「已建 Task」之前先用 `tuttictl task show` 回读确认。
 - 只记录核对过的事实并标注来源；推测写成「待确认：……」，不写根因结论，后续由 RD 跟进排查。

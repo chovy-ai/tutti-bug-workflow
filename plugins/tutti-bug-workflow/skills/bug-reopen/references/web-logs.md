@@ -13,7 +13,7 @@ Web 端只取页面日志（请求等其他现场由 Tutti Web 记入日志）�
 
 1. **找到页面**：`chrome-devtools.list_pages` 列出页面，再对候选页面调用 `list_webmcp_tools({pageId})`，从 `download_web_logs` 的描述里读 `Page identity: web-diagnostics:<uuid>; Account identity: <userId>;`。
    - **有连接链接**：找 Page identity 和 Account identity 都和链接一致的那一个。
-   - **没有连接链接**：候选是 URL 路径为 `/platform/room/<roomId>` 的 Tutti 页面（`<roomId>` 用这条 Task 的 `roomId`），并且 Account identity 等于 `tutti-cli whoami --json` 的 `userId`。只有一个就用它；不止一个时优先 URL 里带 `task=<taskId>` 的（本次的 Task 正开着），仍不止一个就当作没找到。用户说过问题出在另一台机器或另一个浏览器时不用这种找法。
+   - **没有连接链接**：候选是 URL 路径为 `/platform/room/<roomId>` 的 Tutti 页面（`<roomId>` 用这条 Task 的 `roomId`），并且 Account identity 等于 `tuttictl whoami --json` 的 `userId`。只有一个就用它；不止一个时优先 URL 里带 `task=<taskId>` 的（本次的 Task 正开着），仍不止一个就当作没找到。用户说过问题出在另一台机器或另一个浏览器时不用这种找法。
    - 没有匹配时改用方式二。记下页面 URL（「页面链接」）和 Page identity；没有链接时在排查线索的「日志核对」里注明「按房间找到的页面」。
 2. **触发一次下载**：用同一组 `question_time`、`incident_at` 算出截止时间 `Q` 和读取范围 `R`：
    ```sh
