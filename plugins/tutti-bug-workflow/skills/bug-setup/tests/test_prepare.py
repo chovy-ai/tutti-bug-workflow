@@ -48,7 +48,7 @@ class PrepareTests(unittest.TestCase):
         report, items = self.prepare("check", "investigate")
         self.assertEqual(set(report["scenes"]), {"investigate"})
         self.assertEqual((items["config"]["status"], items["tutti-ops"]["status"]), ("fix", "fix"))
-        self.assertEqual(items["tutti-cli"]["status"], "user")  # the global account CLI needs Node 24+
+        self.assertEqual(items["tuttictl"]["status"], "user")  # the global account CLI needs Node 24+
         self.assertNotIn("codex", items)  # not part of this scene
         self.assertNotIn("gh-auth", items)  # pushing and deploying belong to the execute scene
         self.tools["tutti_token"] = False
@@ -66,64 +66,78 @@ class PrepareTests(unittest.TestCase):
         self.install("node", "npm", "npx")
         self.tools.update(node="v24.14.0", tutti_cli_logged_in=False)
         _, items = self.prepare("check", "investigate")
-        self.assertEqual((items["tutti-cli"]["status"], items["tutti-cli"]["fix"]), ("fix", "npm:tutti-cli"))
+        self.assertEqual((items["tuttictl"]["status"], items["tuttictl"]["fix"]), ("fix", "npm:tuttictl"))
         _, items = self.prepare("fix", "investigate")
-        self.assertEqual(items["tutti-cli"]["status"], "user")
-        self.assertIn("tutti-cli login", items["tutti-cli"]["guide"][0])
+        self.assertEqual(items["tuttictl"]["status"], "user")
+        self.assertIn("tuttictl login", items["tuttictl"]["guide"][0])
         self.tools["tutti_cli_logged_in"] = True
         _, items = self.prepare("check", "investigate")
-        self.assertEqual(items["tutti-cli"]["status"], "ok")
+        self.assertEqual(items["tuttictl"]["status"], "ok")
         self.tools["tutti_cli_rooms"] = False  # an older build without room list / task run is upgraded
         _, items = self.prepare("check", "investigate")
-        self.assertEqual((items["tutti-cli"]["status"], items["tutti-cli"]["fix"]), ("fix", "npm:tutti-cli"))
-        self.assertIn("room list", items["tutti-cli"]["detail"])
+        self.assertEqual((items["tuttictl"]["status"], items["tuttictl"]["fix"]), ("fix", "npm:tuttictl"))
+        self.assertIn("room list", items["tuttictl"]["detail"])
         self.tools.update(tutti_cli_rooms=True, tutti_cli_comment_files=False)  # comments cannot carry screenshots
         _, items = self.prepare("check", "investigate")
-        self.assertEqual((items["tutti-cli"]["status"], items["tutti-cli"]["fix"]), ("fix", "npm:tutti-cli"))
-        self.assertIn("task comment", items["tutti-cli"]["detail"])
+        self.assertEqual((items["tuttictl"]["status"], items["tuttictl"]["fix"]), ("fix", "npm:tuttictl"))
+        self.assertIn("task comment", items["tuttictl"]["detail"])
         self.tools.update(tutti_cli_comment_files=True, tutti_cli_status=False)  # cannot move a Task back to todo
         _, items = self.prepare("check", "investigate")
-        self.assertEqual((items["tutti-cli"]["status"], items["tutti-cli"]["fix"]), ("fix", "npm:tutti-cli"))
-        self.assertIn("task status", items["tutti-cli"]["detail"])
+        self.assertEqual((items["tuttictl"]["status"], items["tuttictl"]["fix"]), ("fix", "npm:tuttictl"))
+        self.assertIn("task status", items["tuttictl"]["detail"])
 
     def test_setup_upgrades_tutti_cli_to_the_latest_release(self):
-        self.install("node", "npm", "npx", "tutti-cli")
+        self.install("node", "npm", "npx", "tuttictl")
         self.tools.update(node="v24.14.0", tutti_cli_version="0.1.0", tutti_cli_latest="0.2.0")
         _, items = self.prepare("check", "investigate")
-        self.assertEqual((items["tutti-cli"]["status"], items["tutti-cli"]["fix"]), ("fix", "npm:tutti-cli"))
-        self.assertIn("0.2.0", items["tutti-cli"]["detail"])
+        self.assertEqual((items["tuttictl"]["status"], items["tuttictl"]["fix"]), ("fix", "npm:tuttictl"))
+        self.assertIn("0.2.0", items["tuttictl"]["detail"])
         report, items = self.prepare("fix", "investigate")
         self.assertIn("已安装 @tutti-os/tutti-cli@latest", report["fixed"])
-        self.assertEqual(items["tutti-cli"]["status"], "ok")
+        self.assertEqual(items["tuttictl"]["status"], "ok")
         self.tools.update(npm_offline=True, tutti_cli_latest="0.3.0")  # npm unreachable: keep what is installed
         _, items = self.prepare("check", "investigate")
-        self.assertEqual(items["tutti-cli"]["status"], "ok")
+        self.assertEqual(items["tuttictl"]["status"], "ok")
+
+    def test_command_migration_installs_tuttictl_without_using_or_replacing_agent_cli(self):
+        self.install("node", "npm", "tutti-cli")
+        self.tools.update(node="v24.14.0")
+        agent = (self.bin / "tutti-cli").read_bytes()
+        _, items = self.prepare("check", "investigate")
+        self.assertEqual(items["tuttictl"]["status"], "fix")
+        _, items = self.prepare("fix", "investigate")
+        self.assertEqual(items["tuttictl"]["status"], "ok")
+        self.assertTrue((self.bin / "tuttictl").is_file())
+        self.assertEqual((self.bin / "tutti-cli").read_bytes(), agent)
+        calls = [json.loads(line) for line in (self.base / "calls.log").read_text().splitlines()]
+        self.assertFalse(any(call[0] == "tutti-cli" for call in calls))
+        self.assertIn(["tuttictl", "whoami", "--json"], calls)
 
     def test_latest_version_ignores_npm_stderr_and_normalizes_v_prefix(self):
-        self.install("node", "npm", "tutti-cli")
+        self.install("node", "npm", "tuttictl")
         self.tools.update(node="v24.14.0", npm_warning=True,
                           tutti_cli_version="v0.2.0", tutti_cli_latest="0.2.0")
         report, items = self.prepare("fix", "investigate")
-        self.assertEqual(items["tutti-cli"]["status"], "ok")
+        self.assertEqual(items["tuttictl"]["status"], "ok")
         self.assertNotIn("已安装 @tutti-os/tutti-cli@latest", report["fixed"])
 
     def test_malformed_registry_version_does_not_trigger_upgrade(self):
-        self.install("node", "npm", "tutti-cli")
+        self.install("node", "npm", "tuttictl")
         self.tools.update(tutti_cli_latest="unexpected registry response")
         _, items = self.prepare("check", "investigate")
-        self.assertEqual(items["tutti-cli"]["status"], "ok")
+        self.assertEqual(items["tuttictl"]["status"], "ok")
 
     def test_identity_requires_a_valid_account_id(self):
-        self.install("node", "npm", "tutti-cli")
+        self.install("node", "npm", "tuttictl")
         for identity in ("not json", {}, {"name": "QA"}, {"userId": ""}, {"userId": []}, []):
             with self.subTest(identity=identity):
                 self.tools["tutti_cli_identity"] = identity
                 _, items = self.prepare("check", "investigate")
-                self.assertEqual(items["tutti-cli"]["status"], "user")
-                self.assertIn("userId", items["tutti-cli"]["detail"])
+                self.assertEqual(items["tuttictl"]["status"], "user")
+                self.assertIn("userId", items["tuttictl"]["detail"])
         self.tools["tutti_cli_identity"] = {"userId": "123"}
         _, items = self.prepare("check", "investigate")
-        self.assertEqual(items["tutti-cli"]["status"], "ok")
+        self.assertEqual(items["tuttictl"]["status"], "ok")
 
     def test_invalid_config_list_reports_path_without_changing_file(self):
         self.data.mkdir()
@@ -159,12 +173,12 @@ class PrepareTests(unittest.TestCase):
         self.assertTrue((self.data / "config.before-prepare.json").is_file())
 
     def test_execute_guides_github_login_and_deploy_permissions(self):
-        self.install("node", "npm", "npx", "git", "gh", "tutti-cli")
+        self.install("node", "npm", "npx", "git", "gh", "tuttictl")
         self.tools.update(node="v24.14.0", gh_scopes="'repo'", push=["tutti"], git_helper=False)
         _, items = self.prepare("check", "execute")
         self.assertEqual(items["gh-auth"]["status"], "user")
         self.assertIn("workflow", items["gh-auth"]["detail"])
-        self.assertEqual(items["tutti-cli"]["status"], "ok")  # fix replies go onto the Task
+        self.assertEqual(items["tuttictl"]["status"], "ok")  # fix replies go onto the Task
         self.tools.update(gh_scopes="'repo', 'workflow'")
         _, items = self.prepare("check", "execute")
         self.assertEqual(items["gh-git"]["status"], "fix")
@@ -173,7 +187,7 @@ class PrepareTests(unittest.TestCase):
         self.assertNotIn("tutti-ops-auth", items)  # log recall is only for reporting
 
     def test_all_scenes_ready_with_only_the_task_system(self):
-        self.install("node", "npm", "npx", "git", "gh", "tutti-ops", "tutti-cli")
+        self.install("node", "npm", "npx", "git", "gh", "tutti-ops", "tuttictl")
         self.tools.update(gh_scopes="'repo', 'workflow'", node="v24.14.0")
         report, items = self.prepare("fix", "all")
         self.assertEqual(set(report["scenes"]), {"investigate", "execute"})

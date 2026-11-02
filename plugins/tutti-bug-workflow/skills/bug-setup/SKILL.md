@@ -14,13 +14,13 @@ QA 提 Bug（`$tutti-bug-workflow:bug-investigate`）、验收打回（`$tutti-b
 用户已经说清楚（「准备 QA 提 Bug 的环境」「准备修 Bug 的环境」）就直接用；否则**先问这一个问题**，其他都不用问：
 
 > 要准备哪个场景？
-> 1. **QA 提 Bug**：自动采集页面和 Computer 现场日志，用全局 tutti-cli 以你的 Tutti 账号在指定 Room 建 Task；验收不通过时带现场打回也用这一套
+> 1. **QA 提 Bug**：自动采集页面和 Computer 现场日志，用全局 tuttictl 以你的 Tutti 账号在指定 Room 建 Task；验收不通过时带现场打回也用这一套
 > 2. **修复与部署**（RD）：指定一条 Bug Task 修复，提 PR、部署 PPE、自验证，结果回复到 Task
 > 3. **全部**
 
 用户说「我是 QA」按 1；「我是 RD」按 2；拿不准建议「全部」。场景对应 `--scene investigate`／`execute`／`all`，可重复。
 
-两个场景都只对接 Tutti 任务系统（用 tutti-cli 读写 Room 里的 Task），不用飞书表，也没有定时任务。
+两个场景都只对接 Tutti 任务系统（用 tuttictl 读写 Room 里的 Task），不用飞书表，也没有定时任务。
 
 ## 2. 检查
 
@@ -48,7 +48,7 @@ python3 scripts/prepare.py check --scene investigate --scene execute   # 按选�
 python3 scripts/prepare.py fix --scene investigate --scene execute
 ```
 
-它会：用默认配置补齐数据目录的 `config.json`（只补缺的项，已有值不动，原文件备份为 `config.before-prepare.json`）；用 npm 安装缺少的 tutti-ops；tutti-cli（需 Node.js 24+）每次都和 npm 上的最新版比对，没装或不是最新就运行 `npm install -g @tutti-os/tutti-cli@latest`。tutti-cli 的安装、登录与 PATH 冲突处理见 [Tutti CLI](references/tutti-cli.md)。然后自动复查。
+它会：用默认配置补齐数据目录的 `config.json`（只补缺的项，已有值不动，原文件备份为 `config.before-prepare.json`）；用 npm 安装缺少的 tutti-ops；tuttictl（需 Node.js 24+）每次都和 npm 上的最新版比对，没装或不是最新就运行 `npm install -g @tutti-os/tutti-cli@latest`。tuttictl 的安装、登录与 PATH 冲突处理见 [Tutti CLI](references/tutti-cli.md)。然后自动复查。
 
 `fix_errors` 里的失败先自己处理：npm 全局目录没有写权限时改用 nvm 的 Node；网络失败重试一次；仍然不行就转成 `user` 项，写清原因和用户要做的事。
 
@@ -56,7 +56,7 @@ python3 scripts/prepare.py fix --scene investigate --scene execute
 
 | 项 | Agent 先做 | 用户做 |
 |---|---|---|
-| Tutti CLI 未登录 | 后台运行 `tutti-cli login`（会自己打开 Tutti 登录页并等待，最长 5 分钟），返回后 `tutti-cli whoami --json` 确认 | 在浏览器里用自己的 Tutti 账号登录，不用回复 |
+| Tutti CLI 未登录 | 后台运行 `tuttictl login`（会自己打开 Tutti 登录页并等待，最长 5 分钟），返回后 `tuttictl whoami --json` 确认 | 在浏览器里用自己的 Tutti 账号登录，不用回复 |
 | GitHub 登录（修复与部署） | 给出 `gh auth login -h github.com -s repo,workflow` | 在终端运行，按提示在浏览器授权，回复「已完成」 |
 | Tutti CLI 需要 Node.js 24+ | 给出 `nvm install 24 && nvm use 24 && nvm alias default 24`，完成后再 `fix` 自动安装 `@tutti-os/tutti-cli` | 在终端运行这一行，回复「已完成」 |
 | Chrome 连接（`host`） | 调用 chrome-devtools 的 `list_pages` 和 `list_webmcp_tools` | Chrome 弹窗点「允许」；没开远程调试或 WebMCP flag 时按 `guide` 打开 |
@@ -81,7 +81,7 @@ python3 scripts/prepare.py fix --scene investigate --scene execute
 再跑一次 `check`，用一张表交付：每个场景「已就绪／等你操作／等管理员」，以及受影响的能力。
 
 - **修复与部署**：告诉用户怎么用：在本机 Codex 里说「修复这个 Task <链接>」，并贴上认可的方案（通常是 Room Agent 在 Task 里回复的根因分析）；修复结果会回复到这个 Task。
-- **QA 提 Bug**：告诉用户怎么用：在本机 Codex 里说「记个 bug：<现象>」，带上房间名（或房主名字、Room ID）和截图即可，会先在你的本地房间里找；Task 用 `tutti-cli login` 登录的账号建在该 Room，创建后在任务看板指派跟进人。修过的 Bug 还有问题时，发 Task 链接和截图说「这里还有问题，打回去」，会采集这一轮的现场、评论到原 Task、改回待办，并交给 Room Agent 重新分析。
+- **QA 提 Bug**：告诉用户怎么用：在本机 Codex 里说「记个 bug：<现象>」，带上房间名（或房主名字、Room ID）和截图即可，会先在你的本地房间里找；Task 用 `tuttictl login` 登录的账号建在该 Room，创建后在任务看板指派跟进人。修过的 Bug 还有问题时，发 Task 链接和截图说「这里还有问题，打回去」，会采集这一轮的现场、评论到原 Task、改回待办，并交给 Room Agent 重新分析。
 
 ## 默认配置
 

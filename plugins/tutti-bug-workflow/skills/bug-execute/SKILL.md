@@ -1,6 +1,6 @@
 ---
 name: bug-execute
-description: 修复 Room 里的一条 Bug Task 并部署 PPE（RD 手动触发，如「修复这个 Task <链接>」「按根本方案修一下这个 bug」）：用 tutti-cli 读 Task 的 Bug 表现，按 RD 认可的方案（通常是 Room Agent 在 Task 评论里给的根因分析）从远端分支切出 worktree 修复、提 PR 到 main，部署 PPE（server 泳道 → ws 泳道 → 前端预览，涉及 Computer 发分支 canary）后移除 worktree，按验收要点自验证，最后把原因、PR、体验链接和验证结果回复到 Task；也用于销毁某条 Bug 的 PPE 泳道。
+description: 修复 Room 里的一条 Bug Task 并部署 PPE（RD 手动触发，如「修复这个 Task <链接>」「按根本方案修一下这个 bug」）：用 tuttictl 读 Task 的 Bug 表现，按 RD 认可的方案（通常是 Room Agent 在 Task 评论里给的根因分析）从远端分支切出 worktree 修复、提 PR 到 main，部署 PPE（server 泳道 → ws 泳道 → 前端预览，涉及 Computer 发分支 canary）后移除 worktree，按验收要点自验证，最后把原因、PR、体验链接和验证结果回复到 Task；也用于销毁某条 Bug 的 PPE 泳道。
 ---
 
 # 修复与部署
@@ -15,12 +15,12 @@ description: 修复 Room 里的一条 Bug Task 并部署 PPE（RD 手动触发�
 
 ## 1. 确定 Task 和方案
 
-1. **Task**：从用户消息里取 Room ID 和 Task ID（Task 链接里通常两个都有）。只有 Task ID 时问用户是哪个房间（可给房间名，用 `tutti-cli room list --all --json` 找）。然后读 Task：
+1. **Task**：从用户消息里取 Room ID 和 Task ID（Task 链接里通常两个都有）。只有 Task ID 时问用户是哪个房间（可给房间名，用 `tuttictl room list --all --json` 找）。然后读 Task：
    ```sh
-   tutti-cli task show --room-id <roomId> --task-id <taskId> --json
+   tuttictl task show --room-id <roomId> --task-id <taskId> --json
    ```
-   读不到（403、不存在、未登录）就停下，告诉用户原因；未登录时后台运行 `tutti-cli login`，用户在浏览器登录后重试。
-2. **方案**：`tutti-cli` 读不到 Task 的评论，所以方案以用户在对话里给的为准，通常是 Room Agent 在 Task 里回复的根因分析（根因、根本方案／兼容方案、修改范围、验收要点）。用户只说「按根本方案修」却没贴分析内容时，**请用户把那条分析回复贴过来**（或直接说明要怎么改），拿到之前不动代码。
+   读不到（403、不存在、未登录）就停下，告诉用户原因；未登录时后台运行 `tuttictl login`，用户在浏览器登录后重试。
+2. **方案**：`tuttictl` 读不到 Task 的评论，所以方案以用户在对话里给的为准，通常是 Room Agent 在 Task 里回复的根因分析（根因、根本方案／兼容方案、修改范围、验收要点）。用户只说「按根本方案修」却没贴分析内容时，**请用户把那条分析回复贴过来**（或直接说明要怎么改），拿到之前不动代码。
 3. 把 Task 的描述、附件清单和方案整理成运行目录里的 `context.md`。运行目录：数据目录（默认 `~/.local/share/bug-workbench`）下的 `bug-fixes/<taskId>/`。
 4. 固定这条 Bug 的分支和泳道：
    ```sh
@@ -85,14 +85,14 @@ python3 scripts/repos.py remove --path <worktree>
 按 [验证模板](assets/verification.md) 写 `$RUN/reply.txt`，连同这次的全部截图（`fix-*`、`before-*`）作为附件发到 Task：
 
 ```sh
-tutti-cli task comment --room-id <roomId> --task-id <taskId> --content-file <$RUN>/reply.txt \
+tuttictl task comment --room-id <roomId> --task-id <taskId> --content-file <$RUN>/reply.txt \
   --file <$RUN>/fix-<短 ID>-1-<时间>.png --file <$RUN>/before-<短 ID>-1-<时间>.png \
   --operation-id <新 UUID> --json
 ```
 
 - 每张截图一个 `--file`，附件显示的就是文件名，回复正文按文件名引用，不写本机路径。
 - 回执 `status: posted` 才算发出；超时或没拿到回执时用同一个 `--operation-id`、同一份文件和同一组附件重试一次。重试返回 `COMMENT_IDEMPOTENCY_CONFLICT` 说明第一次已经发出（重新上传的附件 ID 不同），不再重发。
-- 附件上传失败时评论不会发出：按报错修正（文件名重复、空文件、超过 500 MiB）后重发；`--file` 不被支持说明 `tutti-cli` 过旧，按 `$tutti-bug-workflow:bug-setup` 升级后重发。
+- 附件上传失败时评论不会发出：按报错修正（文件名重复、空文件、超过 500 MiB）后重发；`--file` 不被支持说明 `tuttictl` 过旧，按 `$tutti-bug-workflow:bug-setup` 升级后重发。
 - 只发评论，不带 `--agent-target-id`，不触发任何 Agent；不改 Task 的标题、描述和附件（`task edit` 带附件会整段替换描述，可能弄丢 QA 的附件）。
 - **失败时也要回复**：写清卡在哪一步、错误信息和链接，已部署成功的一端照样给出体验链接。
 

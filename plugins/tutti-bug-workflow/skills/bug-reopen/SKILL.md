@@ -1,6 +1,6 @@
 ---
 name: bug-reopen
-description: 把一条已有的 Bug Task 打回（QA 发来已有 Task 的链接，配上截图或一句「这里还有问题」「没修好」「打回去」「验收不通过」「退回待办」等都算，不需要说固定的词；在提 Bug 的同一个会话里说「之前提的 bug 还有问题」「给它加个评论打回去」、不带链接也算，Task 从会话上下文里取）：用全局安装的 `tutti-cli`（账号登录版）读出原 Task，和提 Bug 一样固定采集这一轮的现场日志（Web 页面日志、Computer 日志），记下相关请求的 request id，在原 Task 下发一条评论写清这一轮的表现，截图、排查线索文件和全部日志作为评论附件挂上，用 `task status` 把 Task 改回待办（todo），再默认用 `task run` 在这条评论的线程里交给该 Room 的 Agent 重新分析（Codex 优先，其次 Claude Code，推理强度 high）；不新建 Task、不改原描述和附件，自己不分析根因，只有遇到自己无法解决的卡点才向用户提问。
+description: 把一条已有的 Bug Task 打回（QA 发来已有 Task 的链接，配上截图或一句「这里还有问题」「没修好」「打回去」「验收不通过」「退回待办」等都算，不需要说固定的词；在提 Bug 的同一个会话里说「之前提的 bug 还有问题」「给它加个评论打回去」、不带链接也算，Task 从会话上下文里取）：用全局安装的 `tuttictl`（账号登录版）读出原 Task，和提 Bug 一样固定采集这一轮的现场日志（Web 页面日志、Computer 日志），记下相关请求的 request id，在原 Task 下发一条评论写清这一轮的表现，截图、排查线索文件和全部日志作为评论附件挂上，用 `task status` 把 Task 改回待办（todo），再默认用 `task run` 在这条评论的线程里交给该 Room 的 Agent 重新分析（Codex 优先，其次 Claude Code，推理强度 high）；不新建 Task、不改原描述和附件，自己不分析根因，只有遇到自己无法解决的卡点才向用户提问。
 ---
 
 # 验收不通过，打回 Task
@@ -14,13 +14,13 @@ description: 把一条已有的 Bug Task 打回（QA 发来已有 Task 的链接
 
 同一个会话里、Task 还没修过（`task show` 的状态是 `todo` 或 `in_progress`）、QA 只是补充现场或说明时，那是提 Bug 的补充，继续按 `$tutti-bug-workflow:bug-investigate` 第 5 步按 Task 来源更新：本会话自建且保留全部附件时更新描述，复用已有 Task 时追加评论；Task 已经修过（状态是 `in_review` 或 `done`），或 QA 明确说修过了还在、要打回时，才用本 Skill。QA 要记的是一个新问题时，用 `$tutti-bug-workflow:bug-investigate` 提 Bug；拿不准是同一个问题还是新问题时，先问 QA 一句。
 
-**用全局安装的 `tutti-cli` 读写 Task。** 它是 npm 包 `@tutti-os/tutti-cli`（Node.js 24+），以本机 `tutti-cli login` 登录的 Tutti 账号直接调用 Tutti 服务，在 QA 本机的 Codex／Claude Code 里就能跑；权限按这个账号在目标 Room 的成员身份判断。开始前运行 `tutti-cli --help` 和 `tutti-cli whoami --json`：
+**用全局安装的 `tuttictl` 读写 Task。** 它是 npm 包 `@tutti-os/tutti-cli`（Node.js 24+），以本机 `tuttictl login` 登录的 Tutti 账号直接调用 Tutti 服务，在 QA 本机的 Codex／Claude Code 里就能跑；权限按这个账号在目标 Room 的成员身份判断。开始前运行 `tuttictl --help` 和 `tuttictl whoami --json`：
 
-- `--help` 里没有 `login`：没装，或 PATH 里先找到的是 Computer 自带的 Agent 版 `tutti-cli`（它的 `task status` 只能改 Agent 自己的 Task，不能用）。改用 `"$(npm prefix -g)/bin/tutti-cli"`；仍没有就按 `$tutti-bug-workflow:bug-setup`（「QA 提 Bug」场景）安装。确认可用的那个路径记为 `TUTTI_CLI`（如 `export TUTTI_CLI="$(npm prefix -g)/bin/tutti-cli"`），本 Skill 里所有 `tutti-cli` 命令都用它，不再依赖 PATH 里排在前面的那个。
-- `--help` 里没有 `tutti-cli task status`：版本过旧（0.1.3 起才有），按 `$tutti-bug-workflow:bug-setup` 升级到最新版，不改用别的方式改状态。
+- 找不到 `tuttictl` 或 `--help` 里没有 `login`：按 `$tutti-bug-workflow:bug-setup`（「QA 提 Bug」场景）安装或升级 npm 包。Computer 自带的 Agent 版仍叫 `tutti-cli`，不能替代账号登录版。确认可用的路径记为 `TUTTI_CLI`（如 `export TUTTI_CLI="$(npm prefix -g)/bin/tuttictl"`），本 Skill 里所有 `tuttictl` 命令都用它；已有变量指向旧命令路径时先更新并核对 `--help` 和 `whoami`。
+- `--help` 里没有 `tuttictl task status`：版本过旧（0.1.3 起才有），按 `$tutti-bug-workflow:bug-setup` 升级到最新版，不改用别的方式改状态。
 - `whoami` 报未登录或会话失效：按下面「登录过期」自动恢复。
 
-本 Skill 用到的命令：`task show`（读 Task）、`task comment`（发打回评论，带附件）、`task status`（改回待办）、`agent list`／`agent models`／`task run`（交给 Room Agent 重新分析），每条都要显式带 `--room-id`。`tutti-cli` 读不到 Task 的评论，也列不出 Task。
+本 Skill 用到的命令：`task show`（读 Task）、`task comment`（发打回评论，带附件）、`task status`（改回待办）、`agent list`／`agent models`／`task run`（交给 Room Agent 重新分析），每条都要显式带 `--room-id`。`tuttictl` 读不到 Task 的评论，也列不出 Task。
 
 **一旦调用就走完全程。** 每次打回都执行第 1–7 步：发评论、改状态、交给 Agent 重新分析缺一不可，不能只发评论或只改状态就结束。只有 QA 明确说「不用分析」「只打回」时跳过第 6 步。
 
@@ -38,7 +38,7 @@ description: 把一条已有的 Bug Task 打回（QA 发来已有 Task 的链接
 
 **先发评论，再改状态。** RD 看到 Task 回到待办时，打回原因已经在评论里。所有写操作都带 `--operation-id`，结果不确定时用同一个 ID 和相同输入重试；CLI 不会自动重试。
 
-**登录过期就当场重新登录，不停下来问。** `whoami` 或 `task` 命令报 `No readable CLI session`、401、`run tutti-cli login` 时，后台运行 `tutti-cli login`：浏览器打开 Tutti 登录页，用户用自己的账号登录即可（最长等 5 分钟）。完成后 `whoami --json` 确认账号，再重跑刚才的命令。同时在对话里说一句「Tutti 登录已过期，已在浏览器打开登录页，完成登录即可」，继续等待，不结束本轮。只有等了 10 分钟仍没完成，或者 tutti-ops Token 失效（需要在管理端重新创建，见 `$tutti-bug-workflow:bug-setup`），才写进最终回复，并写清用户要做的一步。
+**登录过期就当场重新登录，不停下来问。** `whoami` 或 `task` 命令报 `No readable CLI session`、401、`run tuttictl login` 时，后台运行 `tuttictl login`：浏览器打开 Tutti 登录页，用户用自己的账号登录即可（最长等 5 分钟）。完成后 `whoami --json` 确认账号，再重跑刚才的命令。同时在对话里说一句「Tutti 登录已过期，已在浏览器打开登录页，完成登录即可」，继续等待，不结束本轮。只有等了 10 分钟仍没完成，或者 tutti-ops Token 失效（需要在管理端重新创建，见 `$tutti-bug-workflow:bug-setup`），才写进最终回复，并写清用户要做的一步。
 
 **只说有证据的事实。** 对用户的每一句说明都要有命令输出、日志作证，照原样转述返回的字段和报错；没证实的写成「待确认：……」。QA 的说法和查到的结果对不上时，两边并列写出，不替任何一方下结论。
 
@@ -65,7 +65,7 @@ description: 把一条已有的 Bug Task 打回（QA 发来已有 Task 的链接
 
 1. **Task**：按顺序取 Room ID 和 Task ID，取到就停：
    1. **用户消息里的 Task 链接**（QA 可能只发了链接和截图，没有别的话）。链接形如 `https://tutti.sh/platform/room/<roomId>?surface=task-board&task=<taskId>`，两个都有。
-   2. **用户消息里的 Task ID**：再问是哪个房间（可给房间名，用 `tutti-cli room list --all --json` 按名称找，本地房间优先）。
+   2. **用户消息里的 Task ID**：再问是哪个房间（可给房间名，用 `tuttictl room list --all --json` 按名称找，本地房间优先）。
    3. **本会话前面提过的 Bug**：QA 说「之前提的 bug」「刚才那个」「上面那条」时，用本会话里 `task create`／`task show` 回执的 `task.roomId` 和 `task.taskId`。本会话提过多条时，按 QA 说的现象、功能和截图对照各条的标题和描述选；对不上或不止一条对得上时，把这几条的标题和链接列给 QA 选，不猜。
    4. 都没有：请 QA 发 Task 链接（CLI 列不出 Task，只有房间和标题时也要链接）。拿不到 Task 就停下，这是唯一必须先问的卡点。
 
@@ -78,7 +78,7 @@ description: 把一条已有的 Bug Task 打回（QA 发来已有 Task 的链接
 ## 2. 读原 Task
 
 ```sh
-tutti-cli task show --room-id <roomId> --task-id <taskId> --json
+tuttictl task show --room-id <roomId> --task-id <taskId> --json
 ```
 
 - 记下标题、描述、优先级、负责人和 `task.status`（如 `ROOM_TASK_STATUS_IN_REVIEW`）。描述就是 Bug 原来的表现，写评论的「期望」「和修复前相比」时对照它。
@@ -130,18 +130,18 @@ python3 scripts/web_requests.py --web-logs <web-logs.log 或诊断包 zip> --inc
 评论发出后：
 
 ```sh
-tutti-cli task status --room-id <roomId> --task-id <taskId> --status todo --operation-id <新 UUID> --json
-tutti-cli task show --room-id <roomId> --task-id <taskId> --json   # 回读状态，确认标题、描述没变
+tuttictl task status --room-id <roomId> --task-id <taskId> --status todo --operation-id <新 UUID> --json
+tuttictl task show --room-id <roomId> --task-id <taskId> --json   # 回读状态，确认标题、描述没变
 ```
 
 - 回执 `task.status` 为 `ROOM_TASK_STATUS_TODO` 才算成功。改状态不会打断、也不会启动 Agent 的执行，不会改负责人。
 - 超时、断网等结果不确定时，先 `task show` 看状态：已经是 `todo` 就算成功；不是再用**同一个** `--operation-id` 重跑一次。同 ID 重放返回的是 Task 的当前状态，可能已经包含之后别人的改动，以 `task show` 为准。
 - 报无权限（403）时不换别的方式改，记为卡点：评论已经发出，在最终回复里请 QA 在任务看板把这条 Task 拖回「待办」，并附上报错原文。
-- QA 要求换跟进人时，用 `tutti-cli room members --room-id <roomId> --json` 找到对方的 userId，再 `tutti-cli task edit --room-id <roomId> --task-id <taskId> --assignee-user-id <userId> --operation-id <新 UUID> --json`（不带描述和附件）。
+- QA 要求换跟进人时，用 `tuttictl room members --room-id <roomId> --json` 找到对方的 userId，再 `tuttictl task edit --room-id <roomId> --task-id <taskId> --assignee-user-id <userId> --operation-id <新 UUID> --json`（不带描述和附件）。
 
 ## 6. 交给 Room Agent 重新分析
 
-Task 改回待办后（改状态被拒时照样做），按 [交给 Room Agent 重新分析](references/rd-reanalysis.md) 选该 Room 的 Agent 和模型（Codex 优先，用 `gpt-6.1-sol`，其次 `gpt-6-astra`；没有再用 Claude Code 的 Opus 5.5；推理强度都用 `high`），用模板把原 Bug、这一轮的表现和关键现场线索组织成 `$REPORT/rd-reanalysis.txt`，用 `tutti-cli task run --reply-to <打回评论的 commentId>` 发在打回评论的线程里。指令要求 Agent 先说清上一轮修复为什么没生效，再重新分析根因、出方案、画流程图，结果回复在同一个线程里。
+Task 改回待办后（改状态被拒时照样做），按 [交给 Room Agent 重新分析](references/rd-reanalysis.md) 选该 Room 的 Agent 和模型（Codex 优先，用 `gpt-6.1-sol`，其次 `gpt-6-astra`；没有再用 Claude Code 的 Opus 5.5；推理强度都用 `high`），用模板把原 Bug、这一轮的表现和关键现场线索组织成 `$REPORT/rd-reanalysis.txt`，用 `tuttictl task run --reply-to <打回评论的 commentId>` 发在打回评论的线程里。指令要求 Agent 先说清上一轮修复为什么没生效，再重新分析根因、出方案、画流程图，结果回复在同一个线程里。
 
 **确保发送成功，然后就不管了**：回执是 `accepted` 且带 `invocationId` 才算成功；`pending` 用同一个操作 ID 重放、`rejected` 换下一个 Agent／模型，细则见引用文档。成功后直接继续第 7 步，不等 Agent 执行、不轮询它的回复、不转述分析结果。现场有缺项（召回在等设备、QA 还没给诊断包）时也照常发，缺什么写进指令的现场线索。
 
